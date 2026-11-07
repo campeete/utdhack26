@@ -7,7 +7,8 @@ Established before parallel human edits, 2026-11-07. No parallel editors started
 | Frontend builder | `src/components/`, `src/features/`, `src/App.tsx`, `src/styles.css` | Four screens and accessible review journey |
 | Backend/auth builder | `spacetimedb/` | Private records, OIDC checks, admission/revocation, reducers, authorized views |
 | Integration owner (main agent until handoff) | `shared/`, `src/data/`, `src/main.tsx`, root configuration, lockfiles | Versioned contracts, fixture/live adapter boundary, generated bindings, integration checks |
-| Future AI builder | reserved `analysis-service/` (not scaffolded) | Authenticated bounded Nemotron workflow; proposals only |
+| Audit log (Cameron) | `spacetimedb/src/audit/`, `tools/`, `tests/audit/`, `demo-data/`, `docs/audit-design.md` | Hash-chained `appendEvent()`, independent verifier, attack tests, demo chain. Backend reducers call `appendEvent()`; changes to the audit tables go through Cameron |
+| Future AI builder | reserved `analysis-service/` (not scaffolded) | Authenticated bounded Nemotron workflow; proposals only. The agent acts only through reducers, and every reducer calls `appendEvent()` (`actorKind: 'service'`), so all agent activity is logged and it can never approve its own proposals |
 | Reviewer | read only | Browser/security findings with reproduction evidence |
 
 Humans claim one lane before editing. Changes to `shared/` require integration-owner coordination; never hand-edit `src/module_bindings/`. Generated bindings belong to the integration owner. Do not create another frontend/backend scaffold. README and LICENSE are preserved.
