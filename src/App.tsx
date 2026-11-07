@@ -35,6 +35,8 @@ export default function App({ adapter }: { adapter: IncidentData }) {
     }).catch(e => { if (active) setError((e as Error).message); });
     return () => { active = false; };
   }, [adapter, retry]);
+  // Results that arrive later, such as a finished Nemotron reassessment.
+  useEffect(() => adapter.subscribe(next => { setData(next); setMessage('Reassessment update received.'); }), [adapter]);
   function update(next: Snapshot) {
     setData(next);
     setMessage(adapter.mode === 'fixture' ? 'Local fixture updated. Changes last until reload.' : 'Workspace updated.');

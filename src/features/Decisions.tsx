@@ -5,9 +5,11 @@ import type { IncidentData } from '../data/interface';
 import { previewImpact } from '../../shared/review';
 import { focusContext, label, Status } from '../components/ui';
 import { Activity, Briefing, IncidentConversation } from './IncidentPages';
+import { proposalForEvidence } from '../../shared/reassessment';
+import { DismissalRecord, DismissDialog } from './DismissDialog';
 
-export interface Selection { evidenceId: string | null; decisionId: string | null }
-type ReviewAction = 'confirm' | 'dismiss';
+export interface Selection { evidenceId: string | null; decisionId: string | null; proposalId?: string | null }
+type ReviewAction = 'confirm';
 
 export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   data: Snapshot; adapter: IncidentData; onUpdate: (data: Snapshot) => void;
@@ -17,6 +19,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   const [composer, setComposer] = useState<ReviewAction | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [taskOpen, setTaskOpen] = useState(false);
+  const [dismissOpen, setDismissOpen] = useState(false);
   const contextHeading = useRef<HTMLHeadingElement>(null);
   const changesHeading = useRef<HTMLHeadingElement>(null);
   const actionHeading = useRef<HTMLHeadingElement>(null);
@@ -26,7 +29,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   const evidence = data.evidence.find(e => e.id === selection.evidenceId);
   const decision = data.decisions.find(d => d.id === selection.decisionId);
   const source = data.sources.find(s => s.id === evidence?.sourceId);
-  const proposal = data.proposals.find(p => p.evidenceId === evidence?.id && (!decision || p.decisionVersions[decision.id] !== undefined));
+  const proposal = (selection.proposalId ? data.proposals.find(p => p.id === selection.proposalId && p.evidenceId === evidence?.id) : undefined) ?? proposalForEvidence(data, evidence?.id, decision?.id);
   const task = data.tasks.find(t => t.proposalId === proposal?.id && t.decisionId === decision?.id);
   const briefings = data.briefings.filter(b => decision && b.decisionIds.includes(decision.id));
   const reviewCount = data.proposals.filter(p => p.state === 'pending').length;
@@ -34,16 +37,20 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   const latestActivity = data.activity[0];
   const visibleEvidence = data.evidence.filter(e => filter === 'all' || data.proposals.some(p => p.evidenceId === e.id && p.state === 'pending'));
   function select(next: Selection) {
-    onSelect(next); setComposer(null); setReportOpen(false); setTaskOpen(false);
+    onSelect(next); setComposer(null); setDismissOpen(false); setReportOpen(false); setTaskOpen(false);
     requestAnimationFrame(() => focusContext(contextHeading.current));
   }
   function openReport() {
     setReportOpen(true);
     requestAnimationFrame(() => focusContext(reportHeading.current));
   }
-  function closeComposer(action: ReviewAction) {
+  function closeComposer() {
     setComposer(null);
-    requestAnimationFrame(() => focusContext(action === 'confirm' ? previewButton.current : dismissButton.current));
+    requestAnimationFrame(() => focusContext(previewButton.current));
+  }
+  function closeDismiss() {
+    setDismissOpen(false);
+    requestAnimationFrame(() => focusContext(dismissButton.current));
   }
   return <>
     <div className="workspace-heading"><div><span className="eyebrow"><ActivityIcon size={14} /> INCIDENT OPERATIONS</span><h1>Incident overview</h1><p>Monitor incoming evidence, decision risk, and verification work.</p></div><span className="review-count">{needsReviewCount ? `${needsReviewCount} decision${needsReviewCount === 1 ? '' : 's'} needs review` : `${reviewCount} review${reviewCount === 1 ? '' : 's'} to consider`}<span>{latestActivity ? `Last activity ${new Date(latestActivity.at).toISOString().slice(11, 16)} UTC` : 'All times UTC'}</span></span></div>
@@ -66,7 +73,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
         <div className="section-heading"><h2 id="changes-heading" ref={changesHeading} tabIndex={-1}>What changed</h2><span className="quiet-count">{data.evidence.length}</span></div>
         <div className="change-filters" role="group" aria-label="Filter changes"><button className={filter === 'all' ? 'selected' : ''} aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>All changes</button><button className={filter === 'review' ? 'selected' : ''} aria-pressed={filter === 'review'} onClick={() => setFilter('review')}>Review proposed <span>{reviewCount}</span></button></div>
         <div className="change-items">{visibleEvidence.length ? visibleEvidence.map(e => {
-          const p = data.proposals.find(p => p.evidenceId === e.id);
+          const p = proposalForEvidence(data, e.id);
           const s = data.sources.find(s => s.id === e.sourceId);
           const linked = data.decisions.find(d => d.evidenceIds.includes(e.id));
           const reviewState = p?.state === 'accepted' ? 'needs_review' : p?.state;
@@ -92,12 +99,13 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
           {evidence && <div className="evidence-excerpt"><div className="excerpt-top"><span>{evidence.id} · Source excerpt</span><button className="text-button" onClick={openReport}>Read full report<ArrowDown size={14} /></button></div><blockquote>“{proposal?.excerpt ?? evidence.text}”</blockquote><div className="excerpt-source"><span>{source?.label}</span>{source?.trust === 'under_review' && <Status value="under_review" />}</div></div>}
           <section className={`next-action ${task ? 'confirmed' : ''}`} aria-labelledby="next-heading">
             <div className="next-action-heading"><h3 id="next-heading" ref={actionHeading} tabIndex={-1}>What to do next</h3>{proposal?.state === 'accepted' && <span className="recorded-label" role="status"><Check size={15} />Review recorded</span>}</div>
-            {composer && proposal ? <ReviewComposer key={`${proposal.id}:${composer}`} action={composer} proposal={proposal} data={data} adapter={adapter} onCancel={() => closeComposer(composer)} onComplete={next => { onUpdate(next); setComposer(null); setTaskOpen(false); requestAnimationFrame(() => focusContext(actionHeading.current)); }} /> : task ? <>
+            {composer && proposal ? <ReviewComposer key={`${proposal.id}:${composer}`} action={composer} proposal={proposal} data={data} adapter={adapter} onCancel={closeComposer} onComplete={next => { onUpdate(next); setComposer(null); setTaskOpen(false); requestAnimationFrame(() => focusContext(actionHeading.current)); }} /> : task ? <>
               <p className="next-summary">{task.title}</p><div className="task-owner"><span className="avatar">{task.owner.split(' ').map(s => s[0]).join('')}</span><span>{task.owner}<small>Verification owner</small></span><Status value={task.state} /></div>
               <button className="primary" onClick={() => setTaskOpen(open => !open)} aria-expanded={taskOpen} aria-controls="verification-details">{taskOpen ? 'Hide verification task' : 'View verification task'}<ArrowRight size={16} /></button>
               {taskOpen && <div id="verification-details" className="verification-details"><h4>Verify before relying on the backup</h4><p>Independently check the original report, backup timing, and integrity. Record the result with the decision owner before revising the approval.</p><p className="small muted">Task {task.id} · {task.decisionId} · {label(task.state)}</p><button className="text-button" onClick={openReport}>Read source for verification<ArrowDown size={14} /></button><small className="muted">Task resolution awaits backend integration.</small></div>}
-            </> : proposal?.state === 'pending' ? <><p className="next-summary">Review the dependency, then assign independent verification.</p><div className="action-row"><button ref={previewButton} className="primary" onClick={() => setComposer('confirm')}>Preview impact<ArrowRight size={17} /></button><button ref={dismissButton} className="secondary" onClick={() => setComposer('dismiss')}>Dismiss</button></div></> : proposal?.state === 'dismissed' ? <><p className="next-summary">Proposal dismissed. The decision and briefing remain unchanged.</p><p className="small muted">The source concern is still visible. Inspect the report and recorded reason below.</p></> : proposal?.state === 'stale' ? <p className="notice">This proposal is stale. Refresh its source and dependency versions before reviewing.</p> : <p className="next-summary">{decision ? 'Keep the recorded assumption under observation. Inspect the source if new information arrives.' : 'No decision action is proposed for this report.'}</p>}
-            {proposal && <div className="proposal-disclosure"><ShieldQuestion size={14} /><span>{proposal.origin === 'synthetic' ? 'Pre-authored synthetic proposal · AI not connected' : `${label(proposal.origin)} proposal`}</span></div>}
+            </> : proposal?.state === 'pending' ? <><p className="next-summary">Review the dependency, then assign independent verification.</p><div className="action-row"><button ref={previewButton} className="primary" onClick={() => setComposer('confirm')}>Preview impact<ArrowRight size={17} /></button><button ref={dismissButton} className="secondary" onClick={() => setDismissOpen(true)} aria-haspopup="dialog">Dismiss</button></div></> : proposal?.state === 'dismissed' ? <DismissalRecord proposal={proposal} data={data} adapter={adapter} onUpdate={onUpdate} onOpenRevision={id => select({ evidenceId: selection.evidenceId, decisionId: selection.decisionId, proposalId: id })} /> : proposal?.state === 'stale' ? <p className="notice">This proposal is stale. Refresh its source and dependency versions before reviewing.</p> : <p className="next-summary">{decision ? 'Keep the recorded assumption under observation. Inspect the source if new information arrives.' : 'No decision action is proposed for this report.'}</p>}
+            {proposal && <div className="proposal-disclosure"><ShieldQuestion size={14} /><span>{proposal.origin === 'synthetic' ? 'Synthetic proposal · AI not connected' : `${label(proposal.origin)} proposal`}{proposal.revisionOf && <> · Revises <button className="text-button inline" onClick={() => select({ evidenceId: selection.evidenceId, decisionId: selection.decisionId, proposalId: proposal.revisionOf })}>{proposal.revisionOf}</button></>}</span></div>}
+            {dismissOpen && proposal?.state === 'pending' && <DismissDialog proposal={proposal} adapter={adapter} onClose={closeDismiss} onComplete={next => { onUpdate(next); setDismissOpen(false); onSelect({ ...selection, proposalId: proposal.id }); requestAnimationFrame(() => focusContext(actionHeading.current)); }} />}
           </section>
           {evidence && <IncidentConversation evidenceId={evidence.id} data={data} adapter={adapter} onUpdate={onUpdate} />}
           {evidence && <details className="context-details" open={reportOpen} onToggle={event => setReportOpen(event.currentTarget.open)}><summary><span><FileText size={17} />Original evidence & source</span><ChevronDown size={17} /></summary><div className="detail-content"><h3 ref={reportHeading} tabIndex={-1}>{evidence.title}</h3><EvidenceReport evidence={evidence} data={data} /><button className="text-button" onClick={() => { setReportOpen(false); requestAnimationFrame(() => focusContext(actionHeading.current)); }}>Return to next action<ArrowRight size={14} /></button></div></details>}
