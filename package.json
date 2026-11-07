@@ -8,25 +8,37 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "check:server": "tsc --noEmit -p spacetimedb",
-    "test": "node --experimental-strip-types --test shared/*.test.ts",
-    "spacetime:generate": "spacetime generate --lang typescript --out-dir src/module_bindings --module-path spacetimedb"
+    "test": "npm run test:review && npm run test:audit",
+    "spacetime:generate": "spacetime generate --lang typescript --out-dir src/module_bindings --module-path spacetimedb",
+    "test:audit": "tsx --test tests/audit/*.test.ts",
+    "demo:chain": "tsx tools/make_demo_chain.ts demo-data/audit_demo_export.json",
+    "verify:demo": "python3 tools/verify_audit.py demo-data/audit_demo_export.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.audit.json",
+    "typecheck:audit": "tsc --noEmit -p tsconfig.audit.json",
+    "test:review": "node --experimental-strip-types --test shared/*.test.ts"
   },
   "dependencies": {
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "spacetimedb": "2.14.1",
-    "lucide-react": "0.468.0"
+    "lucide-react": "0.468.0",
+    "@noble/hashes": "2.4.0"
   },
   "devDependencies": {
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
     "@vitejs/plugin-react": "5.2.0",
-    "typescript": "5.6.3",
+    "typescript": "7.0.2",
     "vite": "7.3.7",
     "tailwindcss": "4.1.18",
-    "@tailwindcss/vite": "4.1.18"
+    "@tailwindcss/vite": "4.1.18",
+    "@types/node": "26.6.6",
+    "tsx": "4.23.15"
   },
   "engines": {
     "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
-  }
+  },
+  "workspaces": [
+    "spacetimedb"
+  ]
 }

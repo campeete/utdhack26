@@ -1,5 +1,5 @@
 {
-  "name": "clean-room",
+  "name": "clean-room-module",
   "version": "1.0.0",
   "description": "",
   "scripts": {
@@ -10,7 +10,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "spacetimedb": "2.14.1"
+    "spacetimedb": "2.14.1",
+    "@noble/hashes": "2.4.0"
   },
   "devDependencies": {
     "typescript": "5.6.3"

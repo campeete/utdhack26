@@ -1,0 +1,3 @@
+{ "compilerOptions": { "target": "ES2022", "module": "ESNext", "moduleResolution": "Bundler", "lib": ["ES2023", "ESNext"],
+  "strict": true, "noEmit": true, "skipLibCheck": true, "types": ["node"] },
+  "include": ["spacetimedb/src", "examples", "tests"] }

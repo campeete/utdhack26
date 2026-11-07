@@ -5,3 +5,6 @@ dist/
 spacetimedb/target/
 spacetimedb/dist/
 *.tsbuildinfo
+*.log
+.env
+__pycache__/

@@ -84,3 +84,13 @@ Sticky navigation scroll-return testing uses direct Playwright pointer clicks at
 Screenshots: `/tmp/clean-room-redesign-{desktop,mobile,impact,confirmed}.png`. Compared concept and desktop/mobile screenshots with `view_image`; detailed fidelity/copy ledger in DESIGN.md. Run URL remains http://127.0.0.1:5173/. No extra dev server retained.
 
 Next integration tasks remain unchanged: verified independent identity and SQL/subscription access/revocation matrix; structured intake/source/proposal reducers; live IncidentData adapter and two-client tests; authorized bounded Nemotron service. UI redesign does not establish those features are working.
+
+## GitHub integration — huy-UI-Barebone
+
+Integrated the frontend with upstream `main` at `4fbbb13` (audit-log PR #2). Audit source/tests/tools/demo data/reference module, README and LICENSE were preserved. Four add/add conflicts were reconciled: `.gitignore`, root package manifest/lock, and TypeScript configuration.
+
+The repository now uses npm workspaces (`spacetimedb`) and one canonical root lockfile. Run `npm ci` from the repository root for both packages; the redundant module lockfile was removed. The shared Spacetime SDK stays pinned to 2.14.1 to avoid nominal type conflicts from separate SDK installations. The root retains upstream TypeScript 7.0.2; the module retains starter compiler 5.6.3 locally so the official CLI can find it. Module lib is ES2022 because the audit library uses Array.at. The module package is named `clean-room-module` to distinguish it from the app workspace.
+
+Existing audit scripts are retained. `npm run typecheck` checks frontend plus audit/reference code through separate configs; `npm run typecheck:audit` isolates upstream coverage. `npm test` runs `test:review` (5) and `test:audit` (30). `demo:chain` and `verify:demo` remain available. Integration checks passed: typecheck, frontend build, all 35 tests, demo Python verification (expected synthetic clock-skew warning), module typecheck, official module build, and full Playwright redesign regression. The audit tsx runner requires a local IPC socket; its sandbox denial was resolved by approved escalation.
+
+Audit hash chains remain an independently tested library/reference integration. The fixture UI is not a live audit export or witness-anchor client; the module's initial application history does not yet call the hash-chain helper. This boundary is unchanged by bringing both implementations into one repository; numeric audit incident IDs versus current string transport IDs must be reconciled by the backend/integration owners before wiring live events. Existing identity/read-gate/live-sync/AI limitations still apply.
