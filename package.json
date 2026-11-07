@@ -1,0 +1,32 @@
+{
+  "name": "clean-room",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "check:server": "tsc --noEmit -p spacetimedb",
+    "test": "node --experimental-strip-types --test shared/*.test.ts",
+    "spacetime:generate": "spacetime generate --lang typescript --out-dir src/module_bindings --module-path spacetimedb"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "spacetimedb": "2.14.1",
+    "lucide-react": "0.468.0"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "5.2.0",
+    "typescript": "5.6.3",
+    "vite": "7.3.7",
+    "tailwindcss": "4.1.18",
+    "@tailwindcss/vite": "4.1.18"
+  },
+  "engines": {
+    "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
+  }
+}
