@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowRight, Check, ChevronDown, ClipboardCheck, FileText, GitBranch, History, ShieldQuestion } from 'lucide-react';
+import { Activity as ActivityIcon, AlertTriangle, ArrowDown, ArrowRight, Check, ChevronDown, ClipboardCheck, FileText, GitBranch, History, Layers3, ShieldQuestion } from 'lucide-react';
 import type { Evidence, Proposal, Snapshot } from '../../shared/contracts';
 import type { IncidentData } from '../data/interface';
 import { previewImpact } from '../../shared/review';
@@ -31,6 +31,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   const briefings = data.briefings.filter(b => decision && b.decisionIds.includes(decision.id));
   const reviewCount = data.proposals.filter(p => p.state === 'pending').length;
   const needsReviewCount = data.decisions.filter(d => d.state === 'needs_review').length;
+  const latestActivity = data.activity[0];
   const visibleEvidence = data.evidence.filter(e => filter === 'all' || data.proposals.some(p => p.evidenceId === e.id && p.state === 'pending'));
   function select(next: Selection) {
     onSelect(next); setComposer(null); setReportOpen(false); setTaskOpen(false);
@@ -45,7 +46,21 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
     requestAnimationFrame(() => focusContext(action === 'confirm' ? previewButton.current : dismissButton.current));
   }
   return <>
-    <div className="workspace-heading"><div><h1>See what changed.<br className="mobile-only" /> Know what to do.</h1><p>Follow the evidence before changing the approved action.</p></div><span className="review-count">{needsReviewCount ? `${needsReviewCount} decision${needsReviewCount === 1 ? '' : 's'} needs review` : `${reviewCount} review${reviewCount === 1 ? '' : 's'} to consider`}<span>All times UTC</span></span></div>
+    <div className="workspace-heading"><div><span className="eyebrow"><ActivityIcon size={14} /> INCIDENT OPERATIONS</span><h1>Incident overview</h1><p>Monitor incoming evidence, decision risk, and verification work.</p></div><span className="review-count">{needsReviewCount ? `${needsReviewCount} decision${needsReviewCount === 1 ? '' : 's'} needs review` : `${reviewCount} review${reviewCount === 1 ? '' : 's'} to consider`}<span>{latestActivity ? `Last activity ${new Date(latestActivity.at).toISOString().slice(11, 16)} UTC` : 'All times UTC'}</span></span></div>
+    <section className="signal-summary" aria-label="Incident signal summary">
+      <article className={reviewCount ? 'signal-card attention' : 'signal-card'}>
+        <span className="signal-icon"><AlertTriangle size={17} /></span><div><span>Review queue</span><strong>{reviewCount}</strong><small>{reviewCount === 1 ? 'proposal awaiting review' : 'proposals awaiting review'}</small></div>
+      </article>
+      <article className={needsReviewCount ? 'signal-card attention' : 'signal-card'}>
+        <span className="signal-icon"><ShieldQuestion size={17} /></span><div><span>Decision watch</span><strong>{needsReviewCount}</strong><small>{needsReviewCount === 1 ? 'decision needs review' : 'decisions need review'}</small></div>
+      </article>
+      <article className="signal-card">
+        <span className="signal-icon"><FileText size={17} /></span><div><span>Evidence records</span><strong>{data.evidence.length}</strong><small>reports in this incident</small></div>
+      </article>
+      <article className="signal-card">
+        <span className="signal-icon"><Layers3 size={17} /></span><div><span>Systems in scope</span><strong>{data.scope.length}</strong><small>tracked affected systems</small></div>
+      </article>
+    </section>
     <div className="incident-workspace">
       <section className="change-stream" aria-labelledby="changes-heading">
         <div className="section-heading"><h2 id="changes-heading" ref={changesHeading} tabIndex={-1}>What changed</h2><span className="quiet-count">{data.evidence.length}</span></div>

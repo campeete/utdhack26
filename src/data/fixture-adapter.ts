@@ -7,6 +7,7 @@ export function createFixtureAdapter(): IncidentData {
   const copy = () => structuredClone(data);
   return {
     mode: 'fixture',
+    identity: { name: 'Morgan Patel', roles: ['analyst'], authenticated: false },
     async load() { return copy(); },
     async confirm(id, reason) { data = confirmReview(data, id, reason, 'Morgan Patel (fixture)', new Date().toISOString()); return copy(); },
     async dismiss(id, reason) {

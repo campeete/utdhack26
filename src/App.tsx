@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { CircleDot, Info, Layers2, Settings2, WifiOff } from 'lucide-react';
+import { CircleDot, Info, Layers2, Settings2, UserRound, WifiOff } from 'lucide-react';
 import type { Snapshot } from '../shared/contracts';
 import type { IncidentData } from './data/interface';
-import { Modal } from './components/ui';
+import { label, Modal } from './components/ui';
 import { Decisions, type Selection } from './features/Decisions';
 import { Administration, Scope, TeamChat } from './features/IncidentPages';
 
@@ -51,9 +51,14 @@ export default function App({ adapter }: { adapter: IncidentData }) {
       <a className="brand" href="#main" onClick={() => switchView('workspace')} aria-label="Clean Room workspace"><Layers2 size={26} /><span>Clean Room</span></a>
       <div className="header-incident"><strong>{data?.incident.title ?? 'Incident workspace'}</strong><span><CircleDot size={12} />{data?.incident.status ?? 'Opening'}<span className="severity-dot" />{data?.incident.severity ?? '—'} severity</span></div>
       <nav aria-label="Incident views">{views.map(item => <button key={item.id} onClick={() => switchView(item.id)} aria-current={view === item.id ? 'page' : undefined}>{item.label}</button>)}</nav>
+      {adapter.identity ? <div className="session-indicator" aria-label={`${adapter.identity.authenticated ? 'Signed in' : 'Demo identity'}: ${adapter.identity.name}, ${adapter.identity.roles.map(label).join(', ')}`}>
+        <span className="session-avatar"><UserRound size={17} /></span>
+        <span className="session-copy"><strong>{adapter.identity.name}</strong><small>{adapter.identity.roles.map(label).join(' · ')}</small></span>
+        <span className={`session-state ${adapter.identity.authenticated ? 'verified' : ''}`}>{adapter.identity.authenticated ? 'Signed in' : 'Demo'}</span>
+      </div> : <div className="session-indicator"><span className="session-avatar"><UserRound size={17} /></span><span className="session-copy"><strong>No session</strong><small>Identity unavailable</small></span></div>}
       <button className="admin-button" aria-label="Administration" onClick={() => setAdminOpen(true)}><Settings2 size={17} /><span>Administration</span></button>
     </header>
-    <div className="environment-bar"><div><Info size={15} /><span>{adapter.mode === 'fixture' ? 'Synthetic training incident' : 'Incident workspace'}</span><span className="environment-divider" /><span className="connection"><WifiOff size={14} />{adapter.mode === 'fixture' ? 'No live connection' : 'Connection status unavailable'}</span></div><span>{adapter.mode === 'fixture' ? 'Morgan Patel · Analyst fixture' : 'Access status requires integration'}</span></div>
+    <div className="environment-bar"><div><Info size={15} /><span>{adapter.mode === 'fixture' ? 'Synthetic training incident' : 'Incident workspace'}</span><span className="environment-divider" /><span className="connection"><WifiOff size={14} />{adapter.mode === 'fixture' ? 'No live connection' : 'Connection status unavailable'}</span></div><span>{adapter.identity?.authenticated ? 'Authenticated session' : 'Not authenticated · Demo data only'}</span></div>
     </div>
     {data ? <main id="main" tabIndex={-1}>
       <p className="sr-only" role="status">{message}</p>
