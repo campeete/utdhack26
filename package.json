@@ -1,0 +1,21 @@
+{
+  "name": "clean-room-audit",
+  "version": "1.0.0",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test:audit": "tsx --test tests/audit/*.test.ts",
+    "demo:chain": "tsx tools/make_demo_chain.ts demo-data/audit_demo_export.json",
+    "verify:demo": "python3 tools/verify_audit.py demo-data/audit_demo_export.json"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@noble/hashes": "^2.4.0",
+    "@types/node": "^26.6.6",
+    "spacetimedb": "^2.14.1",
+    "typescript": "^7.0.2"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  },
+  "private": true
+}
