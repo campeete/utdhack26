@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Audit Log Simulator — IR Command Center</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000;color:#fff;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.55}
+h1,h2,h3{margin:0 0 12px;font-weight:700}
+h1{font-size:18px}h2{font-size:16px}h3{font-size:14px}
+p{margin:0 0 12px}
+header,footer{border:1px solid #fff;margin:16px;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.layout{display:flex;gap:16px;margin:0 16px;align-items:flex-start}
+nav{flex:1 1 20%;border:1px solid #fff;padding:16px;min-width:0;position:sticky;top:16px}
+main{flex:3 1 60%;border:1px solid #fff;padding:24px;min-width:0}
+aside{flex:1 1 20%;border:1px solid #fff;padding:16px;min-width:0;position:sticky;top:16px}
+@media(max-width:900px){.layout{flex-direction:column}nav,main,aside{width:100%;position:static}}
+nav button{display:block;width:100%;text-align:left;margin:0 0 8px}
+nav .desc{display:block;font-size:11px;opacity:.75;font-weight:400}
+button{background:#000;color:#fff;border:1px solid #fff;padding:10px 14px;margin:4px 8px 4px 0;font:inherit;cursor:pointer}
+button:hover,button:focus-visible{background:#fff;color:#000;outline:none}
+button.on{background:#fff;color:#000}
+button.danger{border-style:dashed}
+.card{border:1px solid #fff;padding:16px;margin:0 0 16px}
+.card.dash{border-style:dashed}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}
+.widget{border:1px solid #fff;padding:16px;cursor:pointer;user-select:none;min-height:150px;display:flex;flex-direction:column}
+.widget:hover{outline:1px solid #fff;outline-offset:3px}
+.widget .wdesc{font-size:11px;opacity:.75;margin-bottom:10px}
+.widget .wbody{flex:1;font-size:12px}
+.widget .big{font-size:22px;font-weight:700}
+.tag{display:inline-block;border:1px solid #fff;padding:0 6px;margin:1px 4px 1px 0;font-size:11px;white-space:nowrap}
+.tag.dash{border-style:dashed}
+.tag.inv{background:#fff;color:#000}
+.banner{background:#fff;color:#000;padding:12px 16px;font-weight:700;margin:0 0 16px}
+.banner.ok{background:#000;color:#fff;border:1px solid #fff}
+.tbl-wrap{overflow-x:auto;border:1px solid #fff}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #fff;vertical-align:top}
+th{position:sticky;top:0;background:#000}
+tr.row{cursor:pointer}
+tr.row:hover td{outline:1px dotted #fff;outline-offset:-2px}
+tr.sel td{background:#fff;color:#000}
+tr.sel .tag{border-color:#000}
+.mono-break{word-break:break-all}
+.kv{display:grid;grid-template-columns:160px 1fr;gap:4px 12px;font-size:12px}
+.kv div:nth-child(odd){opacity:.75}
+.bar{border:1px solid #fff;height:14px;position:relative;overflow:hidden;margin:8px 0}
+.bar>i{display:block;height:100%;background:#fff;width:0;transition:width .45s ease}
+.bar.run::after{content:"";position:absolute;top:0;left:-25%;width:25%;height:100%;background:#fff;mix-blend-mode:difference;animation:sweep 1.1s linear infinite}
+@keyframes sweep{to{left:100%}}
+textarea,input,select{width:100%;background:#000;color:#fff;border:1px solid #fff;padding:8px;font:inherit}
+textarea{min-height:180px;resize:vertical}
+.row-inline{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.row-inline>*{flex:1 1 140px;width:auto}
+.muted{opacity:.7}
+.small{font-size:11px}
+hr{border:0;border-top:1px solid #fff;margin:16px 0}
+pre{white-space:pre-wrap;word-break:break-all;border:1px dashed #fff;padding:10px;margin:0 0 12px;font-size:11px}
+.legend dt{margin-top:8px}
+.legend dd{margin:2px 0 0 0;font-size:11px;opacity:.8}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>IR COMMAND CENTER — Audit Log Simulator</h1>
+    <div class="small muted">Training sim · fictional company "Riverbend Freight Co." · all data fake</div>
+  </div>
+  <div id="hdrStatus" class="small"></div>
+</header>
+
+<div class="layout">
+<nav aria-label="Sections">
+  <h3>Sections</h3>
+  <div id="navList"></div>
+</nav>
+
+<main id="main"></main>
+
+<aside>
+  <div class="card">
+    <h3>Chain status</h3>
+    <div id="chainBox"></div>
+  </div>
+  <div class="card">
+    <h3>Simulation</h3>
+    <div id="simLabel" class="small">Not started</div>
+    <div class="bar" id="simBar"><i id="simFill"></i></div>
+    <button id="btnRunA">Run</button><button id="btnStepA">Step</button>
+  </div>
+  <div class="card">
+    <h3>My notes</h3>
+    <textarea id="notes" placeholder="Notes for the pitch / CTF prep… (saved in this browser only)"></textarea>
+  </div>
+  <div class="card">
+    <h3>Flag legend</h3>
+    <dl class="legend" id="legend"></dl>
+  </div>
+</aside>
+</div>
+
+<footer>
+  <div class="small">Views are rendered from in-memory state (like a SpacetimeDB client cache) — no loading between sections.</div>
+  <div class="small" id="renderTime"></div>
+</footer>
+
+<script>
+"use strict";
+/* ---------- crypto helpers (real WebCrypto: SHA-256 + ECDSA P-256) ---------- */
+const enc = new TextEncoder();
+const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
+const b64 = b => btoa(String.fromCharCode(...new Uint8Array(b)));
+const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const ECDSA = { name: "ECDSA", hash: "SHA-256" };
+const sha = async s => hex(await crypto.subtle.digest("SHA-256", enc.encode(s)));
+const randHex = n => hex(crypto.getRandomValues(new Uint8Array(n)));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const t = ms => new Date(ms).toISOString().slice(11, 19) + "Z";
+const short = h => h ? h.slice(0, 10) + "…" : "";
+
+/* ---------- flag dictionary (plain English → security concept) ---------- */
+const FLAGS = {
+  OK: ["Fingerprint matches, links to the entry before it, and is signed by an enrolled device.", "Integrity + authenticity + non-repudiation"],
+  SYSTEM: ["Written by the server itself (e.g. a denied login). No user signature by design.", "Server-attested event"],
+  HASH_MISMATCH: ["The contents changed after it was written: the stored fingerprint no longer matches.", "Integrity violation"],
+  LINK_BROKEN: ["Its 'previous hash' doesn't match the entry before it, so something upstream was deleted, inserted or rewritten.", "Chain of custody broken"],
+  SEQ_GAP: ["Sequence numbers skip, so an entry is missing.", "Evidence deletion"],
+  BAD_SIG: ["The signature doesn't verify against the actor's registered device key, so someone wrote this without that user's device.", "Authenticity / non-repudiation failure"],
+  CLOCK_SKEW: ["The client clock differs from server time by more than 2 minutes. Not proof of tampering, but a forensic lead (wrong clock, VM snapshot, replay).", "Timestamp analysis"],
+  UNTRUSTED: ["This entry checks out on its own, but it comes after a break, so the history it sits on can't be trusted.", "Trust is transitive"],
+  ANCHOR_MISMATCH: ["The head hash no longer matches the copy that witnesses saved out-of-band, so the chain was rewritten wholesale.", "External anchoring / witness"]
+};
+
+/* ---------- fake data ---------- */
+const CORP_SEED = [
+  { u: "jdoe", name: "Jordan Doe", role: "IT Admin", pw: "Summer2024!", mfa: "none", totp: "", created: "2019-03-11", last: "2026-11-06 23:41" },
+  { u: "mlee", name: "Morgan Lee", role: "CFO", pw: "Riverbend#1", mfa: "SMS", totp: "", created: "2018-07-02", last: "2026-11-06 17:05" },
+  { u: "akim", name: "Alex Kim", role: "HR Manager", pw: "Password123", mfa: "none", totp: "", created: "2021-01-19", last: "2026-11-06 16:48" },
+  { u: "sgarcia", name: "Sam Garcia", role: "Dispatcher", pw: "Freight2026", mfa: "none", totp: "", created: "2023-05-30", last: "2026-11-07 01:12" },
+  { u: "tnguyen", name: "Taylor Nguyen", role: "Owner", pw: "Bulldog!99", mfa: "TOTP", totp: "JBSWY3DPEHPK3PXP", created: "2016-02-01", last: "2026-11-05 09:30" },
+  { u: "rpatel", name: "Ravi Patel", role: "Accountant", pw: "Ravi1985", mfa: "none", totp: "", created: "2022-09-14", last: "2026-11-06 15:20" },
+  { u: "svc_backup", name: "Backup Service", role: "Service acct", pw: "backup", mfa: "n/a", totp: "", created: "2017-11-23", last: "2026-11-07 02:00" }
+];
+const CC_SEED = [
+  { id: "owner", name: "Deployer (module owner)", role: "Owner" },
+  { id: "ic", name: "Riley Park", role: "Incident Commander" },
+  { id: "an1", name: "Devon Brooks", role: "Analyst" },
+  { id: "legal", name: "Casey Moore", role: "Legal" },
+  { id: "agent", name: "Triage Agent (Nemotron)", role: "Agent (propose-only)" }
+];
+
+/* ---------- state ---------- */
+let S;
+function freshState() {
+  return {
+    audit: [], users: {}, corp: [], systems: {}, data: {}, messages: [], proposals: [], timeline: [],
+    incident: null, anchors: [], clock: Date.UTC(2026, 10, 7, 2, 14, 0), step: 0, timer: null,
+    results: [], firstBreak: null, anchorFail: [], selected: null, filterText: "", filterActor: "",
+    attackerIdent: "0x" + randHex(16), lastMsg: ""
+  };
+}
+
+async function initUsers() {
+  for (const d of CC_SEED) {
+    const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]);
+    const spki = await crypto.subtle.exportKey("spki", kp.publicKey);
+    S.users[d.id] = { ...d, ident: "0x" + randHex(16), priv: kp.privateKey, pub: kp.publicKey,
+      fp: (await sha(b64(spki))).slice(0, 16), enrolled: d.id === "owner", enrolledAt: d.id === "owner" ? S.clock : null,
+      invite: d.id === "owner" ? "(init reducer)" : "", status: d.id === "owner" ? "active" : "not invited" };
+  }
+  for (const c of CORP_SEED) S.corp.push({ ...c, hash: await sha(c.pw) });
+}
+const userByIdent = id => Object.values(S.users).find(u => u.ident === id);
+
+/* ---------- the audit chain ---------- */
+const signedStr = e => `${e.actorIdent}|${e.clientTs}|${e.action}|${e.target}|${e.payload}`;
+const bodyStr = e => `${e.seq}|${e.serverTs}|${signedStr(e)}|${e.sig}|${e.prev}`;
+
+async function append(actorId, action, target, payloadObj, opt = {}) {
+  S.clock += (opt.dt ?? 45) * 1000;
+  const system = !!opt.system;
+  const last = S.audit[S.audit.length - 1];
+  const e = {
+    seq: last ? last.seq + 1 : 0, serverTs: S.clock, clientTs: S.clock + (opt.skew || 0) * 1000,
+    actorId, actorIdent: system ? (opt.ident || "SERVER") : S.users[actorId].ident,
+    action, target, payload: JSON.stringify(payloadObj), system, prev: last ? last.hash : "GENESIS", sig: ""
+  };
+  if (!system) e.sig = opt.forgeSig ? b64(crypto.getRandomValues(new Uint8Array(64)))
+                                    : b64(await crypto.subtle.sign(ECDSA, S.users[actorId].priv, enc.encode(signedStr(e))));
+  e.hash = await sha(bodyStr(e));
+  S.audit.push(e);
+  if ((e.seq + 1) % 5 === 0) S.anchors.push({ seq: e.seq, hash: e.hash });
+  return e;
+}
+
+async function verifyChain() {
+  const res = []; let prev = "GENESIS", prevSeq = -1, broken = null;
+  for (const e of S.audit) {
+    const f = [];
+    if (e.seq !== prevSeq + 1) f.push("SEQ_GAP");
+    if (e.prev !== prev) f.push("LINK_BROKEN");
+    if (await sha(bodyStr(e)) !== e.hash) f.push("HASH_MISMATCH");
+    if (!e.system) {
+      const u = userByIdent(e.actorIdent); let ok = false;
+      try { ok = !!u && await crypto.subtle.verify(ECDSA, u.pub, unb64(e.sig), enc.encode(signedStr(e))); } catch { ok = false; }
+      if (!ok) f.push("BAD_SIG");
+    }
+    if (Math.abs(e.clientTs - e.serverTs) > 120000) f.push("CLOCK_SKEW");
+    const hard = f.filter(x => x !== "CLOCK_SKEW");
+    if (hard.length && broken === null) broken = e.seq;
+    if (!hard.length) f.unshift(broken !== null ? "UNTRUSTED" : e.system ? "SYSTEM" : "OK");
+    res.push(f); prev = e.hash; prevSeq = e.seq;
+  }
+  S.anchorFail = S.anchors.filter(a => { const e = S.audit.find(x => x.seq === a.seq); return !e || e.hash !== a.hash; });
+  S.results = res; S.firstBreak = broken;
+}
+const chainOK = () => S.firstBreak === null && S.anchorFail.length === 0;
+const resultFor = e => S.results[S.audit.indexOf(e)] || [];
+
+/* ---------- scripted incident: ransomware at Riverbend Freight ---------- */
+const inv = () => "INV-" + randHex(2).toUpperCase();
+async function redeem(id, code, opt = {}) {
+  const u = S.users[id]; u.enrolled = true; u.status = "active"; u.invite = code; u.enrolledAt = S.clock + (opt.dt ?? 45) * 1000;
+  await append(id, "INVITE_REDEEMED", u.name, { invite: code, deviceKeyFp: u.fp }, opt);
+}
+async function invite(by, id) {
+  const code = inv(); S.users[id].status = "invited";
+  await append(by, "INVITE_CREATED", S.users[id].name, { invite: code, role: S.users[id].role, singleUse: true, expires: "+15m" });
+  return code;
+}
+const STEPS = [
+  async () => append("owner", "SYSTEM_INIT", "ir-command-center", { note: "module published; caller becomes owner" }, { dt: 0 }),
+  async () => { S.users.ic.code = await invite("owner", "ic"); },
+  async () => redeem("ic", S.users.ic.code, { dt: 120 }),
+  async () => { S.incident = { id: "IR-2026-0007", title: "Ransomware — Riverbend Freight", sev: 1, phase: "Detection & Analysis", at: S.clock + 30000 };
+                await append("ic", "INCIDENT_DECLARED", S.incident.id, { title: S.incident.title, severity: 1, phase: S.incident.phase }, { dt: 30 }); },
+  async () => { S.users.an1.code = await invite("ic", "an1"); },
+  async () => redeem("an1", S.users.an1.code, { dt: 90 }),
+  async () => { const w = { what: "EDR alert: 4,812 files renamed to *.lockd on FS-01", observed: "02:03Z" }; S.timeline.push({ ts: S.clock + 45000, ...w });
+                await append("an1", "TIMELINE_ADD", S.incident.id, w); },
+  async () => { S.systems["FS-01"] = "compromised"; await append("an1", "SYSTEM_STATE", "FS-01", { from: "clean", to: "compromised" }); },
+  async () => { S.data["HR-Share"] = { cls: "PII", records: 1240, status: "encrypted" }; await append("an1", "DATASCOPE_SET", "HR-Share", { class: "PII", records: 1240, status: "encrypted" }); },
+  async () => { const m = "Isolate FS-01 now. Do NOT power off — preserve memory."; await append("ic", "MSG_SENT", "#command", { text: m }, { dt: 20 }); S.messages.push(S.audit.at(-1)); },
+  async () => append("attacker", "AUTH_DENIED", "login", { reason: "identity not enrolled", credentialType: "password (corp: jdoe)", note: "no password login exists" }, { system: true, ident: S.attackerIdent, dt: 25 }),
+  async () => { S.systems["FS-01"] = "isolated"; await append("an1", "SYSTEM_STATE", "FS-01", { from: "compromised", to: "isolated" }); },
+  async () => { S.systems["DC-01"] = "suspected"; await append("an1", "SYSTEM_STATE", "DC-01", { from: "clean", to: "suspected" }); },
+  async () => { await append("an1", "AGENT_REQUEST", "fw-edge-01", { logs: "egress 02:00–02:20Z", ask: "extract IOCs, map ATT&CK" }); },
+  async () => { const p = { iocs: ["185.220.101.47", "lockd.exe sha256 9e1c4f…"], attack: ["T1486 Data Encrypted for Impact", "T1048 Exfil Over Alt Protocol"], suggest: "HR-Share likely exfiltrated (3.1 GB egress)" };
+                const e = await append("agent", "AGENT_PROPOSAL", S.incident.id, p, { dt: 60 }); S.proposals.push({ seq: e.seq, ...p, status: "pending" }); },
+  async () => { const p = S.proposals[0]; p.status = "approved"; await append("ic", "PROPOSAL_APPROVED", "proposal#" + p.seq, { proposal: p.seq }); },
+  async () => { S.data["HR-Share"].status = "encrypted + exfiltrated"; await append("an1", "DATASCOPE_SET", "HR-Share", { class: "PII", records: 1240, status: "encrypted + exfiltrated", confidence: "medium" }); },
+  async () => { S.users.legal.code = await invite("ic", "legal"); },
+  async () => redeem("legal", S.users.legal.code, { dt: 300, skew: 540 }),
+  async () => { const m = "PII exfil confirmed → notification clocks start now."; await append("legal", "MSG_SENT", "#command", { text: m }, { skew: 540 }); S.messages.push(S.audit.at(-1)); },
+  async () => { S.users.an1.status = "revoked"; await append("ic", "USER_REVOKED", S.users.an1.name, { reason: "device left unattended at site" }); },
+  async () => append("an1", "AUTH_DENIED", "DATASCOPE_SET", { reason: "identity revoked", attempted: "DATASCOPE_SET HR-Share → intact" }, { system: true, ident: S.users.an1.ident, dt: 40 }),
+  async () => { S.incident.phase = "Containment"; await append("ic", "PHASE_CHANGE", S.incident.id, { from: "Detection & Analysis", to: "Containment" }); }
+];
+
+async function stepOnce() {
+  if (S.step >= STEPS.length) return false;
+  await STEPS[S.step++](); await verifyChain(); render(); return true;
+}
+function runSim() {
+  if (S.timer) { clearInterval(S.timer); S.timer = null; render(); return; }
+  S.timer = setInterval(async () => { if (!(await stepOnce())) { clearInterval(S.timer); S.timer = null; render(); } }, 650);
+  render();
+}
+async function runInstant() { if (S.timer) { clearInterval(S.timer); S.timer = null; } while (S.step < STEPS.length) await STEPS[S.step++](); await verifyChain(); render(); }
+
+/* ---------- attacker with database access ---------- */
+const exfilEntry = () => S.audit.find(e => e.action === "DATASCOPE_SET" && e.payload.includes("exfiltrated"));
+const TAMPER = {
+  edit: { label: "1. Edit a row (hide the exfiltration)", run: async () => { const e = exfilEntry(); e.payload = e.payload.replace("encrypted + exfiltrated", "encrypted"); return e.seq; },
+          explain: "Attacker changes HR-Share from 'exfiltrated' to 'encrypted' but can't fix the hash → HASH_MISMATCH + BAD_SIG on that row." },
+  rehash: { label: "2. Edit + recompute that hash", run: async () => { const e = exfilEntry(); e.payload = e.payload.replace("encrypted + exfiltrated", "encrypted"); e.hash = await sha(bodyStr(e)); return e.seq; },
+          explain: "Smarter attacker recomputes the row's hash. The NEXT row still points at the old hash → LINK_BROKEN. The signature still fails → BAD_SIG." },
+  del: { label: "3. Delete a row (erase the stolen-login attempt)", run: async () => { const i = S.audit.findIndex(e => e.action === "AUTH_DENIED"); const s = S.audit[i].seq; S.audit.splice(i, 1); return s; },
+          explain: "Removing the evidence of their own login attempt → SEQ_GAP + LINK_BROKEN on the following row." },
+  rewrite: { label: "4. Rewrite the whole chain after the edit", run: async () => { const e = exfilEntry(); e.payload = e.payload.replace("encrypted + exfiltrated", "encrypted"); const i = S.audit.indexOf(e);
+              for (let k = i; k < S.audit.length; k++) { S.audit[k].prev = k ? S.audit[k - 1].hash : "GENESIS"; S.audit[k].hash = await sha(bodyStr(S.audit[k])); } return e.seq; },
+          explain: "Best-case attacker re-hashes everything so the links all line up. Signatures still fail (no device key), and the witness anchors no longer match → ANCHOR_MISMATCH." },
+  forge: { label: "5. Forge an entry as the Incident Commander", run: async () => { const e = await append("ic", "PHASE_CHANGE", S.incident.id, { from: "Containment", to: "Recovery (all clear)" }, { forgeSig: true }); return e.seq; },
+          explain: "Valid hash, valid link, but no access to Riley's device key → BAD_SIG. The hash chain alone wouldn't catch this; signatures do." }
+};
+async function doTamper(k) {
+  if (S.step < STEPS.length) await runInstant();
+  const seq = await TAMPER[k].run(); S.lastMsg = TAMPER[k].explain;
+  await verifyChain(); S.selected = seq; go("audit");
+}
+async function resetAll() { if (S && S.timer) clearInterval(S.timer); S = freshState(); await initUsers(); render(); }
+
+/* ---------- human-readable summary ---------- */
+function summary(e) {
+  let p = {}; try { p = JSON.parse(e.payload); } catch { return "(payload unreadable)"; }
+  switch (e.action) {
+    case "SYSTEM_INIT": return "Command center deployed; deployer is owner";
+    case "INVITE_CREATED": return `Invite ${p.invite} for ${e.target} (${p.role}), single-use, ${p.expires}`;
+    case "INVITE_REDEEMED": return `${e.target} enrolled; device key ${p.deviceKeyFp}`;
+    case "INCIDENT_DECLARED": return `${e.target} declared: ${p.title} (SEV${p.severity})`;
+    case "TIMELINE_ADD": return p.what;
+    case "SYSTEM_STATE": return `${e.target}: ${p.from} → ${p.to}`;
+    case "DATASCOPE_SET": return `${e.target} [${p.class}, ${p.records} records]: ${p.status}`;
+    case "MSG_SENT": return `${e.target}: "${p.text}"`;
+    case "AUTH_DENIED": return `DENIED: ${p.reason}${p.credentialType ? " — tried " + p.credentialType : ""}${p.attempted ? " — tried " + p.attempted : ""}`;
+    case "AGENT_REQUEST": return `Triage requested on ${e.target}: ${p.ask}`;
+    case "AGENT_PROPOSAL": return `AI-PROPOSED: ${p.suggest}`;
+    case "PROPOSAL_APPROVED": return `Approved ${e.target} (now committed under approver's identity)`;
+    case "USER_REVOKED": return `${e.target} revoked: ${p.reason}`;
+    case "PHASE_CHANGE": return `Phase: ${p.from} → ${p.to}`;
+    default: return e.payload;
+  }
+}
+const actorName = e => e.actorId === "attacker" ? "UNKNOWN " + e.actorIdent.slice(0, 8) : (S.users[e.actorId]?.name || e.actorId);
+const tags = f => f.map(x => `<span class="tag ${x === "OK" || x === "SYSTEM" ? "" : x === "UNTRUSTED" || x === "CLOCK_SKEW" ? "dash" : "inv"}">${x}</span>`).join("");
+
+/* ---------- views ---------- */
+const VIEWS = [
+  { id: "home", label: "Home", desc: "Widgets for every section" },
+  { id: "situation", label: "Situation", desc: "What's happening right now" },
+  { id: "timeline", label: "Timeline", desc: "Everything that happened, in order" },
+  { id: "systems", label: "Systems", desc: "Affected machines and their state" },
+  { id: "data", label: "Data Impact", desc: "What data was hit and how" },
+  { id: "comms", label: "Comms", desc: "Secure team chat" },
+  { id: "agent", label: "Triage Agent", desc: "AI suggests, a human approves" },
+  { id: "audit", label: "Audit Log", desc: "Tamper-evident record (the core)" },
+  { id: "team", label: "Team", desc: "Invites, roles, revoke" },
+  { id: "fakedb", label: "Fake Data", desc: "Stolen corp directory + test logins" }
+];
+let current = "home";
+function go(v) { current = v; try { location.hash = v; } catch {} render(); window.scrollTo(0, 0); }
+
+const W = {
+  situation: () => S.incident ? `<div class="big">SEV${S.incident.sev}</div>${esc(S.incident.title)}<br>Phase: ${esc(S.incident.phase)}` : "No active incident",
+  timeline: () => { const l = S.audit.filter(e => ["TIMELINE_ADD", "SYSTEM_STATE", "DATASCOPE_SET", "PHASE_CHANGE", "INCIDENT_DECLARED"].includes(e.action)); return `<div class="big">${l.length}</div>${l.length ? esc(summary(l.at(-1))) : "No events yet"}`; },
+  systems: () => { const v = Object.entries(S.systems); return v.length ? v.map(([k, s]) => `${esc(k)}: <span class="tag">${esc(s)}</span>`).join("<br>") : "No systems logged"; },
+  data: () => { const v = Object.entries(S.data); return v.length ? v.map(([k, d]) => `${esc(k)}: <span class="tag inv">${esc(d.status)}</span>`).join("<br>") : "No data impact logged"; },
+  comms: () => { const m = S.messages.at(-1); return m ? `${secureLabel(m)}<br>${esc(actorName(m))}: ${esc(JSON.parse(m.payload).text || "")}` : "No messages"; },
+  agent: () => `<div class="big">${S.proposals.filter(p => p.status === "pending").length}</div>pending · ${S.proposals.filter(p => p.status === "approved").length} approved`,
+  audit: () => `<div class="big">${S.audit.length}</div>entries · ${chainOK() ? '<span class="tag">CHAIN OK</span>' : '<span class="tag inv">CHAIN BROKEN</span>'}`,
+  team: () => { const u = Object.values(S.users); return `<div class="big">${u.filter(x => x.status === "active").length}</div>active · ${u.filter(x => x.status === "revoked").length} revoked`; },
+  fakedb: () => `<div class="big">${S.corp.length}</div>stolen corp accounts · ${S.corp.filter(c => c.mfa === "TOTP").length} with app-based 2FA`
+};
+function secureLabel(e) {
+  const f = resultFor(e); const u = S.users[e.actorId];
+  if (!chainOK()) return '<span class="tag inv">[ CHAIN BROKEN ]</span>';
+  if (f.includes("OK") && u && u.status !== "revoked") return '<span class="tag">[ SECURE ]</span>';
+  return '<span class="tag dash">[ UNVERIFIED ]</span>';
+}
+
+const R = {
+  home: () => `<h2>Home</h2><p class="muted">Double-click a widget (or press its Open button) to go to the full section. Everything is already loaded, so opening a section is instant.</p>
+    <div class="grid">${VIEWS.filter(v => v.id !== "home").map(v => `<div class="widget" tabindex="0" data-open="${v.id}"><h3>${v.label}</h3><div class="wdesc">${v.desc}</div><div class="wbody">${W[v.id]()}</div><div><button data-go="${v.id}">Open →</button></div></div>`).join("")}</div>`,
+  situation: () => `<h2>Situation</h2><p class="muted">What's happening right now: one summary, current phase, who's on.</p>
+    ${S.incident ? `<div class="card"><div class="kv"><div>Incident</div><div>${S.incident.id}</div><div>Title</div><div>${esc(S.incident.title)}</div><div>Severity</div><div>SEV${S.incident.sev}</div><div>Phase</div><div>${esc(S.incident.phase)}</div><div>Elapsed (server)</div><div>${Math.round((S.clock - S.incident.at) / 60000)} min</div></div></div>` : `<div class="card">No active incident. Run the simulation.</div>`}
+    <div class="card"><h3>On the platform</h3>${Object.values(S.users).filter(u => u.status === "active").map(u => `<span class="tag">${esc(u.name)} · ${esc(u.role)}</span>`).join("") || "Nobody yet"}</div>`,
+  timeline: () => `<h2>Timeline</h2><p class="muted">Everything that happened, in order (server time).</p><div class="tbl-wrap"><table><tr><th>Server time</th><th>Who</th><th>What</th></tr>${S.audit.filter(e => !["MSG_SENT", "INVITE_CREATED", "INVITE_REDEEMED", "SYSTEM_INIT"].includes(e.action)).map(e => `<tr><td>${t(e.serverTs)}</td><td>${esc(actorName(e))}</td><td>${esc(summary(e))}</td></tr>`).join("") || "<tr><td colspan=3>Nothing yet</td></tr>"}</table></div>`,
+  systems: () => `<h2>Systems</h2><p class="muted">Every affected machine and its state: suspected, compromised, isolated, restored.</p><div class="tbl-wrap"><table><tr><th>System</th><th>State</th></tr>${Object.entries(S.systems).map(([k, s]) => `<tr><td>${esc(k)}</td><td><span class="tag">${esc(s)}</span></td></tr>`).join("") || "<tr><td colspan=2>None</td></tr>"}</table></div>`,
+  data: () => `<h2>Data Impact</h2><p class="muted">What data was hit and what happened to it: encrypted, exfiltrated, exposed, intact.</p><div class="tbl-wrap"><table><tr><th>Data set</th><th>Class</th><th>Records</th><th>Status</th></tr>${Object.entries(S.data).map(([k, d]) => `<tr><td>${esc(k)}</td><td>${d.cls}</td><td>${d.records}</td><td><span class="tag inv">${esc(d.status)}</span></td></tr>`).join("") || "<tr><td colspan=4>None</td></tr>"}</table></div>
+    <p class="small muted">Note: this view reads live state. The Audit Log is the proof of how it got here. If an attacker edits the log, this view and the log disagree, which is another forensic signal.</p>`,
+  comms: () => `<h2>Comms</h2><p class="muted">Secure team chat. Every message is device-signed; check the label.</p>${S.messages.map(m => `<div class="card">${secureLabel(m)} <span class="small muted">${t(m.serverTs)} · ${esc(m.target)}</span><br><b>${esc(actorName(m))}</b>: ${esc(JSON.parse(m.payload).text || "")}</div>`).join("") || '<div class="card">No messages yet</div>'}`,
+  agent: () => `<h2>Triage Agent</h2><p class="muted">Paste logs → Nemotron plans, calls tools, proposes findings. It can only propose; a human approves.</p>${S.proposals.map(p => `<div class="card"><span class="tag ${p.status === "approved" ? "" : "dash"}">${p.status.toUpperCase()}</span> proposal #${p.seq}<br>${esc(p.suggest)}<br><span class="small">IOCs: ${p.iocs.map(esc).join(", ")}<br>ATT&amp;CK: ${p.attack.map(esc).join(", ")}</span></div>`).join("") || '<div class="card">No proposals yet</div>'}`,
+  team: () => `<h2>Team</h2><p class="muted">Invite people, assign roles, revoke access. No passwords exist on this platform.</p><div class="tbl-wrap"><table><tr><th>Name</th><th>Role</th><th>Identity</th><th>Invite</th><th>Enrolled (server)</th><th>Device key</th><th>Status</th></tr>${Object.values(S.users).map(u => `<tr><td>${esc(u.name)}</td><td>${esc(u.role)}</td><td class="mono-break">${u.ident.slice(0, 14)}…</td><td>${esc(u.invite || "—")}</td><td>${u.enrolledAt ? t(u.enrolledAt) : "—"}</td><td>${u.enrolled ? u.fp : "—"}</td><td><span class="tag ${u.status === "revoked" ? "inv" : u.status === "active" ? "" : "dash"}">${u.status}</span></td></tr>`).join("")}</table></div>`,
+  fakedb: () => `<h2>Fake Data — Riverbend Freight corp directory</h2>
+    <p class="muted">Assume the attacker already has this, because they own the company's AD. It's a small company: most accounts have no 2FA, and the password hashes are unsalted SHA-256, which cracks easily. The point: <b>none of this opens the command center.</b></p>
+    <div class="tbl-wrap"><table><tr><th>User</th><th>Name</th><th>Role</th><th>Password (leaked)</th><th>SHA-256 (unsalted)</th><th>2FA</th><th>TOTP secret</th><th>Created</th><th>Last login</th><th></th></tr>
+    ${S.corp.map((c, i) => `<tr><td>${c.u}</td><td>${esc(c.name)}</td><td>${esc(c.role)}</td><td>${esc(c.pw)}</td><td class="mono-break">${short(c.hash)}</td><td><span class="tag ${c.mfa === "TOTP" ? "" : "inv"}">${c.mfa}</span></td><td>${c.totp || "—"}</td><td>${c.created}</td><td>${c.last}</td><td><button data-steal="${i}">Try login</button></td></tr>`).join("")}</table></div>
+    <p class="small muted">"Try login" simulates the attacker using that stolen credential. The server logs AUTH_DENIED with the username and credential type only, never the password itself (logging secrets would put them in the evidence).</p>`,
+  audit: () => {
+    const actors = [...new Set(S.audit.map(actorName))];
+    const rows = S.audit.filter(e => (!S.filterText || (e.action + " " + summary(e)).toLowerCase().includes(S.filterText.toLowerCase())) && (!S.filterActor || actorName(e) === S.filterActor));
+    const sel = S.audit.find(e => e.seq === S.selected);
+    return `<h2>Audit Log</h2><p class="muted">Tamper-evident record of every action: server-timestamped, device-signed, hash-chained, append-only.</p>
+    ${S.audit.length ? (chainOK() ? `<div class="banner ok">CHAIN VERIFIED: ${S.audit.length} entries, ${S.anchors.length} witness anchors match</div>`
+      : `<div class="banner">CHAIN BROKEN${S.firstBreak !== null ? " at seq " + S.firstBreak : ""}${S.anchorFail.length ? " · " + S.anchorFail.length + " witness anchor(s) mismatch" : ""}. Everything after this point is untrusted.</div>`) : ""}
+    ${S.lastMsg ? `<div class="card dash small">${esc(S.lastMsg)}</div>` : ""}
+    <div class="card"><h3>Run</h3>
+      <button id="bRun">${S.timer ? "Pause" : "Run simulation"}</button><button id="bStep">Step</button><button id="bInst">Run instantly</button><button id="bVer">Verify chain</button><button id="bCopy">Copy JSON export</button><button id="bReset">Reset</button></div>
+    <div class="card dash"><h3>Attacker with database access</h3><p class="small muted">Each button does what a real attacker with DB write access could do. Watch which check catches it.</p>
+      ${Object.entries(TAMPER).map(([k, v]) => `<button class="danger" data-tamper="${k}">${v.label}</button>`).join("")}</div>
+    <div class="row-inline"><input id="fText" placeholder="Filter: action or text…" value="${esc(S.filterText)}"><select id="fActor"><option value="">All actors</option>${actors.map(a => `<option ${a === S.filterActor ? "selected" : ""}>${esc(a)}</option>`).join("")}</select></div>
+    <div class="tbl-wrap"><table><tr><th>#</th><th>Server time</th><th>Client Δ</th><th>Actor</th><th>Action</th><th>Summary</th><th>Hash</th><th>Checks</th></tr>
+    ${rows.map(e => { const d = Math.round((e.clientTs - e.serverTs) / 1000); return `<tr class="row ${e.seq === S.selected ? "sel" : ""}" data-sel="${e.seq}"><td>${e.seq}</td><td>${t(e.serverTs)}</td><td>${d ? (d > 0 ? "+" : "") + d + "s" : "0"}</td><td>${esc(actorName(e))}</td><td>${e.action}</td><td>${esc(summary(e))}</td><td>${short(e.hash)}</td><td>${tags(resultFor(e))}</td></tr>`; }).join("") || '<tr><td colspan="8">No entries. Press Run simulation.</td></tr>'}
+    </table></div>
+    ${sel ? detail(sel) : '<p class="small muted" style="margin-top:12px">Click a row to inspect how it is verified.</p>'}`;
+  }
+};
+
+function detail(e) {
+  const f = resultFor(e); const u = S.users[e.actorId];
+  return `<div class="card" style="margin-top:16px"><h3>Entry #${e.seq}: ${e.action}</h3>
+  <div class="kv"><div>Actor</div><div>${esc(actorName(e))}${u ? " (" + esc(u.role) + ")" : ""}</div>
+  <div>Actor identity</div><div class="mono-break">${esc(e.actorIdent)}</div>
+  <div>Server time</div><div>${new Date(e.serverTs).toISOString()}  ← trusted (ctx.timestamp)</div>
+  <div>Client time</div><div>${new Date(e.clientTs).toISOString()}  ← claimed by the device</div>
+  <div>Target</div><div>${esc(e.target)}</div><div>Payload</div><div class="mono-break">${esc(e.payload)}</div>
+  <div>Device key</div><div>${u ? u.fp : "— (server-written)"}</div></div><hr>
+  <h3>1 · What the device signed</h3><pre>${esc(signedStr(e))}</pre>
+  <h3>2 · Signature (ECDSA P-256)</h3><pre>${esc(e.sig || "(none: system entry)")}</pre>
+  <h3>3 · What gets hashed (seq | serverTs | signed | sig | prevHash)</h3><pre>${esc(bodyStr(e))}</pre>
+  <div class="kv"><div>prevHash</div><div class="mono-break">${esc(e.prev)}</div><div>stored hash</div><div class="mono-break">${esc(e.hash)}</div></div><hr>
+  <h3>Checks</h3>${f.map(x => `<p>${tags([x])} ${esc(FLAGS[x][0])} <span class="muted">→ ${esc(FLAGS[x][1])}</span></p>`).join("")}</div>`;
+}
+
+/* ---------- render ---------- */
+function render() {
+  const t0 = performance.now();
+  document.getElementById("navList").innerHTML = VIEWS.map(v => `<button class="${v.id === current ? "on" : ""}" data-go="${v.id}">${v.label}<span class="desc">${v.desc}</span></button>`).join("");
+  document.getElementById("main").innerHTML = R[current]();
+  document.getElementById("chainBox").innerHTML = S.audit.length
+    ? `${chainOK() ? '<span class="tag">CHAIN OK</span>' : '<span class="tag inv">CHAIN BROKEN</span>'}<p class="small" style="margin-top:8px">${S.audit.length} entries<br>${S.anchors.length} witness anchors${S.anchorFail.length ? " (" + S.anchorFail.length + " mismatch)" : ""}<br>head: ${short(S.audit.at(-1).hash)}</p>`
+    : '<span class="small muted">Empty</span>';
+  const pct = Math.round(S.step / STEPS.length * 100);
+  document.getElementById("simFill").style.width = pct + "%";
+  document.getElementById("simBar").classList.toggle("run", !!S.timer);
+  document.getElementById("simLabel").textContent = S.step === 0 ? "Not started" : S.step >= STEPS.length ? "Complete — try the attacker buttons" : `Step ${S.step}/${STEPS.length}`;
+  document.getElementById("btnRunA").textContent = S.timer ? "Pause" : "Run";
+  document.getElementById("hdrStatus").innerHTML = S.incident ? `${S.incident.id} · SEV${S.incident.sev} · ${esc(S.incident.phase)} · server ${t(S.clock)}` : "No active incident";
+  document.getElementById("renderTime").textContent = `render ${(performance.now() - t0).toFixed(1)} ms`;
+  bindMain();
+}
+function bindMain() {
+  const $ = id => document.getElementById(id);
+  if ($("bRun")) { $("bRun").onclick = runSim; $("bStep").onclick = stepOnce; $("bInst").onclick = runInstant;
+    $("bVer").onclick = async () => { await verifyChain(); S.lastMsg = chainOK() ? "Verifier re-ran every hash, link, signature and anchor: all good." : "Verifier found a break, see the banner."; render(); };
+    $("bReset").onclick = async () => { await resetAll(); go("audit"); };
+    $("bCopy").onclick = async () => { const out = JSON.stringify(S.audit.map(({ seq, serverTs, clientTs, actorIdent, action, target, payload, sig, prev, hash }) => ({ seq, serverTs, clientTs, actorIdent, action, target, payload, sig, prev, hash })), null, 2);
+      try { await navigator.clipboard.writeText(out); S.lastMsg = "Export copied: paste it into a file and run the Python verifier on it."; } catch { S.lastMsg = "Clipboard blocked here; select the table instead."; } render(); };
+    $("fText").oninput = e => { S.filterText = e.target.value; const p = e.target.selectionStart; render(); const n = $("fText"); n.focus(); n.setSelectionRange(p, p); };
+    $("fActor").onchange = e => { S.filterActor = e.target.value; render(); };
+  }
+}
+document.addEventListener("click", async ev => {
+  const g = ev.target.closest("[data-go]"); if (g) { ev.stopPropagation(); return go(g.dataset.go); }
+  const tp = ev.target.closest("[data-tamper]"); if (tp) return doTamper(tp.dataset.tamper);
+  const r = ev.target.closest("[data-sel]"); if (r) { S.selected = +r.dataset.sel; return render(); }
+  const st = ev.target.closest("[data-steal]"); if (st) { const c = S.corp[+st.dataset.steal];
+    await append("attacker", "AUTH_DENIED", "login", { reason: "identity not enrolled", credentialType: `password${c.totp ? " + TOTP" : ""} (corp: ${c.u})`, note: "no password login exists" }, { system: true, ident: S.attackerIdent, dt: 15 });
+    await verifyChain(); S.lastMsg = `Stolen login for ${c.u} rejected and logged. Even the TOTP secret wouldn't help: the platform has no password/OTP login at all.`; S.selected = S.audit.at(-1).seq; go("audit"); }
+});
+document.addEventListener("dblclick", ev => { const w = ev.target.closest("[data-open]"); if (w) go(w.dataset.open); });
+document.addEventListener("keydown", ev => { const w = ev.target.closest && ev.target.closest("[data-open]"); if (w && ev.key === "Enter") go(w.dataset.open); });
+document.getElementById("btnRunA").onclick = () => { if (current !== "audit") go("audit"); runSim(); };
+document.getElementById("btnStepA").onclick = stepOnce;
+document.getElementById("legend").innerHTML = Object.entries(FLAGS).map(([k, v]) => `<dt>${tags([k])}</dt><dd>${v[1]}</dd>`).join("");
+const notes = document.getElementById("notes");
+try { notes.value = localStorage.getItem("audit-sim-notes") || ""; } catch {}
+notes.addEventListener("input", () => { try { localStorage.setItem("audit-sim-notes", notes.value); } catch {} });
+
+(async () => {
+  if (!window.crypto || !crypto.subtle) { document.getElementById("main").innerHTML = '<div class="banner">WebCrypto unavailable (needs HTTPS).</div>'; return; }
+  await resetAll();
+  const h = (location.hash || "").slice(1); if (VIEWS.some(v => v.id === h)) go(h);
+})();
+</script>
+</body>
+</html>
