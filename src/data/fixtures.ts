@@ -27,7 +27,7 @@ export function createFixture(): Snapshot {
       { ...base('A-2'), actor: 'Alex Chen', at: '2026-11-07T18:42:00Z', text: 'D-001 approved provisionally with an explicit backup timing assumption.' },
       { ...base('A-1'), actor: 'Morgan Patel', at: '2026-11-07T18:17:00Z', text: 'Backup validation report added to the incident.' },
     ],
-    messages: [{ ...base('M-1'), author: 'Morgan Patel', at: '2026-11-07T18:49:00Z', text: 'The restore test is useful, but it does not establish that the backup is clean. I’ve queued a source review.' }],
+    messages: [{ ...base('M-1'), evidenceId: 'E-002', author: 'Morgan Patel', at: '2026-11-07T18:49:00Z', text: 'The restore test is useful, but it does not establish that the backup is clean. I’ve queued a source review.' }],
     scope: [
       { ...base('S-1'), system: 'Customer database', data: 'Customer account records', extent: 'Extent under investigation', encryption: 'confirmed', exfiltration: 'unknown', owner: 'Morgan Patel' },
       { ...base('S-2'), system: 'Customer portal', data: 'Application services', extent: 'Portal unavailable', encryption: 'suspected', exfiltration: 'unknown', owner: 'Alex Chen' },

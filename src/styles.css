@@ -194,8 +194,11 @@ th { font-size: 11px; font-weight: 600; color: #6c8062; border-bottom: 1px solid
 td { padding: 22px 15px; border-bottom: 1px solid #e0e7d9; }
 td small { color: #738369; margin-top: 5px; font-size: 12px; }
 .integration-note { color: #7b8972; margin-top: 20px; font-size: 11px; }
-.communications-layout { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); gap: 40px; }
 .chat { background: #fff; border: 1px solid var(--rule); padding: 27px; border-radius: 8px; }
+.change-conversation { margin-top: 20px; }
+.change-conversation .section-heading { margin-bottom: 8px; }
+.change-conversation .section-heading h3 { font-family: inherit; font-size: 17px; font-weight: 650; color: var(--ink); }
+.conversation-note { margin: 0 0 12px; color: var(--muted); font-size: 11px; }
 .local-label { border-left: 2px solid #b0bfa1; color: #718064; padding-left: 8px; font-size: 11px; }
 .messages { min-height: 190px; max-height: 440px; overflow-y: auto; }
 .messages article { border-top: 1px solid #e2e9db; padding: 20px 0; }
@@ -204,9 +207,6 @@ td small { color: #738369; margin-top: 5px; font-size: 12px; }
 .messages p { font-size: 14px; margin-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .chat-actions { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-top: 15px; }
 .chat-actions small { font-size: 11px; }
-.communications-context { padding: 12px 0; }
-.communications-context > h2 { margin-bottom: 22px; }
-.communications-context > p { margin-top: 18px; }
 .briefing-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; }
 .briefing-heading h3 { font-size: 13px; }
 .briefing-copy { font: 20px/1.75 Georgia,serif; margin: 15px 0; color: #426339; }
@@ -281,7 +281,6 @@ dialog::backdrop { background: #132e28a3; }
   .context-details > summary { font-size: 12px; }
   .summary-meta { gap: 6px; }
   .summary-meta .status-tag { font-size: 11px; padding: 6px; gap: 5px; }
-  .communications-layout { grid-template-columns: 1fr; gap: 25px; }
   .table-scroll table { min-width: 820px; }
   footer { flex-direction: column; gap: 7px; }
   .view-heading { margin-top: 30px; }

@@ -9,5 +9,5 @@ export interface IncidentData {
   load(): Promise<Snapshot>;
   confirm(proposalId: string, reason: string): Promise<Snapshot>;
   dismiss(proposalId: string, reason: string): Promise<Snapshot>;
-  sendMessage(text: string): Promise<Snapshot>;
+  sendMessage(evidenceId: string, text: string): Promise<Snapshot>;
 }

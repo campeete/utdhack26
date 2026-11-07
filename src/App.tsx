@@ -4,11 +4,11 @@ import type { Snapshot } from '../shared/contracts';
 import type { IncidentData } from './data/interface';
 import { label, Modal } from './components/ui';
 import { Decisions, type Selection } from './features/Decisions';
-import { Administration, Scope, TeamChat } from './features/IncidentPages';
+import { Administration, Scope } from './features/IncidentPages';
 
-type View = 'workspace' | 'scope' | 'communications';
+type View = 'workspace' | 'scope';
 const views: { id: View; label: string }[] = [
-  { id: 'workspace', label: 'Workspace' }, { id: 'scope', label: 'Scope' }, { id: 'communications', label: 'Communications' },
+  { id: 'workspace', label: 'Workspace' }, { id: 'scope', label: 'Scope' },
 ];
 export default function App({ adapter }: { adapter: IncidentData }) {
   const [view, setView] = useState<View>('workspace');
@@ -18,7 +18,7 @@ export default function App({ adapter }: { adapter: IncidentData }) {
   const [retry, setRetry] = useState(0);
   const [message, setMessage] = useState('');
   const [adminOpen, setAdminOpen] = useState(false);
-  const scrollPositions = useRef<Record<View, number>>({ workspace: 0, scope: 0, communications: 0 });
+  const scrollPositions = useRef<Record<View, number>>({ workspace: 0, scope: 0 });
   useLayoutEffect(() => {
     // Restore only after the target panel is visible and has its final height.
     window.scrollTo({ top: scrollPositions.current[view], behavior: 'auto' });
@@ -64,7 +64,6 @@ export default function App({ adapter }: { adapter: IncidentData }) {
       <p className="sr-only" role="status">{message}</p>
       <section className="view" hidden={view !== 'workspace'} aria-label="Incident workspace"><Decisions data={data} adapter={adapter} onUpdate={update} selection={selection} onSelect={setSelection} /></section>
       <section className="view secondary-view" hidden={view !== 'scope'} aria-label="Incident scope"><div className="view-heading"><h1>Scope of the incident</h1><p>What is affected, and what remains uncertain.</p></div><Scope data={data} /></section>
-      <section className="view secondary-view" hidden={view !== 'communications'} aria-label="Incident communications"><div className="view-heading"><h1>Keep the response connected.</h1><p>Briefings and conversations for {data.incident.title}.</p></div><TeamChat data={data} adapter={adapter} onUpdate={update} /></section>
       <footer><span>{data.incident.summary} <span className="footer-dot">·</span> Commander: {data.incident.commander}</span><span>Local fixtures · Authentication, live sync & Nemotron not connected</span></footer>
     </main> : <main id="main" className="loading" aria-live="polite">{error ? <><h1>Couldn’t open the workspace.</h1><p role="alert">{error}</p><button className="primary" onClick={() => setRetry(v => v + 1)}>Try again</button></> : <><h1>Opening the workspace…</h1><p>Loading incident records.</p></>}</main>}
     {adminOpen && <Modal title="Access & administration" onClose={() => setAdminOpen(false)}>{data ? <Administration data={data} /> : <p>Incident membership is unavailable while the workspace loads.</p>}</Modal>}

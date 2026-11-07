@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { ChevronDown, Send, ShieldOff } from 'lucide-react';
 import type { Briefing as BriefingRecord, Snapshot } from '../../shared/contracts';
 import type { IncidentData } from '../data/interface';
@@ -16,9 +16,22 @@ export function Scope({ data }: { data: Snapshot }) {
 export function Administration({ data }: { data: Snapshot }) {
   return <><div className="access-notice"><ShieldOff size={22} /><div><h3>Access controls are not connected.</h3><p>These are synthetic memberships. Sign-in, admission, and revocation are unavailable in fixture mode.</p></div></div><div className="member-list">{data.members.map(m => <div className="member" key={m.id}><span className="avatar">{m.name.split(' ').map(s => s[0]).join('')}</span><div><strong>{m.name}</strong><small>{m.roles.map(label).join(', ')}</small></div><span className="routine-text">{m.active ? 'Active fixture' : 'Inactive fixture'}</span></div>)}</div><details className="context-details"><summary><span>Integration boundary</span><ChevronDown size={16} /></summary><div className="detail-content"><p>Spacetime stores membership privately. Its live read gate remains closed until independent identity, authorized reads, and subscription revocation pass verification.</p><p>Administrator membership does not grant decision approval authority.</p></div></details></>;
 }
-export function TeamChat({ data, adapter, onUpdate }: { data: Snapshot; adapter: IncidentData; onUpdate: (data: Snapshot) => void }) {
+export function IncidentConversation({ evidenceId, data, adapter, onUpdate }: { evidenceId: string; data: Snapshot; adapter: IncidentData; onUpdate: (data: Snapshot) => void }) {
+  const id = useId();
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  return <div className="communications-layout"><section className="chat" aria-label="Incident chat"><div className="section-heading"><h2>Room conversation</h2><span className="local-label">Local only</span></div><div className="messages" role="log" aria-live="polite">{data.messages.length ? data.messages.map(m => <article key={m.id}><div><strong>{m.author}</strong><time>{utc(m.at)} UTC</time></div><p>{m.text}</p></article>) : <p className="empty">No messages yet. Add context for the next responder.</p>}</div><form onSubmit={async e => { e.preventDefault(); if (busy) return; setBusy(true); setError(''); try { onUpdate(await adapter.sendMessage(text)); setText(''); } catch (err) { setError((err as Error).message); } finally { setBusy(false); } }} aria-busy={busy}><label htmlFor="chat-text">Message the fixture room</label><textarea id="chat-text" required maxLength={2000} rows={3} value={text} onChange={e => setText(e.target.value)} placeholder="Add context for the next responder…" /><div className="chat-actions"><small className="muted">Single-tab demonstration · No delivery to others</small><button className="primary" disabled={busy || !text.trim()}>{busy ? 'Adding…' : 'Add message'}<Send size={16} /></button></div>{error && <p role="alert" className="error">{error}</p>}</form></section><aside className="communications-context"><h2>Response context</h2>{data.briefings.length ? data.briefings.map(b => <details key={b.id} className="context-details"><summary><span>Response briefing</span><span className="summary-meta"><Status value={b.state} /><ChevronDown size={16} /></span></summary><div className="detail-content"><Briefing briefing={b} /></div></details>) : <p className="empty">No briefing recorded.</p>}<details className="context-details"><summary><span>Response team</span><span className="summary-meta">{data.members.length}<ChevronDown size={16} /></span></summary><div className="detail-content">{data.members.map(m => <div className="member" key={m.id}><span className="avatar">{m.name.split(' ').map(s => s[0]).join('')}</span><div><strong>{m.name}</strong><small>{m.roles.map(label).join(', ')}</small></div></div>)}</div></details><p className="muted small">Membership controls are in Administration. Authentication and live chat are not connected.</p></aside></div>;
+  const messages = data.messages.filter(message => message.evidenceId === evidenceId);
+  const evidence = data.evidence.find(item => item.id === evidenceId);
+  return <section className="chat change-conversation" aria-labelledby={`${id}-heading`}>
+    <div className="section-heading"><h3 id={`${id}-heading`}>Change discussion</h3><span className="local-label">Linked to {evidenceId}</span></div>
+    <p className="conversation-note">Messages here are attached to “{evidence?.title ?? evidenceId}” and stay separate from other changes.</p>
+    <div className="messages" role="log" aria-live="polite">{messages.length ? messages.map(m => <article key={m.id}><div><strong>{m.author}</strong><time>{utc(m.at)} UTC</time></div><p>{m.text}</p></article>) : <p className="empty">No messages on this change yet.</p>}</div>
+    <form onSubmit={async e => { e.preventDefault(); if (busy) return; setBusy(true); setError(''); try { onUpdate(await adapter.sendMessage(evidenceId, text)); setText(''); } catch (err) { setError((err as Error).message); } finally { setBusy(false); } }} aria-busy={busy}>
+      <label htmlFor={`${id}-message`}>Send a message</label>
+      <textarea id={`${id}-message`} required maxLength={2000} rows={3} value={text} onChange={e => setText(e.target.value)} placeholder="Add context to this change…" />
+      <div className="chat-actions"><small className="muted">Local demo · Threaded under {evidenceId}</small><button className="primary" disabled={busy || !text.trim()}>{busy ? 'Sending…' : 'Send message'}<Send size={16} /></button></div>
+      {error && <p role="alert" className="error">{error}</p>}
+    </form>
+  </section>;
 }

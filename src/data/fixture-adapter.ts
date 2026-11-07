@@ -17,9 +17,10 @@ export function createFixtureAdapter(): IncidentData {
       data = { ...data, proposals: data.proposals.map(p => p.id === id ? { ...p, state: 'dismissed', version: p.version + 1 } : p), activity: [{ id: `dismiss:${id}`, incidentId: data.incident.id, version: 1, text: `Proposal dismissed. ${reason}`, actor: 'Morgan Patel (fixture)', at: new Date().toISOString() }, ...data.activity] };
       return copy();
     },
-    async sendMessage(text) {
+    async sendMessage(evidenceId, text) {
       if (!text.trim() || text.length > 2000) throw new Error('Use 1–2,000 characters.');
-      data = { ...data, messages: [...data.messages, { id: crypto.randomUUID(), incidentId: data.incident.id, version: 1, author: 'Morgan Patel (fixture)', text: text.trim(), at: new Date().toISOString() }] };
+      if (!data.evidence.some(e => e.id === evidenceId)) throw new Error('Select an existing evidence item before sending a message.');
+      data = { ...data, messages: [...data.messages, { id: crypto.randomUUID(), incidentId: data.incident.id, evidenceId, version: 1, author: 'Morgan Patel (fixture)', text: text.trim(), at: new Date().toISOString() }] };
       return copy();
     },
   };
