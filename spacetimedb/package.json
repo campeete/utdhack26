@@ -1,0 +1,17 @@
+{
+  "name": "clean-room-module",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@clockworklabs/spacetimedb-sdk": "^2.0.0",
+    "spacetimedb": "2.14.1"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
