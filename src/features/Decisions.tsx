@@ -46,8 +46,9 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
     requestAnimationFrame(() => focusContext(action === 'confirm' ? previewButton.current : dismissButton.current));
   }
   return <>
-    <div className="workspace-heading"><div><span className="eyebrow"><ActivityIcon size={14} /> INCIDENT OPERATIONS</span><h1>Incident overview</h1><p>Monitor incoming evidence, decision risk, and verification work.</p></div><span className="review-count">{needsReviewCount ? `${needsReviewCount} decision${needsReviewCount === 1 ? '' : 's'} needs review` : `${reviewCount} review${reviewCount === 1 ? '' : 's'} to consider`}<span>{latestActivity ? `Last activity ${new Date(latestActivity.at).toISOString().slice(11, 16)} UTC` : 'All times UTC'}</span></span></div>
-    <section className="signal-summary" aria-label="Incident signal summary">
+    <div className="workspace-overview">
+      <div className="workspace-heading"><div><span className="eyebrow"><ActivityIcon size={14} /> INCIDENT OPERATIONS</span><h1>Incident overview</h1><p>Monitor incoming evidence, decision risk, and verification work.</p></div><span className="review-count">{needsReviewCount ? `${needsReviewCount} decision${needsReviewCount === 1 ? '' : 's'} needs review` : `${reviewCount} review${reviewCount === 1 ? '' : 's'} to consider`}<span>{latestActivity ? `Last activity ${new Date(latestActivity.at).toISOString().slice(11, 16)} UTC` : 'All times UTC'}</span></span></div>
+      <section className="signal-summary" aria-label="Incident signal summary">
       <article className={reviewCount ? 'signal-card attention' : 'signal-card'}>
         <span className="signal-icon"><AlertTriangle size={17} /></span><div><span>Review queue</span><strong>{reviewCount}</strong><small>{reviewCount === 1 ? 'proposal awaiting review' : 'proposals awaiting review'}</small></div>
       </article>
@@ -60,7 +61,8 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
       <article className="signal-card">
         <span className="signal-icon"><Layers3 size={17} /></span><div><span>Systems in scope</span><strong>{data.scope.length}</strong><small>tracked affected systems</small></div>
       </article>
-    </section>
+      </section>
+    </div>
     <div className="incident-workspace">
       <section className="change-stream" aria-labelledby="changes-heading">
         <div className="section-heading"><h2 id="changes-heading" ref={changesHeading} tabIndex={-1}>What changed</h2><span className="quiet-count">{data.evidence.length}</span></div>
