@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { CircleDot, Info, Layers2, Settings2, UserRound, WifiOff } from 'lucide-react';
+import { CircleDot, Info, Layers2, Moon, Settings2, Sun, UserRound, WifiOff } from 'lucide-react';
 import type { Snapshot } from '../shared/contracts';
 import type { IncidentData } from './data/interface';
 import { label, Modal } from './components/ui';
@@ -12,6 +12,7 @@ const views: { id: View; label: string }[] = [
 ];
 export default function App({ adapter }: { adapter: IncidentData }) {
   const [view, setView] = useState<View>('workspace');
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [data, setData] = useState<Snapshot | null>(null);
   const [selection, setSelection] = useState<Selection>({ evidenceId: null, decisionId: null });
   const [error, setError] = useState('');
@@ -19,6 +20,10 @@ export default function App({ adapter }: { adapter: IncidentData }) {
   const [message, setMessage] = useState('');
   const [adminOpen, setAdminOpen] = useState(false);
   const scrollPositions = useRef<Record<View, number>>({ workspace: 0, scope: 0 });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+  }, [theme]);
   useLayoutEffect(() => {
     // Restore only after the target panel is visible and has its final height.
     window.scrollTo({ top: scrollPositions.current[view], behavior: 'auto' });
@@ -44,7 +49,7 @@ export default function App({ adapter }: { adapter: IncidentData }) {
     scrollPositions.current[view] = window.scrollY;
     setView(next);
   }
-  return <div className="app-shell">
+  return <div className="app-shell" data-theme={theme}>
     <a className="skip-link" href="#main">Skip to workspace</a>
     <div className="persistent-header">
     <header className="app-header">
@@ -54,9 +59,9 @@ export default function App({ adapter }: { adapter: IncidentData }) {
       {adapter.identity ? <div className="session-indicator" aria-label={`${adapter.identity.authenticated ? 'Signed in' : 'Demo identity'}: ${adapter.identity.name}, ${adapter.identity.roles.map(label).join(', ')}`}>
         <span className="session-avatar"><UserRound size={17} /></span>
         <span className="session-copy"><strong>{adapter.identity.name}</strong><small>{adapter.identity.roles.map(label).join(' · ')}</small></span>
-        <span className={`session-state ${adapter.identity.authenticated ? 'verified' : ''}`}>{adapter.identity.authenticated ? 'Signed in' : 'Demo'}</span>
       </div> : <div className="session-indicator"><span className="session-avatar"><UserRound size={17} /></span><span className="session-copy"><strong>No session</strong><small>Identity unavailable</small></span></div>}
       <button className="admin-button" aria-label="Administration" onClick={() => setAdminOpen(true)}><Settings2 size={17} /><span>Administration</span></button>
+      <div className="theme-switch" role="group" aria-label="Color theme"><button type="button" aria-pressed={theme === 'light'} onClick={() => setTheme('light')}><Sun size={13} />Light</button><button type="button" aria-pressed={theme === 'dark'} onClick={() => setTheme('dark')}><Moon size={13} />Dark</button></div>
     </header>
     <div className="environment-bar"><div><Info size={15} /><span>{adapter.mode === 'fixture' ? 'Synthetic training incident' : 'Incident workspace'}</span><span className="environment-divider" /><span className="connection"><WifiOff size={14} />{adapter.mode === 'fixture' ? 'No live connection' : 'Connection status unavailable'}</span></div><span>{adapter.identity?.authenticated ? 'Authenticated session' : 'Not authenticated · Demo data only'}</span></div>
     </div>
