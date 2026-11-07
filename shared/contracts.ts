@@ -21,10 +21,17 @@ export interface Activity extends RecordBase { text: string; actor: string; at: 
 export interface Message extends RecordBase { author: string; text: string; at: string }
 export interface ScopeItem extends RecordBase { system: string; data: string; extent: string; encryption: 'unknown' | 'suspected' | 'confirmed' | 'not_observed'; exfiltration: 'unknown' | 'suspected' | 'confirmed' | 'not_observed'; owner: string }
 export interface Member extends RecordBase { name: string; roles: Role[]; active: boolean }
+/** An affected employee or service account at the client company (not a responder). Never carries secrets. */
+export interface Account extends RecordBase {
+  name: string; department: string; jobTitle: string; privileged: boolean;
+  mfa: string; inCredentialLeak: boolean; usedByAttacker: boolean; status: string; lastLogin: string;
+}
 export interface Snapshot {
   incident: { id: string; title: string; summary: string; status: string; severity: string; commander: string };
   sources: Source[]; evidence: Evidence[]; decisions: Decision[]; briefings: Briefing[];
   proposals: Proposal[]; tasks: Task[]; activity: Activity[]; messages: Message[]; scope: ScopeItem[]; members: Member[];
+  /** Optional so existing producers (the server module) keep compiling until live accounts exist. */
+  accounts?: Account[];
 }
 export interface Impact { decisionIds: string[]; briefingIds: string[] }
 export type DataState = 'loading' | 'ready' | 'denied' | 'revoked' | 'disconnected' | 'error';

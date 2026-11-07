@@ -15,7 +15,8 @@
     "verify:demo": "python3 tools/verify_audit.py demo-data/audit_demo_export.json",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.audit.json",
     "typecheck:audit": "tsc --noEmit -p tsconfig.audit.json",
-    "test:review": "node --experimental-strip-types --test shared/*.test.ts"
+    "test:review": "node --experimental-strip-types --test shared/*.test.ts",
+    "data:accounts": "python3 tools/export_people_fixture.py demo-data/people.json src/data/northstar-accounts.ts"
   },
   "dependencies": {
     "react": "18.3.1",
