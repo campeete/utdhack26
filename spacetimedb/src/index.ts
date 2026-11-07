@@ -19,12 +19,21 @@ type Role = (typeof ROLES)[number];
 const STATUSES = ['investigating', 'containing', 'recovering', 'monitoring', 'closed'] as const;
 const SEVERITIES = ['critical', 'high', 'medium', 'low'] as const;
 
+const ENCRYPTION_STATES = ['unknown', 'suspected', 'confirmed', 'not_observed'] as const;
+const EXFILTRATION_STATES = ['unknown', 'suspected', 'confirmed', 'not_observed'] as const;
+
 const MAX_TITLE = 200;
 const MAX_SUMMARY = 5000;
 const MAX_MESSAGE = 2000;
 const MAX_NAME = 64;
 const MAX_REASON = 500;
 const MAX_REQUEST_ID = 64;
+
+const MAX_SYSTEM_NAME = 100;
+const MAX_DATA_CATEGORY = 100;
+const MAX_EXTENT = 200;
+const MAX_EVIDENCE_TITLE = 200;
+const MAX_EVIDENCE_CONTENT = 50000;
 
 // ---------- tables (all private) ----------
 
@@ -105,6 +114,40 @@ const activity_event = table(
   }
 );
 
+const scope_item = table(
+  {},
+  {
+    id: t.u64().primaryKey().autoInc(),
+    incident_id: t.u64().index('btree'),
+    system_name: t.string(),
+    data_category: t.string(),
+    affected_extent: t.string(),
+    encryption_status: t.string(),
+    exfiltration_status: t.string(),
+    business_impact: t.string(),
+    owner: t.identity(),
+    observed_at: t.timestamp(),
+    updated_at: t.timestamp(),
+    version: t.u32(),
+  }
+);
+
+const evidence = table(
+  {},
+  {
+    id: t.u64().primaryKey().autoInc(),
+    incident_id: t.u64().index('btree'),
+    title: t.string(),
+    source_label: t.string(),
+    source_type: t.string(),
+    content_text: t.string(),
+    event_time: t.timestamp(),
+    recorded_at: t.timestamp(),
+    submitted_by: t.identity(),
+    version: t.u32(),
+  }
+);
+
 const spacetimedb = schema({
   platform_admin,
   user_profile,
@@ -112,6 +155,8 @@ const spacetimedb = schema({
   membership,
   message,
   activity_event,
+  scope_item,
+  evidence,
 });
 export default spacetimedb;
 
@@ -362,6 +407,72 @@ export const update_incident = spacetimedb.reducer(
   }
 );
 
+export const add_scope_item = spacetimedb.reducer(
+  {
+    incident_id: t.u64(),
+    system_name: t.string(),
+    data_category: t.string(),
+    affected_extent: t.string(),
+    encryption_status: t.string(),
+    exfiltration_status: t.string(),
+    business_impact: t.string(),
+  },
+  (ctx, { incident_id, system_name, data_category, affected_extent, encryption_status, exfiltration_status, business_impact }) => {
+    requireRole(ctx, incident_id, ['admin', 'commander', 'analyst']); // Reviewers are read-only
+    requireIncident(ctx, incident_id);
+    
+    if (!(ENCRYPTION_STATES as readonly string[]).includes(encryption_status)) fail('Invalid encryption status');
+    if (!(EXFILTRATION_STATES as readonly string[]).includes(exfiltration_status)) fail('Invalid exfiltration status');
+
+    const row = ctx.db.scope_item.insert({
+      id: 0n,
+      incident_id,
+      system_name: cleanText(system_name, 'System name', 1, MAX_SYSTEM_NAME),
+      data_category: cleanText(data_category, 'Data category', 1, MAX_DATA_CATEGORY),
+      affected_extent: cleanText(affected_extent, 'Affected extent', 1, MAX_EXTENT),
+      encryption_status,
+      exfiltration_status,
+      business_impact: cleanText(business_impact, 'Business impact', 1, MAX_SUMMARY),
+      owner: ctx.sender,
+      observed_at: ctx.timestamp,
+      updated_at: ctx.timestamp,
+      version: 1,
+    });
+
+    logActivity(ctx, incident_id, 'scope_added', 'scope_item', row.id, row.system_name);
+  }
+);
+
+export const add_evidence = spacetimedb.reducer(
+  {
+    incident_id: t.u64(),
+    title: t.string(),
+    source_label: t.string(),
+    source_type: t.string(),
+    content_text: t.string(),
+    event_time: t.timestamp(),
+  },
+  (ctx, { incident_id, title, source_label, source_type, content_text, event_time }) => {
+    requireRole(ctx, incident_id, ['admin', 'commander', 'analyst']);
+    requireIncident(ctx, incident_id);
+
+    const row = ctx.db.evidence.insert({
+      id: 0n,
+      incident_id,
+      title: cleanText(title, 'Title', 1, MAX_EVIDENCE_TITLE),
+      source_label: cleanText(source_label, 'Source label', 1, MAX_NAME),
+      source_type: cleanText(source_type, 'Source type', 1, MAX_NAME),
+      content_text: cleanText(content_text, 'Content text', 1, MAX_EVIDENCE_CONTENT),
+      event_time,
+      recorded_at: ctx.timestamp,
+      submitted_by: ctx.sender,
+      version: 1,
+    });
+
+    logActivity(ctx, incident_id, 'evidence_added', 'evidence', row.id, row.title);
+  }
+);
+
 export const add_message = spacetimedb.reducer(
   { incident_id: t.u64(), text: t.string(), client_request_id: t.option(t.string()) },
   (ctx, { incident_id, text, client_request_id }) => {
@@ -472,6 +583,30 @@ export const visible_profiles = spacetimedb.view(
     for (const who of keys.values()) {
       const p = ctx.db.user_profile.identity.find(who);
       if (p) out.push(p);
+    }
+    return out;
+  }
+);
+
+export const incident_scope = spacetimedb.view(
+  { name: 'incident_scope', public: true },
+  t.array(scope_item.rowType),
+  ctx => {
+    const out = [];
+    for (const id of myIncidentIds(ctx)) {
+      for (const item of ctx.db.scope_item.incident_id.filter(id)) out.push(item);
+    }
+    return out;
+  }
+);
+
+export const incident_evidence = spacetimedb.view(
+  { name: 'incident_evidence', public: true },
+  t.array(evidence.rowType),
+  ctx => {
+    const out = [];
+    for (const id of myIncidentIds(ctx)) {
+      for (const ev of ctx.db.evidence.incident_id.filter(id)) out.push(ev);
     }
     return out;
   }
