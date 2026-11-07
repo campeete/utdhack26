@@ -49,6 +49,10 @@ Hashing uses SHA-256 from `@noble/hashes` (audited, no dependencies), because th
 | `tools/make_demo_chain.ts` | Builds the synthetic Northstar Retail chain through the real `appendEvent()` |
 | `tests/audit/` | 30 tests: attacks, hygiene, speed, TypeScript-to-Python agreement |
 
+## Demo data
+
+The demo chain uses the same incident (`'northstar'`), people (Jamie Park, Alex Chen, Morgan Patel, Sam Rivera, Triage Agent), record ids (E-002, D-001, P-001, B-001, S-1…) and times as the frontend fixture in `src/data/fixtures.ts`, so the Audit page and the Workspace tell one story. `docs/sim/clean-room-audit-simulator.html` still uses its own older sample data.
+
 ## Integration contract with B
 
 B adds the two tables to the schema and calls `appendEvent()` at the end of every reducer that changes state:
@@ -73,7 +77,8 @@ export const update_scope_item = spacetimedb.reducer({ /* params */ }, (ctx, arg
 Rules for B:
 
 - Log **what happened and to what**, not the content. For chat, log the message id and length; the text stays in the message table.
-- Platform events (bootstrap, admin grants) use incident `0n` (`PLATFORM_INCIDENT`).
+- Incident ids are text and follow the backend's rule (1-64 of `a-z`, `0-9`, `-`), for example `'northstar'`. `appendEvent()` rejects anything else.
+- Platform events (bootstrap, admin grants, identity config) use `PLATFORM_INCIDENT` (`'_platform'`). The underscore can't appear in a real incident id, so the two never collide.
 - The triage agent's reducers pass `actorKind: 'service'`. Events written by the module itself are marked `system` automatically.
 - **Denials roll back.** If a reducer throws, its audit event is rolled back too. To keep a record of a denied attempt by a *member* (for example, a revoked user trying to edit), log `ACCESS_DENIED` and `return` instead of throwing. Don't do this for outsiders: anyone could fill the log with junk entries.
 - Clients read the log only through the member-scoped view (`my_audit_events` in the reference module). Both tables stay private.
@@ -93,8 +98,8 @@ Exit codes: `0` intact, `1` tampering detected, `2` unreadable input. An unreada
 ## Demo script (about 60 seconds)
 
 1. "Every action in Clean Room is written to a hash-chained log in the same transaction as the action itself."
-2. Run the verifier on the live export: **INTACT**, 21 events. It also flags one `CLOCK_SKEW`: the reviewer's laptop clock is 9 minutes fast. "That's a lead, not proof."
-3. "The attacker has database access and wants to hide the Sunday 03:12 login." Run `tamper_audit.py … edit --seq 13`, then verify again: **TAMPERING DETECTED at seq 13**.
+2. Run the verifier on the live export: **INTACT**, 21 events. It also flags one `CLOCK_SKEW` at seq 12: Sam Rivera's laptop clock is 9 minutes fast, on the same event where his attempt to approve D-001 was denied. "That's a lead, not proof."
+3. "The attacker has database access and wants to hide their Sunday 03:12 login on the backup account (evidence E-007)." Run `tamper_audit.py … edit --seq 20`, then verify again: **TAMPERING DETECTED at seq 20**.
 4. "A smarter attacker re-hashes the whole chain." Run `rewrite`: the chain looks clean, but a responder's saved anchor no longer matches: **ANCHOR_MISMATCH**.
 5. "We claim tamper-evident, not tamper-proof, and we show exactly where the limit is."
 

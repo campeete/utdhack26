@@ -15,7 +15,7 @@ export const auditEvent = table(
   },
   {
     id: t.u64().primaryKey().autoInc(),
-    incident_id: t.u64().index(),
+    incident_id: t.string().index(),
     seq: t.u64(),
     actor: t.identity(),
     actor_kind: t.string(), // user | service | system
@@ -37,7 +37,7 @@ export const auditEvent = table(
 export const auditHead = table(
   { name: 'audit_head', public: false },
   {
-    incident_id: t.u64().primaryKey(),
+    incident_id: t.string().primaryKey(),
     seq: t.u64(),
     hash: t.string(),
     updated_at: t.timestamp(),

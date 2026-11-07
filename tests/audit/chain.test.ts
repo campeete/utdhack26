@@ -24,27 +24,27 @@ test('a clean chain verifies, with the head and anchors', () => {
 
 test('appendEvent numbers from 1, links to genesis, and moves the head', () => {
   const store = makeDb();
-  const a = appendEvent(ctxFor(store, ident('a1'), 1n), { incidentId: 3n, action: 'INCIDENT_CREATED', entityType: 'incident', entityId: 3n });
-  const b = appendEvent(ctxFor(store, ident('a1'), 2n), { incidentId: 3n, action: 'STATUS_CHANGED', entityType: 'incident', entityId: 3n });
+  const a = appendEvent(ctxFor(store, ident('a1'), 1n), { incidentId: 'inc-3', action: 'INCIDENT_CREATED', entityType: 'incident', entityId: 'inc-3' });
+  const b = appendEvent(ctxFor(store, ident('a1'), 2n), { incidentId: 'inc-3', action: 'STATUS_CHANGED', entityType: 'incident', entityId: 'inc-3' });
   assert.equal(a.seq, 1n);
-  assert.equal(a.prev_hash, genesisHash(3n));
+  assert.equal(a.prev_hash, genesisHash('inc-3'));
   assert.equal(b.seq, 2n);
   assert.equal(b.prev_hash, a.hash);
-  assert.deepEqual(headOf(store, 3n), { seq: 2n, hash: b.hash });
+  assert.deepEqual(headOf(store, 'inc-3'), { seq: 2n, hash: b.hash });
 });
 
 test('incidents keep separate chains', () => {
   const store = makeDb();
-  appendEvent(ctxFor(store, ident('a1'), 1n), { incidentId: 1n, action: 'INCIDENT_CREATED', entityType: 'incident', entityId: 1n });
-  const other = appendEvent(ctxFor(store, ident('a1'), 2n), { incidentId: 2n, action: 'INCIDENT_CREATED', entityType: 'incident', entityId: 2n });
+  appendEvent(ctxFor(store, ident('a1'), 1n), { incidentId: 'inc-1', action: 'INCIDENT_CREATED', entityType: 'incident', entityId: 'inc-1' });
+  const other = appendEvent(ctxFor(store, ident('a1'), 2n), { incidentId: 'inc-2', action: 'INCIDENT_CREATED', entityType: 'incident', entityId: 'inc-2' });
   assert.equal(other.seq, 1n);
-  assert.equal(verifyChain(1n, eventsOf(store, 1n)).ok, true);
-  assert.equal(verifyChain(2n, eventsOf(store, 2n)).ok, true);
+  assert.equal(verifyChain('inc-1', eventsOf(store, 'inc-1')).ok, true);
+  assert.equal(verifyChain('inc-2', eventsOf(store, 'inc-2')).ok, true);
 });
 
 test('events written by the module itself are marked system', () => {
   const store = makeDb();
-  const e = appendEvent(ctxFor(store, MODULE, 1n), { incidentId: 0n, action: 'MODULE_INITIALIZED', entityType: 'module', entityId: 'x' });
+  const e = appendEvent(ctxFor(store, MODULE, 1n), { incidentId: 'inc-0', action: 'MODULE_INITIALIZED', entityType: 'module', entityId: 'x' });
   assert.equal(e.actor_kind, 'system');
 });
 
@@ -58,23 +58,23 @@ test('the order events arrive in does not matter', () => {
 test('ATTACK edit a row: hash mismatch', () => {
   const { incident, events, head } = buildDemo();
   const es = clone(events);
-  es[12].metadata = es[12].metadata.replace('03:12', '09:00'); // hide the Sunday access
+  es[19].metadata = es[19].metadata.replace('03:12', '09:00'); // hide the attacker's Sunday login (E-007)
   const r = verifyChain(incident, es, { head });
   expectBroken(r, 'HASH_MISMATCH');
-  assert.equal(r.firstBreakSeq, 13n);
+  assert.equal(r.firstBreakSeq, 20n);
 });
 
 test('ATTACK edit a row and recompute its hash: the next link breaks', () => {
   const { incident, events, head } = buildDemo();
   const es = clone(events);
-  es[12].metadata = es[12].metadata.replace('03:12', '09:00');
-  rehash(es[12]);
+  es[19].metadata = es[19].metadata.replace('03:12', '09:00');
+  rehash(es[19]);
   expectBroken(verifyChain(incident, es, { head }), 'LINK_BROKEN');
 });
 
 test('ATTACK delete a row: sequence gap and broken link', () => {
   const { incident, events, head } = buildDemo();
-  const es = clone(events).filter((e) => e.seq !== 20n); // erase the revocation
+  const es = clone(events).filter((e) => e.seq !== 18n); // erase the source trust change
   expectBroken(verifyChain(incident, es, { head }), 'SEQ_GAP', 'LINK_BROKEN');
 });
 
@@ -104,11 +104,11 @@ test('ATTACK cut the tail AND fix the head table: only a witness anchor catches 
 test('ATTACK rewrite the whole chain after an edit: only a witness anchor catches it', () => {
   const { incident, events } = buildDemo();
   const es = clone(events);
-  es[12].metadata = es[12].metadata.replace('03:12', '09:00');
-  for (let k = 12; k < es.length; k++) { if (k) es[k].prevHash = es[k - 1].hash; rehash(es[k]); }
+  es[19].metadata = es[19].metadata.replace('03:12', '09:00');
+  for (let k = 19; k < es.length; k++) { if (k) es[k].prevHash = es[k - 1].hash; rehash(es[k]); }
   const head = { seq: es.at(-1)!.seq, hash: es.at(-1)!.hash };
   assert.equal(verifyChain(incident, es, { head }).ok, true, 'limit: a full rewrite is self-consistent');
-  expectBroken(verifyChain(incident, es, { head, anchors: [{ seq: 18n, hash: events[17].hash }] }), 'ANCHOR_MISMATCH');
+  expectBroken(verifyChain(incident, es, { head, anchors: [{ seq: 21n, hash: events[20].hash }] }), 'ANCHOR_MISMATCH');
 });
 
 test('ATTACK swap timestamps to reorder history: time reversed', () => {
@@ -120,17 +120,17 @@ test('ATTACK swap timestamps to reorder history: time reversed', () => {
 });
 
 test('ATTACK splice a valid event from another incident: wrong incident', () => {
-  const a = buildDemo(7n), b = buildDemo(8n);
+  const a = buildDemo('northstar'), b = buildDemo('westgate');
   const es = clone(a.events);
   es[4] = { ...b.events[4] };
-  expectBroken(verifyChain(7n, es), 'WRONG_INCIDENT', 'LINK_BROKEN');
+  expectBroken(verifyChain('northstar', es), 'WRONG_INCIDENT', 'LINK_BROKEN');
 });
 
 test('ATTACK present one incident\'s whole chain as another\'s: genesis differs', () => {
-  const b = buildDemo(8n);
-  const relabelled = clone(b.events).map((e) => ({ ...e, incidentId: 7n }));
+  const b = buildDemo('westgate');
+  const relabelled = clone(b.events).map((e) => ({ ...e, incidentId: 'northstar' }));
   relabelled.forEach(rehash);
-  expectBroken(verifyChain(7n, relabelled), 'LINK_BROKEN');
+  expectBroken(verifyChain('northstar', relabelled), 'LINK_BROKEN');
 });
 
 test('client clock skew is reported as a warning, not a break', () => {
@@ -158,9 +158,11 @@ test('rejects malformed or oversized metadata', () => {
 test('rejects unknown actions and oversized ids, and writes nothing', () => {
   const store = makeDb();
   const ctx = ctxFor(store, ident('a1'), 1n);
-  assert.throws(() => appendEvent(ctx, { incidentId: 1n, action: 'DROP_TABLE' as never, entityType: 'x', entityId: 'y' }), /unknown/);
-  assert.throws(() => appendEvent(ctx, { incidentId: 1n, action: 'EVIDENCE_ADDED', entityType: 'x', entityId: 'y'.repeat(200) }), /too long/);
-  assert.throws(() => appendEvent(ctx, { incidentId: 1n, action: 'EVIDENCE_ADDED', entityType: 'x', entityId: 'bad\uDC00' }), /Unicode/);
+  assert.throws(() => appendEvent(ctx, { incidentId: 'inc-1', action: 'DROP_TABLE' as never, entityType: 'x', entityId: 'y' }), /unknown/);
+  assert.throws(() => appendEvent(ctx, { incidentId: 'Northstar Retail', action: 'EVIDENCE_ADDED', entityType: 'x', entityId: 'y' }), /incident id/);
+  assert.throws(() => appendEvent(ctx, { incidentId: '', action: 'EVIDENCE_ADDED', entityType: 'x', entityId: 'y' }), /incident id/);
+  assert.throws(() => appendEvent(ctx, { incidentId: 'inc-1', action: 'EVIDENCE_ADDED', entityType: 'x', entityId: 'y'.repeat(200) }), /too long/);
+  assert.throws(() => appendEvent(ctx, { incidentId: 'inc-1', action: 'EVIDENCE_ADDED', entityType: 'x', entityId: 'bad\uDC00' }), /Unicode/);
   assert.equal(store.events.length, 0);
   assert.equal(store.heads.size, 0);
 });
@@ -172,10 +174,10 @@ test('logging stays fast: 5,000 appends + full verify', () => {
   const who = ident('a1');
   const t0 = performance.now();
   for (let i = 1; i <= 5000; i++) {
-    appendEvent(ctxFor(store, who, BigInt(i)), { incidentId: 1n, action: 'MESSAGE_SENT', entityType: 'message', entityId: i, metadata: { chars: 40 } });
+    appendEvent(ctxFor(store, who, BigInt(i)), { incidentId: 'inc-1', action: 'MESSAGE_SENT', entityType: 'message', entityId: i, metadata: { chars: 40 } });
   }
   const t1 = performance.now();
-  const r = verifyChain(1n, eventsOf(store, 1n), { head: headOf(store, 1n) });
+  const r = verifyChain('inc-1', eventsOf(store, 'inc-1'), { head: headOf(store, 'inc-1') });
   const t2 = performance.now();
   assert.equal(r.ok, true);
   console.log(`    append: ${(((t1 - t0) / 5000) * 1000).toFixed(1)} µs/event · verify 5,000: ${(t2 - t1).toFixed(0)} ms`);

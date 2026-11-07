@@ -9,6 +9,8 @@ export const AUDIT_ACTIONS = [
   'INVITE_CREATED', 'INVITE_REDEEMED', 'ACCESS_DENIED',
   // incident record
   'INCIDENT_CREATED', 'INCIDENT_UPDATED', 'STATUS_CHANGED', 'SEVERITY_CHANGED',
+  // sources (trust is separate from evidence standing)
+  'SOURCE_ADDED', 'SOURCE_TRUST_CHANGED',
   // scope
   'SCOPE_ITEM_ADDED', 'SCOPE_ITEM_UPDATED',
   // evidence, claims, decisions
@@ -28,5 +30,11 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 const SET: ReadonlySet<string> = new Set(AUDIT_ACTIONS);
 export const isAuditAction = (a: string): a is AuditAction => SET.has(a);
 
-/** Incident id 0 holds platform-level events (bootstrap, admin grants). */
-export const PLATFORM_INCIDENT = 0n;
+/** Incident ids match the backend module's rule: 1-64 of a-z, 0-9 and '-'. */
+export const INCIDENT_ID = /^[a-z0-9-]{1,64}$/;
+
+/** Platform-level events (bootstrap, admin grants, identity config). The leading
+ *  underscore can never pass INCIDENT_ID, so no real incident can collide with it. */
+export const PLATFORM_INCIDENT = '_platform';
+
+export const isIncidentId = (id: string): boolean => id === PLATFORM_INCIDENT || INCIDENT_ID.test(id);

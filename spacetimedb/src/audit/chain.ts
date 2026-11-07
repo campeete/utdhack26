@@ -17,7 +17,7 @@ export const CLOCK_SKEW_WARN_MICROS = 120_000_000n; // 2 minutes
 
 /** Fields covered by the hash. Integers are carried as bigint, identities as hex. */
 export interface EventFields {
-  incidentId: bigint;
+  incidentId: string;
   seq: bigint;
   actor: string; // identity hex (no 0x)
   actorKind: 'user' | 'service' | 'system';
@@ -59,7 +59,7 @@ export const hashEvent = (e: EventFields): string => sha256Hex(canonical(e));
 
 /** Each incident's chain starts from its own genesis value, so a chain (or an
  *  event) copied from one incident never verifies inside another. */
-export const genesisHash = (incidentId: bigint): string =>
+export const genesisHash = (incidentId: string): string =>
   sha256Hex(`${FORMAT}|genesis|${incidentId.toString()}`);
 
 // ---------------------------------------------------------------- validation
@@ -129,7 +129,7 @@ export interface VerifyResult {
  *  sorted by seq first. Pass `head` (from the head table) to catch a deleted
  *  tail, and `anchors` (hashes saved by witnesses) to catch a full rewrite. */
 export function verifyChain(
-  incidentId: bigint,
+  incidentId: string,
   input: readonly AuditEvent[],
   opts: { head?: Head; anchors?: readonly Anchor[] } = {},
 ): VerifyResult {
@@ -183,15 +183,15 @@ export function verifyChain(
 // ---------------------------------------------------------------- export format
 
 /** JSON-safe export (bigints as strings) consumed by tools/verify_audit.py. */
-export function exportChain(incidentId: bigint, events: readonly AuditEvent[], head?: Head): string {
+export function exportChain(incidentId: string, events: readonly AuditEvent[], head?: Head): string {
   const s = (v: bigint) => v.toString();
   return JSON.stringify(
     {
       format: FORMAT,
-      incident_id: s(incidentId),
+      incident_id: incidentId,
       head: head ? { seq: s(head.seq), hash: head.hash } : null,
       events: events.map((e) => ({
-        incident_id: s(e.incidentId), seq: s(e.seq), actor: e.actor, actor_kind: e.actorKind,
+        incident_id: e.incidentId, seq: s(e.seq), actor: e.actor, actor_kind: e.actorKind,
         server_ts_micros: s(e.serverTsMicros), client_ts_micros: s(e.clientTsMicros),
         action: e.action, entity_type: e.entityType, entity_id: e.entityId, metadata: e.metadata,
         client_sig: e.clientSig, prev_hash: e.prevHash, hash: e.hash,
