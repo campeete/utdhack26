@@ -11,7 +11,8 @@ export interface NemotronConfig {
   thinking: boolean;
 }
 
-export const DEFAULT_MODEL = 'nvidia/nemotron-3-super-120b-a12b';
+// Ultra answered in about 2 s in testing; Super returned 404 on our free endpoint.
+export const DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b';
 export const DEFAULT_BASE_URL = 'https://integrate.api.nvidia.com/v1';
 
 export function configFromEnv(env: Record<string, string | undefined> = process.env): NemotronConfig {

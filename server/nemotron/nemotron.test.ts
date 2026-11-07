@@ -12,9 +12,9 @@ const request = () => {
   return { data, request: buildReassessmentRequest(data, 'P-001') };
 };
 
-test('config needs a key, defaults to Nemotron 3 Super, and refuses plain HTTP', () => {
+test('config needs a key, defaults to Nemotron 3 Ultra, and refuses plain HTTP', () => {
   assert.throws(() => configFromEnv({}), /NVIDIA_API_KEY/);
-  assert.equal(config.model, 'nvidia/nemotron-3-super-120b-a12b');
+  assert.equal(config.model, 'nvidia/nemotron-3-ultra-550b-a55b');
   assert.equal(config.thinking, false);
   assert.throws(() => configFromEnv({ NVIDIA_API_KEY: 'k', NEMOTRON_BASE_URL: 'http://example.com' }), /HTTPS/);
 });
