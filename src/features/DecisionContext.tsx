@@ -8,7 +8,7 @@ import type {
   Snapshot,
   Source,
 } from "../../shared/contracts";
-import { Status, utc } from "../components/ui";
+import { localTime, Status } from "../components/ui";
 
 /** Source → evidence → assumption → decision → team updates, with the weak link highlighted. */
 export function DecisionTrail({
@@ -54,7 +54,7 @@ export function DecisionTrail({
     },
     {
       kind: `Decision ${decision.id}`,
-      title: `${decision.title} · ${decision.owner}${decision.approvedAt ? ` · approved ${utc(decision.approvedAt)} UTC` : ""}`,
+      title: `${decision.title} · ${decision.owner}${decision.approvedAt ? ` · approved ${localTime(decision.approvedAt)}` : ""}`,
       status: decision.state,
       weak: false,
     },

@@ -1,6 +1,6 @@
 import { KeyRound, ShieldAlert, UserRound } from "lucide-react";
 import type { Account, Evidence } from "../../shared/contracts";
-import { label } from "../components/ui";
+import { label, localDateTime } from "../components/ui";
 
 /** Accounts a report names, matched by name or job title in the report text. No other link is assumed. */
 export function accountsNamedIn(evidence: Evidence | undefined, accounts: Account[] | undefined): Account[] {
@@ -11,7 +11,6 @@ export function accountsNamedIn(evidence: Evidence | undefined, accounts: Accoun
   );
 }
 
-const when = (iso: string) => new Date(iso).toISOString().replace("T", " ").replace(":00.000Z", " UTC");
 
 export function AccountsNamed({ accounts }: { accounts: Account[] }) {
   if (!accounts.length) return null;
@@ -35,7 +34,7 @@ export function AccountsNamed({ accounts }: { accounts: Account[] }) {
                 {a.usedByAttacker && <span className="tag bad">Used by attacker</span>}
                 <span className="tag">{label(a.status)}</span>
               </div>
-              <small>Last login {when(a.lastLogin)}</small>
+              <small>Last login {localDateTime(a.lastLogin)}</small>
             </div>
           </li>
         ))}

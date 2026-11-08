@@ -3,9 +3,7 @@ import { ArrowRight, Check, RotateCcw, Sparkles } from 'lucide-react';
 import type { Proposal, Snapshot } from '../../shared/contracts';
 import { FEEDBACK_MAX, normalizeFeedback } from '../../shared/reassessment';
 import type { IncidentData } from '../data/interface';
-import { Modal } from '../components/ui';
-
-const when = (iso: string) => new Date(iso).toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+import { localDateTime, Modal } from '../components/ui';
 
 /**
  * Dismissal dialog for a suggested review. Cancel, × and Escape close it with
@@ -70,7 +68,7 @@ export function DismissalRecord({ proposal, data, adapter, onUpdate, onOpenRevis
   }
   return <div className="dismissal-record">
     <p className="next-summary">Suggestion dismissed. The decision and team update remain unchanged.</p>
-    {d && <dl className="metadata"><dt>Dismissed by</dt><dd>{d.reviewer}</dd><dt>When</dt><dd>{when(d.at)}</dd><dt>Reason</dt><dd>{d.feedback || <span className="muted">No feedback given · not sent to Nora</span>}</dd></dl>}
+    {d && <dl className="metadata"><dt>Dismissed by</dt><dd>{d.reviewer}</dd><dt>When</dt><dd>{localDateTime(d.at)}</dd><dt>Reason</dt><dd>{d.feedback || <span className="muted">No feedback given · not sent to Nora</span>}</dd></dl>}
     {r && <div className="reassessment" aria-live="polite">
       {r.state === 'requested' && <div role="status" className="reassess-progress"><span>Nora is reassessing with your feedback{r.attempt > 1 ? ` (attempt ${r.attempt})` : ''}…</span><span className="progress-track" aria-hidden="true"><span /></span></div>}
       {r.state === 'revised' && <div className="reassess-result"><p><Sparkles size={15} aria-hidden="true" />Nora proposed a revised suggestion. It needs human review before it changes anything.</p>

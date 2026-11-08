@@ -3,10 +3,10 @@ import { ChevronDown, Send, ShieldOff, Sparkles } from 'lucide-react';
 import { proposalForEvidence } from '../../shared/reassessment';
 import type { Briefing as BriefingRecord, Snapshot } from '../../shared/contracts';
 import type { IncidentData } from '../data/interface';
-import { label, Status, utc } from '../components/ui';
+import { label, localTime, Status } from '../components/ui';
 
 export function Activity({ data }: { data: Snapshot }) {
-  return <section className="activity" aria-label="Incident activity"><ol>{data.activity.map(a => <li key={a.id}><time>{utc(a.at)} UTC</time><div><p>{a.text}</p><small>{a.actor}</small></div></li>)}</ol></section>;
+  return <section className="activity" aria-label="Incident activity"><ol>{data.activity.map(a => <li key={a.id}><time>{localTime(a.at)}</time><div><p>{a.text}</p><small>{a.actor}</small></div></li>)}</ol></section>;
 }
 export function Briefing({ briefing }: { briefing: BriefingRecord }) {
   return <><div className="briefing-heading"><h3>{briefing.title}</h3></div>{briefing.state === 'outdated' && <p className="notice">A supporting decision needs review. Verify this briefing before sharing.</p>}<p className="briefing-copy">{briefing.text}</p><small className="muted">Depends on {briefing.decisionIds.join(', ')} · Original text retained</small></>;
@@ -113,7 +113,7 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
         return <article key={m.id} className={`bubble ${mine ? 'mine' : ''} ${m.text.startsWith('Status ·') ? 'status-post' : ''}`}>
           <span className="avatar" aria-hidden="true">{initials(m.author)}</span>
           <div className="bubble-body">
-            <div className="bubble-meta"><strong>{mine ? 'You' : displayName(m.author)}</strong><span>→ {recipient}</span><time>{utc(m.at)} UTC</time></div>
+            <div className="bubble-meta"><strong>{mine ? 'You' : displayName(m.author)}</strong><span>→ {recipient}</span><time>{localTime(m.at)}</time></div>
             <MessageText text={m.text} data={data} onOpenReference={onOpenReference} />
           </div>
         </article>;
