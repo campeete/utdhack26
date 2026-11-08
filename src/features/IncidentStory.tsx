@@ -18,7 +18,7 @@ import { proposalForEvidence } from "../../shared/reassessment";
 import { DismissalRecord, DismissDialog } from "./DismissDialog";
 import { DecisionTrail, TeamUpdates } from "./DecisionContext";
 import { AccountsNamed, accountsNamedIn } from "./AccountContext";
-import { DecisionActions, DecisionTasks, FlagAndAssign, NextAction } from "./TeamActions";
+import { DecisionActions, DecisionTasks, FlagAndAssign, NextAction, ReplacePlan, verificationVerdict } from "./TeamActions";
 import { tierOf } from "../../shared/contracts";
 
 type Step = 1 | 2 | 3;
@@ -278,7 +278,9 @@ export function IncidentStory({
                             </div>
                           </dl>
                           <NoraAssessment review={noraReview} proposal={noraProposal} live={adapter.mode === "live"} hasEvidence={!!evidence} currentEvidenceId={evidence?.id} />
-                          <DecisionActions decision={decision} data={data} adapter={adapter} onUpdate={onUpdate} />
+                          {decision.state === "needs_review" && ["conflict", "urgent"].includes(verificationVerdict(data, decision.id)?.outcome ?? "")
+                            ? <ReplacePlan decision={decision} data={data} adapter={adapter} onUpdate={onUpdate} />
+                            : <DecisionActions decision={decision} data={data} adapter={adapter} onUpdate={onUpdate} />}
                           <div className="context-toggles" role="group" aria-label="More about this decision">
                             <button
                               aria-expanded={detail === "trail"}

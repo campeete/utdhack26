@@ -106,12 +106,11 @@ export function NextAction({ data, decisionId, pendingSuggestion }: { data: Snap
   if (decision?.state === 'needs_review') {
     const done = data.tasks.some(t => t.decisionId === decisionId && t.state === 'resolved');
     // What Nora (Nemotron) concluded about the newest verification findings for this decision.
-    const verifications = new Set(data.evidence.filter(e => e.title.startsWith(`Verification of ${decisionId}:`)).map(e => e.id));
-    const verdict = [...(data.evidenceReviews ?? [])].filter(r => verifications.has(r.evidenceId)).sort((x, y) => (x.at < y.at ? 1 : -1))[0];
+    const verdict = decisionId ? verificationVerdict(data, decisionId) : undefined;
     const text = !done ? 'A Tier 2 or Tier 3 assigns verification (Review the decision).'
       : !verdict ? 'Verification is done. Nora (Nemotron) is checking the findings against the decision…'
       : verdict.outcome === 'supports' ? 'The findings support the decision. A Tier 2 or Tier 3 re-approves it (Review the decision).'
-      : verdict.outcome === 'conflict' || verdict.outcome === 'urgent' ? 'The findings contradict this decision. A Tier 2 or Tier 3 changes the plan: record a new decision, then resolve this one.'
+      : verdict.outcome === 'conflict' || verdict.outcome === 'urgent' ? 'The findings contradict this plan. A Tier 2 or Tier 3 replaces it (Review the decision → Replace the plan).'
       : 'Verification is done. A Tier 2 or Tier 3 decides: re-approve the decision or resolve the issue.';
     return <p className={`next-action ${verdict?.outcome === 'supports' ? 'ok' : 'waiting'}`} role="status"><strong>Next action</strong><span>{text}</span></p>;
   }
@@ -289,4 +288,42 @@ function InviteLink({ data, adapter, onUpdate }: { data: Snapshot; adapter: Inci
     </div>}
     {error && <p role="alert" className="error">{error}</p>}
   </section>;
+}
+
+/** Nora (Nemotron)'s verdict on the newest verification findings for a decision, if any. */
+export function verificationVerdict(data: Snapshot, decisionId: string) {
+  const verifications = new Set(data.evidence.filter(e => e.title.startsWith(`Verification of ${decisionId}:`)).map(e => e.id));
+  return [...(data.evidenceReviews ?? [])].filter(r => verifications.has(r.evidenceId)).sort((x, y) => (x.at < y.at ? 1 : -1))[0];
+}
+
+/**
+ * Tier 2+: the findings contradict this decision, so replace it. In one step: record the
+ * new plan, confirm it, and retire the old decision (it stays in the record as resolved).
+ */
+export function ReplacePlan({ decision, data, adapter, onUpdate, onReplaced }: {
+  decision: Snapshot['decisions'][number]; data: Snapshot; adapter: IncidentData;
+  onUpdate: (next: Snapshot) => void; onReplaced?: (newDecisionId: string) => void;
+}) {
+  const [run, busy, error] = useRun(onUpdate);
+  const [title, setTitle] = useState('Rebuild the customer portal from the clean Friday snapshot');
+  const [assumption, setAssumption] = useState("Friday's snapshot predates the 03:12 session");
+  if (tierOf(adapter.identity?.roles ?? []) < 2) return <p className="procedure-note">A Tier 2 or Tier 3 replaces the plan.</p>;
+  async function replace() {
+    const before = new Set(data.decisions.map(d => d.id));
+    let next = await adapter.recordDecision({ title: title.trim(), assumption: assumption.trim(), evidenceIds: [] });
+    let created = next.decisions.find(d => !before.has(d.id));
+    for (let i = 0; i < 20 && !created; i++) { await new Promise(r => setTimeout(r, 100)); next = await adapter.load(); created = next.decisions.find(d => !before.has(d.id)); }
+    if (!created) throw new Error('The new plan was recorded; approve it from its issue.');
+    await adapter.approveDecision(created.id);
+    next = await adapter.resolveDecision(decision.id);
+    onReplaced?.(created.id);
+    return next;
+  }
+  return <form className="assign-form replace-plan" onSubmit={e => { e.preventDefault(); void run(replace); }}>
+    <p className="procedure-recommendation"><span>The findings contradict this plan</span>Replace it: the new plan is confirmed and this one is retired. Both stay in the record.</p>
+    <label>New plan <input value={title} onChange={e => setTitle(e.target.value)} maxLength={200} required disabled={busy} /></label>
+    <label>It rests on <input value={assumption} onChange={e => setAssumption(e.target.value)} maxLength={1000} required disabled={busy} /></label>
+    <button className="primary" disabled={busy || !title.trim() || !assumption.trim()}>{busy ? 'Replacing…' : 'Replace the plan'}<Check size={14} /></button>
+    {error && <p role="alert" className="error">{error}</p>}
+  </form>;
 }

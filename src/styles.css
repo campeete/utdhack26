@@ -1310,3 +1310,4 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 .flag-assign { border-top: 0; padding-top: 0; margin: 10px 0; }
 .format-notes { margin-bottom: 8px; }
 .format-step { margin: 6px 0; font-size: 12.5px; }
+.replace-plan { border-top: 0; padding-top: 0; margin: 12px 0; }
