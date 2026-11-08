@@ -5,10 +5,11 @@ import type { IncidentData } from './data/interface';
 import { label, Modal } from './components/ui';
 import { Decisions, type Selection } from './features/Decisions';
 import { Administration, Scope } from './features/IncidentPages';
+import { Monitor } from './features/Monitor';
 
-type View = 'workspace' | 'scope';
+type View = 'workspace' | 'monitor' | 'scope';
 const views: { id: View; label: string }[] = [
-  { id: 'workspace', label: 'Workspace' }, { id: 'scope', label: 'Scope' },
+  { id: 'workspace', label: 'Workspace' }, { id: 'monitor', label: 'Monitor' }, { id: 'scope', label: 'Scope' },
 ];
 export default function App({ adapter }: { adapter: IncidentData }) {
   const [view, setView] = useState<View>('workspace');
@@ -19,7 +20,7 @@ export default function App({ adapter }: { adapter: IncidentData }) {
   const [retry, setRetry] = useState(0);
   const [message, setMessage] = useState('');
   const [adminOpen, setAdminOpen] = useState(false);
-  const scrollPositions = useRef<Record<View, number>>({ workspace: 0, scope: 0 });
+  const scrollPositions = useRef<Record<View, number>>({ workspace: 0, monitor: 0, scope: 0 });
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
@@ -41,7 +42,7 @@ export default function App({ adapter }: { adapter: IncidentData }) {
     return () => { active = false; };
   }, [adapter, retry]);
   // Results that arrive later, such as a finished Nemotron reassessment.
-  useEffect(() => adapter.subscribe(next => { setData(next); setMessage('Reassessment update received.'); }), [adapter]);
+  useEffect(() => adapter.subscribe(next => { setData(next); setMessage(adapter.mode === 'live' ? 'Workspace updated live.' : 'Reassessment update received.'); }), [adapter]);
   function update(next: Snapshot) {
     setData(next);
     setMessage(adapter.mode === 'fixture' ? 'Local fixture updated. Changes last until reload.' : 'Workspace updated.');
@@ -69,8 +70,9 @@ export default function App({ adapter }: { adapter: IncidentData }) {
     {data ? <main id="main" tabIndex={-1}>
       <p className="sr-only" role="status">{message}</p>
       <section className="view" hidden={view !== 'workspace'} aria-label="Incident workspace"><Decisions data={data} adapter={adapter} onUpdate={update} selection={selection} onSelect={setSelection} /></section>
+      <section className="view secondary-view" hidden={view !== 'monitor'} aria-label="Monitor"><Monitor data={data} adapter={adapter} onUpdate={update} /></section>
       <section className="view secondary-view" hidden={view !== 'scope'} aria-label="Incident scope"><div className="view-heading"><h1>Scope of the incident</h1><p>What is affected, and what remains uncertain.</p></div><Scope data={data} /></section>
-      <footer><span>{data.incident.summary} <span className="footer-dot">·</span> Commander: {data.incident.commander}</span><span>Demo data · Sign-in, live sync and Nora’s analysis are not connected</span></footer>
+      <footer><span>{data.incident.summary} <span className="footer-dot">·</span> Commander: {data.incident.commander}</span><span>{adapter.mode === 'live' ? 'Live · SpacetimeDB · Nora on NVIDIA Nemotron' : 'Demo data · Sign-in, live sync and Nora’s analysis are not connected'}</span></footer>
     </main> : <main id="main" className="loading" aria-live="polite">{error ? <><h1>Couldn’t open the workspace.</h1><p role="alert">{error}</p><button className="primary" onClick={() => setRetry(v => v + 1)}>Try again</button></> : <><h1>Opening the workspace…</h1><p>Loading incident records.</p></>}</main>}
     {adminOpen && <Modal title="Access & administration" onClose={() => setAdminOpen(false)}>{data ? <Administration data={data} /> : <p>Incident membership is unavailable while the workspace loads.</p>}</Modal>}
   </div>;

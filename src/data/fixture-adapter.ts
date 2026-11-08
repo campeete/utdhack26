@@ -65,6 +65,18 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
       return copy();
     },
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
+    async approveFinding(id) {
+      requireReviewer();
+      data = { ...data, findings: (data.findings ?? []).map(f => f.id === id && f.state === 'open' ? { ...f, state: 'approved' as const, decidedBy: actor, decidedAt: new Date().toISOString(), version: f.version + 1 } : f) };
+      return copy();
+    },
+    async dismissFinding(id, feedback) {
+      requireReviewer();
+      if (feedback.length > 2000) throw new Error('Keep feedback under 2,000 characters.');
+      data = { ...data, findings: (data.findings ?? []).map(f => f.id === id && f.state === 'open' ? { ...f, state: 'dismissed' as const, dismissalFeedback: feedback.trim(), decidedBy: actor, decidedAt: new Date().toISOString(), version: f.version + 1 } : f) };
+      return copy();
+    },
+    async undoFinding() { throw new Error('Only a commander can undo an automatic fix.'); },
     async sendMessage(evidenceId, recipientId, text) {
       if (!text.trim() || text.length > 2000) throw new Error('Use 1–2,000 characters.');
       if (!data.evidence.some(e => e.id === evidenceId)) throw new Error('Select an existing evidence item before sending a message.');

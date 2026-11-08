@@ -12,49 +12,17 @@
 // is used only to connect and is never printed.
 
 import { readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { Identity, Timestamp } from 'spacetimedb';
-import { DbConnection } from './bindings.ts';
 import { buildScenario, STARTER_RULE, type Person } from './scenario.ts';
-import { spacetimeConfigFromEnv } from '../nora/spacetime.ts';
+import { arg, connectAdmin, step as runStep } from './connect.ts';
 
-try { process.loadEnvFile('.env'); } catch { /* use the shell environment */ }
-
-const arg = (name: string) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : undefined; };
-
-async function adminToken(): Promise<string> {
-  const fromEnv = process.env.SPACETIME_ADMIN_TOKEN?.trim();
-  if (fromEnv) return fromEnv;
-  const path = join(homedir(), '.config', 'spacetime', 'cli.toml');
-  let text: string;
-  try { text = await readFile(path, 'utf8'); } catch { throw new Error(`No SpacetimeDB CLI config at ${path}. Publish the module with the CLI first, or set SPACETIME_ADMIN_TOKEN.`); }
-  const m = /^\s*spacetimedb_token\s*=\s*"([^"]+)"/m.exec(text);
-  if (!m) throw new Error(`No spacetimedb_token in ${path}. Run "spacetime login" (or publish once) and try again.`);
-  return m[1];
-}
-
-const { uri, dbName } = spacetimeConfigFromEnv();
 const noraHex = arg('nora');
 const gatewayHex = arg('gateway');
 const people = (JSON.parse(await readFile('demo-data/people.json', 'utf8')) as { people: Person[] }).people;
 const { accounts, logins } = buildScenario(people);
 
-const conn = await new Promise<DbConnection>((resolve, reject) => {
-  adminToken().then(token => DbConnection.builder()
-    .withUri(uri).withDatabaseName(dbName).withToken(token)
-    .onConnect(c => resolve(c))
-    .onConnectError((_ctx, e) => reject(new Error(`Could not connect to ${uri} (${dbName}): ${e.message}`)))
-    .build(), reject);
-});
-await new Promise<void>((resolve, reject) => conn.subscriptionBuilder()
-  .onApplied(() => resolve()).onError(() => reject(new Error('Subscription failed.')))
-  .subscribe(['SELECT * FROM my_incidents', 'SELECT * FROM low_severity_rules']));
-
-const step = async (label: string, run: () => Promise<void>) => {
-  try { await run(); console.log(`✔ ${label}`); }
-  catch (e) { console.error(`✘ ${label}: ${(e as Error).message}`); conn.disconnect(); process.exit(1); }
-};
+const conn = await connectAdmin();
+const step = (label: string, run: () => Promise<void>) => runStep(conn, label, run);
 
 if (noraHex) await step('Registered Nora', () => conn.reducers.setServiceAccount({ identity: Identity.fromString(noraHex), kind: 'nora', enabled: true }));
 if (gatewayHex) await step('Registered the login gateway', () => conn.reducers.setServiceAccount({ identity: Identity.fromString(gatewayHex), kind: 'login_gateway', enabled: true }));

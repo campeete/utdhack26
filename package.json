@@ -24,7 +24,8 @@
     "nora": "tsx server/nora/run.ts",
     "nora:try": "tsx server/nora/try.ts",
     "demo:setup": "tsx server/demo/setup.ts",
-    "module:publish": "spacetime publish -s local --module-path spacetimedb"
+    "module:publish": "spacetime publish -s local --module-path spacetimedb",
+    "demo:admit": "tsx server/demo/admit.ts"
   },
   "dependencies": {
     "react": "18.3.1",

@@ -1148,3 +1148,58 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 :root[data-theme="light"] .account-tags .tag { color: #3f5f68; background: #eef3f4; border-color: #c9d6da; }
 :root[data-theme="light"] .account-tags .tag.warn { color: #80550f; background: #fff1d1; border-color: #e0bd79; }
 :root[data-theme="light"] .account-tags .tag.bad { color: #8f2a34; background: #fbe4e6; border-color: #e0a8ad; }
+
+/* ---------- Monitor: Nora's findings and the audit chain ---------- */
+.monitor { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 28px; margin: 32px 0; align-items: start; }
+@media (max-width: 1000px) { .monitor { grid-template-columns: minmax(0, 1fr); } }
+.monitor-column { min-width: 0; }
+.monitor-heading h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 20px; }
+.monitor-heading h2 svg { color: var(--accent); }
+.monitor-heading p { margin: 0 0 16px; color: var(--muted); font-size: 13px; max-width: 60ch; }
+.monitor-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.monitor-filters button { border: 1px solid var(--rule); background: transparent; color: var(--muted); border-radius: 999px; padding: 7px 12px; min-height: 36px; font-size: 13px; cursor: pointer; }
+.monitor-filters button[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); }
+.monitor-filters .count { display: inline-block; min-width: 1.6em; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--ink); font-size: 12px; }
+.monitor-empty { color: var(--muted); font-size: 14px; padding: 18px 0; }
+.finding-list, .audit-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.finding-card { border: 1px solid var(--rule); border-left: 4px solid var(--rule); border-radius: 6px; padding: 14px 16px; overflow-wrap: anywhere; }
+.finding-card.severity-critical { border-left-color: #d9534f; }
+.finding-card.severity-high { border-left-color: #e8893a; }
+.finding-card.severity-medium { border-left-color: #d6b23f; }
+.finding-card.severity-low { border-left-color: var(--accent); }
+.finding-card h3 { margin: 8px 0 4px; font-size: 15px; line-height: 1.35; }
+.finding-card p { margin: 6px 0; font-size: 13.5px; line-height: 1.5; }
+.finding-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: 12px; color: var(--muted); }
+.finding-top time { margin-left: auto; }
+.finding-account { font-weight: 650; color: var(--ink); font-family: ui-monospace, Menlo, monospace; }
+.severity-pill { text-transform: uppercase; letter-spacing: .5px; font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 4px; }
+.severity-pill.critical { background: color-mix(in srgb, #d9534f 22%, transparent); color: #f08a87; }
+.severity-pill.high { background: color-mix(in srgb, #e8893a 22%, transparent); color: #f2a865; }
+.severity-pill.medium { background: color-mix(in srgb, #d6b23f 22%, transparent); color: #e3c868; }
+.severity-pill.low { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+.finding-state { padding: 2px 8px; border-radius: 4px; border: 1px solid var(--rule); }
+.finding-state.state-auto_fixed { border-color: var(--accent); color: var(--accent); }
+.finding-signin { font-family: ui-monospace, Menlo, monospace; font-size: 12px !important; color: var(--muted); }
+.clue-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; padding: 0; }
+.clue-chips li { font-size: 12px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--ink); }
+.finding-meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 10px 0 6px; font-size: 13px; }
+.finding-meta dt { color: var(--muted); }
+.finding-meta dd { margin: 0; }
+.finding-meta a { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); }
+.finding-card .action-row { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; }
+.chain-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border-radius: 6px; font-size: 13px; margin: 0 0 14px; border: 1px solid var(--rule); }
+.chain-status.ok { border-color: var(--accent); color: var(--ink); }
+.chain-status.ok svg { color: var(--accent); }
+.chain-status.broken { border-color: #d9534f; color: #f08a87; background: color-mix(in srgb, #d9534f 10%, transparent); }
+.chain-status.unknown { color: var(--muted); }
+.chain-status code, .audit-list code { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; }
+.audit-list { gap: 0; max-height: 75vh; overflow-y: auto; border-top: 1px solid var(--rule); }
+.audit-list li { display: grid; grid-template-columns: 3.2em 1fr; gap: 8px; padding: 9px 4px; border-bottom: 1px solid var(--rule); font-size: 13px; overflow-wrap: anywhere; }
+.audit-list li.broken { background: color-mix(in srgb, #d9534f 12%, transparent); }
+.audit-list p { margin: 0 0 2px; }
+.audit-list small { color: var(--muted); }
+.audit-seq { color: var(--muted); font-family: ui-monospace, Menlo, monospace; font-size: 12px; padding-top: 1px; }
+:root[data-theme="light"] .severity-pill.critical { color: #a3302c; }
+:root[data-theme="light"] .severity-pill.high { color: #a6561a; }
+:root[data-theme="light"] .severity-pill.medium { color: #7d6412; }
+:root[data-theme="light"] .chain-status.broken { color: #a3302c; }

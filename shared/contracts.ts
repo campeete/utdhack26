@@ -38,12 +38,38 @@ export interface Account extends RecordBase {
   name: string; department: string; jobTitle: string; privileged: boolean;
   mfa: string; inCredentialLeak: boolean; usedByAttacker: boolean; status: string; lastLogin: string;
 }
+/** One of Nora's findings about a sign-in. `clues` never holds secrets (see spacetimedb/src/rules.ts). */
+export type FindingState = 'open' | 'approved' | 'dismissed' | 'auto_fixed' | 'undone';
+export interface Finding extends RecordBase {
+  accountRef: string; severity: 'low' | 'medium' | 'high' | 'critical'; queue: 'needs_human' | 'low_severity';
+  title: string; reason: string; clues: Record<string, string | number | boolean>;
+  attackTechnique: string; proposedFix: string; proposedAction: 'disable_account' | 'force_password_reset' | 'monitor_only';
+  ruleId?: string; state: FindingState; decidedBy?: string; decidedAt?: string; dismissalFeedback: string;
+  model: string; createdAt: string;
+  /** "Phone / iOS / Safari from 203.0.113.66, password only" */
+  signIn?: string;
+}
+/** One hash-chained audit event, as the monitor panel shows it. */
+export interface AuditEntry {
+  seq: number; at: string; actor: string; actorKind: 'user' | 'service' | 'system';
+  action: string; entityType: string; entityId: string; detail: string; hash: string; prevHash: string;
+}
+export interface AuditLog {
+  entries: AuditEntry[];
+  /** null: not checked (fixture mode); true: every hash and link verified in this browser. */
+  verified: boolean | null;
+  firstBreakSeq?: number;
+  headHash?: string;
+}
 export interface Snapshot {
   incident: { id: string; title: string; summary: string; status: string; severity: string; commander: string };
   sources: Source[]; evidence: Evidence[]; decisions: Decision[]; briefings: Briefing[];
   proposals: Proposal[]; tasks: Task[]; activity: Activity[]; messages: Message[]; scope: ScopeItem[]; members: Member[];
   /** Optional so existing producers (the server module) keep compiling until live accounts exist. */
   accounts?: Account[];
+  /** Nora's findings (live mode, or samples in fixture mode). */
+  findings?: Finding[];
+  audit?: AuditLog;
 }
 export interface Impact { decisionIds: string[]; briefingIds: string[] }
 export type DataState = 'loading' | 'ready' | 'denied' | 'revoked' | 'disconnected' | 'error';

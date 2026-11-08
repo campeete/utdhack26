@@ -1,6 +1,8 @@
 import type { Snapshot } from '../../shared/contracts';
 export interface IncidentData {
   readonly mode: 'fixture' | 'live';
+  /** Live mode: the browser's identity, so an admin can admit it. */
+  readonly identityHex?: string;
   readonly identity: {
     readonly name: string;
     readonly roles: readonly string[];
@@ -19,4 +21,10 @@ export interface IncidentData {
   /** Pushes snapshots that change without a local action, such as a finished reassessment. */
   subscribe(listener: (data: Snapshot) => void): () => void;
   sendMessage(evidenceId: string, recipientId: string, text: string): Promise<Snapshot>;
+  /** Runs the finding's proposed action. Analysts and commanders only. */
+  approveFinding(findingId: string): Promise<Snapshot>;
+  /** Optional feedback is saved to Nora's memory. */
+  dismissFinding(findingId: string, feedback: string): Promise<Snapshot>;
+  /** Reverses one of Nora's automatic fixes. Commanders only. */
+  undoFinding(findingId: string): Promise<Snapshot>;
 }

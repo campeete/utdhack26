@@ -16,29 +16,7 @@ import {
   type DbConnectionConfig as __DbConnectionConfig,
   type RemoteModule as __RemoteModule,
 } from 'spacetimedb';
-
-export const IncidentRow = __t.row({
-  id: __t.u64().primaryKey(),
-  title: __t.string(),
-  summary: __t.string(),
-  status: __t.string(),
-  severity: __t.string(),
-  commander: __t.option(__t.identity()),
-  createdBy: __t.identity().name('created_by'),
-  createdAt: __t.timestamp().name('created_at'),
-  updatedAt: __t.timestamp().name('updated_at'),
-  version: __t.u32(),
-});
-
-export const LowSeverityRuleRow = __t.row({
-  id: __t.u64().primaryKey(),
-  situation: __t.string(),
-  allowedAction: __t.string().name('allowed_action'),
-  enabled: __t.bool(),
-  createdBy: __t.identity().name('created_by'),
-  updatedAt: __t.timestamp().name('updated_at'),
-  version: __t.u32(),
-});
+import { IncidentRow, LowSeverityRuleRow } from '../../shared/module-rows.ts';
 
 // Struct argument types: field order must match the module's t.object(...) exactly.
 export const SeedAccountType = __t.object('SeedAccount', {
@@ -67,13 +45,14 @@ export const SeedLoginType = __t.object('SeedLogin', {
   password_breached: __t.option(__t.bool()),
 });
 
-export const DEMO_VIEWS = { my_incidents: ['incident', IncidentRow], low_severity_rules: ['low_severity_rule', LowSeverityRuleRow] } as const;
+export const DEMO_VIEWS = { my_incidents: 'incident', low_severity_rules: 'low_severity_rule' } as const;
 
 export const DEMO_REDUCERS = {
   create_incident: { title: __t.string(), summary: __t.string(), severity: __t.string() },
   set_service_account: { identity: __t.identity(), kind: __t.string(), enabled: __t.bool() },
   save_low_severity_rule: { rule_id: __t.option(__t.u64()), situation: __t.string(), allowed_action: __t.string(), enabled: __t.bool() },
   load_demo_scenario: { incident_id: __t.u64(), accounts: __t.array(SeedAccountType), logins: __t.array(SeedLoginType) },
+  admit_member: { incident_id: __t.u64(), user: __t.identity(), roles: __t.array(__t.string()) },
 } as const;
 
 const view = (name: string) => ({ name, indexes: [], constraints: [] });
@@ -86,6 +65,7 @@ const reducersSchema = __reducers(
   __reducerSchema('set_service_account', DEMO_REDUCERS.set_service_account),
   __reducerSchema('save_low_severity_rule', DEMO_REDUCERS.save_low_severity_rule),
   __reducerSchema('load_demo_scenario', DEMO_REDUCERS.load_demo_scenario),
+  __reducerSchema('admit_member', DEMO_REDUCERS.admit_member),
 );
 const proceduresSchema = __procedures();
 
