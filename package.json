@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "check:server": "tsc --noEmit -p spacetimedb",
-    "test": "npm run test:review && npm run test:audit && npm run test:nemotron",
+    "test": "npm run test:review && npm run test:audit && npm run test:nemotron && npm run test:module",
     "spacetime:generate": "spacetime generate --lang typescript --out-dir src/module_bindings --module-path spacetimedb",
     "test:audit": "tsx --test tests/audit/*.test.ts",
     "demo:chain": "tsx tools/make_demo_chain.ts demo-data/audit_demo_export.json",
@@ -19,7 +19,8 @@
     "data:accounts": "python3 tools/export_people_fixture.py demo-data/people.json src/data/northstar-accounts.ts",
     "test:nemotron": "tsx --test server/nemotron/*.test.ts server/intel/*.test.ts",
     "nemotron:try": "tsx server/nemotron/try-reassess.ts",
-    "intel:fetch": "tsx server/intel/fetch-intel.ts"
+    "intel:fetch": "tsx server/intel/fetch-intel.ts",
+    "test:module": "npm --workspace spacetimedb test"
   },
   "dependencies": {
     "react": "18.3.1",

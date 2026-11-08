@@ -10,43 +10,83 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export const Audit = __t.object("Audit", {
+export const ActivityEvent = __t.object("ActivityEvent", {
   id: __t.u64(),
-  incidentId: __t.string(),
+  incidentId: __t.u64(),
   actor: __t.identity(),
   action: __t.string(),
-  at: __t.timestamp(),
+  entityType: __t.string(),
+  entityId: __t.u64(),
+  detail: __t.string(),
+  timestamp: __t.timestamp(),
 });
-export type Audit = __Infer<typeof Audit>;
-
-export const Configuration = __t.object("Configuration", {
-  id: __t.string(),
-  operator: __t.identity(),
-  issuer: __t.string(),
-  audience: __t.string(),
-  readsEnabled: __t.bool(),
-});
-export type Configuration = __Infer<typeof Configuration>;
+export type ActivityEvent = __Infer<typeof ActivityEvent>;
 
 export const Incident = __t.object("Incident", {
-  id: __t.string(),
-  payload: __t.string(),
-  version: __t.u32(),
+  id: __t.u64(),
+  title: __t.string(),
+  summary: __t.string(),
+  status: __t.string(),
+  severity: __t.string(),
+  commander: __t.option(__t.identity()),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
   updatedAt: __t.timestamp(),
+  version: __t.u32(),
 });
 export type Incident = __Infer<typeof Incident>;
 
+export const IncidentActivity = __t.object("IncidentActivity", {});
+export type IncidentActivity = __Infer<typeof IncidentActivity>;
+
+export const IncidentMembers = __t.object("IncidentMembers", {});
+export type IncidentMembers = __Infer<typeof IncidentMembers>;
+
+export const IncidentMessages = __t.object("IncidentMessages", {});
+export type IncidentMessages = __Infer<typeof IncidentMessages>;
+
 export const Membership = __t.object("Membership", {
-  id: __t.string(),
-  incidentId: __t.string(),
-  identity: __t.identity(),
+  id: __t.u64(),
+  incidentId: __t.u64(),
+  user: __t.identity(),
   roles: __t.array(__t.string()),
   active: __t.bool(),
   admittedBy: __t.identity(),
-  updatedAt: __t.timestamp(),
+  admittedAt: __t.timestamp(),
+  revokedBy: __t.option(__t.identity()),
+  revokedAt: __t.option(__t.timestamp()),
 });
 export type Membership = __Infer<typeof Membership>;
 
+export const Message = __t.object("Message", {
+  id: __t.u64(),
+  incidentId: __t.u64(),
+  author: __t.identity(),
+  text: __t.string(),
+  recordedAt: __t.timestamp(),
+  clientRequestId: __t.option(__t.string()),
+});
+export type Message = __Infer<typeof Message>;
+
 export const MyIncidents = __t.object("MyIncidents", {});
 export type MyIncidents = __Infer<typeof MyIncidents>;
+
+export const MyMemberships = __t.object("MyMemberships", {});
+export type MyMemberships = __Infer<typeof MyMemberships>;
+
+export const PlatformAdmin = __t.object("PlatformAdmin", {
+  identity: __t.identity(),
+  grantedAt: __t.timestamp(),
+});
+export type PlatformAdmin = __Infer<typeof PlatformAdmin>;
+
+export const UserProfile = __t.object("UserProfile", {
+  identity: __t.identity(),
+  displayName: __t.string(),
+  updatedAt: __t.timestamp(),
+});
+export type UserProfile = __Infer<typeof UserProfile>;
+
+export const VisibleProfiles = __t.object("VisibleProfiles", {});
+export type VisibleProfiles = __Infer<typeof VisibleProfiles>;
 

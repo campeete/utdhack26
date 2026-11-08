@@ -6,15 +6,21 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
-import AcceptReviewReducer from "../accept_review_reducer";
-import BootstrapIncidentReducer from "../bootstrap_incident_reducer";
-import ConfigureIdentityReducer from "../configure_identity_reducer";
-import SendMessageReducer from "../send_message_reducer";
-import SetMembershipReducer from "../set_membership_reducer";
+import AddMessageReducer from "../add_message_reducer";
+import AdmitMemberReducer from "../admit_member_reducer";
+import AssignCommanderReducer from "../assign_commander_reducer";
+import CreateIncidentReducer from "../create_incident_reducer";
+import RevokeMemberReducer from "../revoke_member_reducer";
+import SetDisplayNameReducer from "../set_display_name_reducer";
+import SetMemberRolesReducer from "../set_member_roles_reducer";
+import UpdateIncidentReducer from "../update_incident_reducer";
 
-export type AcceptReviewParams = __Infer<typeof AcceptReviewReducer>;
-export type BootstrapIncidentParams = __Infer<typeof BootstrapIncidentReducer>;
-export type ConfigureIdentityParams = __Infer<typeof ConfigureIdentityReducer>;
-export type SendMessageParams = __Infer<typeof SendMessageReducer>;
-export type SetMembershipParams = __Infer<typeof SetMembershipReducer>;
+export type AddMessageParams = __Infer<typeof AddMessageReducer>;
+export type AdmitMemberParams = __Infer<typeof AdmitMemberReducer>;
+export type AssignCommanderParams = __Infer<typeof AssignCommanderReducer>;
+export type CreateIncidentParams = __Infer<typeof CreateIncidentReducer>;
+export type RevokeMemberParams = __Infer<typeof RevokeMemberReducer>;
+export type SetDisplayNameParams = __Infer<typeof SetDisplayNameReducer>;
+export type SetMemberRolesParams = __Infer<typeof SetMemberRolesReducer>;
+export type UpdateIncidentParams = __Infer<typeof UpdateIncidentReducer>;
 
