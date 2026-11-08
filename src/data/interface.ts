@@ -7,6 +7,7 @@ export interface IncidentData {
     readonly authenticated: boolean;
   } | null;
   load(): Promise<Snapshot>;
+  resolveDecision(decisionId: string): Promise<Snapshot>;
   confirm(proposalId: string, reason: string): Promise<Snapshot>;
   /**
    * Dismisses a suggestion. Empty or whitespace feedback dismisses without AI.

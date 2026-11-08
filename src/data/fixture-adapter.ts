@@ -1,7 +1,7 @@
 import type { Snapshot } from '../../shared/contracts';
 import type { IncidentData } from './interface';
 import { createFixture } from './fixtures';
-import { confirmReview } from '../../shared/review';
+import { confirmReview, resolveDecision } from '../../shared/review';
 import { buildReassessmentRequest, dismissProposal, recordReassessment, retryReassessment, REVIEW_ROLES, type ReassessmentRequest } from '../../shared/reassessment';
 
 /** Stands in for the server-side Nemotron worker. Returns the model's raw reply. */
@@ -49,6 +49,7 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
     mode: 'fixture',
     identity,
     async load() { return copy(); },
+    async resolveDecision(id) { requireReviewer(); data = resolveDecision(data, id, actor, new Date().toISOString()); return copy(); },
     async confirm(id, reason) { requireReviewer(); data = confirmReview(data, id, reason, actor, new Date().toISOString()); return copy(); },
     async dismiss(id, feedback) {
       requireReviewer();

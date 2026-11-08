@@ -45,12 +45,15 @@ export function IncidentStory({
   const decision = data.decisions.find((d) => d.id === selection.decisionId);
   // An explicitly opened suggestion wins; otherwise an open one, then the newest
   // (so Nora's revision shows after a dismissal with feedback).
-  const proposal =
+  const selectedProposal =
     (selection.proposalId
       ? data.proposals.find(
           (p) => p.id === selection.proposalId && p.evidenceId === evidence?.id,
         )
       : undefined) ?? proposalForEvidence(data, evidence?.id, decision?.id);
+  const proposal = decision?.state === "closed" && selectedProposal?.state === "pending"
+    ? undefined
+    : selectedProposal;
   const task = data.tasks.find(
     (t) => t.proposalId === proposal?.id && t.decisionId === decision?.id,
   );
@@ -64,6 +67,8 @@ export function IncidentStory({
   const [composer, setComposer] = useState<ReviewAction | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [dismissOpen, setDismissOpen] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [resolveError, setResolveError] = useState("");
   const [detail, setDetail] = useState<"trail" | "updates" | null>(null);
   const stepHeadings = useRef<(HTMLButtonElement | null)[]>([]);
   function showStep(next: Step) {
@@ -75,6 +80,18 @@ export function IncidentStory({
     setReviewBusy(false);
     setComposer(null);
     showStep(next.tasks.some((t) => t.proposalId === proposal?.id) ? 3 : 2);
+  }
+  async function resolve() {
+    if (!decision || decision.state === "closed" || resolving) return;
+    setResolving(true);
+    setResolveError("");
+    try {
+      onUpdate(await adapter.resolveDecision(decision.id));
+    } catch (error) {
+      setResolveError((error as Error).message);
+    } finally {
+      setResolving(false);
+    }
   }
   const titles = [
     "Read the update",
@@ -160,14 +177,14 @@ export function IncidentStory({
                         <>
                           <div className="procedure-evidence-meta">
                             <Status value={evidence.standing} />
-                            {source?.trust === "under_review" && (
+                            {decision?.state !== "closed" && source?.trust === "under_review" && (
                               <Status value="under_review" />
                             )}
                             <span className="procedure-report-time">
                               {evidence.id} · {localTime(evidence.recordedAt)}
                             </span>
                           </div>
-                          {source?.trust === "under_review" && (
+                          {decision?.state !== "closed" && source?.trust === "under_review" && (
                             <p className="procedure-concern">
                               {source.reason.split(/(?<=[.!?])\s/)[0]}
                             </p>
@@ -177,7 +194,7 @@ export function IncidentStory({
                           </blockquote>
                           <AccountsNamed accounts={accountsNamedIn(evidence, data.accounts)} />
                           <p className="procedure-note">
-                            {source?.trust === "under_review"
+                            {decision?.state !== "closed" && source?.trust === "under_review"
                               ? "Source trust is under review. The report has not been declared false."
                               : "This is the original report, not a confirmed analysis finding."}
                           </p>
@@ -239,7 +256,7 @@ export function IncidentStory({
                             >
                               <GitBranch size={15} />
                               Decision trail
-                              {source?.trust === "under_review" && <span className="toggle-flag">Weak link</span>}
+                              {decision?.state !== "closed" && source?.trust === "under_review" && <span className="toggle-flag">Weak link</span>}
                               <ChevronDown size={14} />
                             </button>
                             {!!briefings.length && (
@@ -388,10 +405,16 @@ export function IncidentStory({
             <History size={14} />
             History
           </button>
-          {adapter.mode === "fixture" && (
-            <span>Synthetic incident · Local changes last until reload</span>
-          )}
+          {decision && (decision.state === "closed" ? (
+            <span className="resolve-complete" role="status">Resolved</span>
+          ) : (
+            <button className="primary" onClick={resolve} disabled={resolving}>
+              {resolving ? "Resolving…" : "Resolve"}
+              <Check size={16} />
+            </button>
+          ))}
         </div>
+        {resolveError && <p className="error" role="alert">{resolveError}</p>}
       </article>
       {record && (
         <SupportingRecords

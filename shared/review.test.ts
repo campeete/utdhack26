@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createFixture } from '../src/data/fixtures.ts';
-import { confirmReview, previewImpact } from './review.ts';
+import { confirmReview, previewImpact, resolveDecision } from './review.ts';
 const at = '2026-11-07T19:00:00Z';
 test('trust review affects only explicit dependencies; evidence and approval history stay intact', () => {
   const original = createFixture();
@@ -41,4 +41,14 @@ test('unrelated evidence has no dependent decision impact', () => {
   const data = createFixture(); data.sources[2].trust = 'under_review';
   const p = { ...data.proposals[0], sourceId: 'source-printer', evidenceId: 'E-006', excerpt: data.evidence[2].text, decisionVersions: {}, briefingVersions: {} };
   assert.deepEqual(previewImpact(data, p), { decisionIds: [], briefingIds: [] });
+});
+test('resolving a decision closes it, records activity, and is idempotent', () => {
+  const original = createFixture();
+  const resolved = resolveDecision(original, 'D-001', 'analyst', at);
+  assert.equal(resolved.decisions[0].state, 'closed');
+  assert.equal(resolved.decisions[0].version, original.decisions[0].version + 1);
+  assert.equal(resolved.activity[0].text, 'Decision D-001 resolved.');
+  assert.equal(resolveDecision(resolved, 'D-001', 'analyst', at), resolved);
+  assert.equal(original.decisions[0].state, 'approved');
+  assert.throws(() => resolveDecision(original, 'missing', 'analyst', at), /not found/);
 });

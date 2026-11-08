@@ -30,3 +30,14 @@ export function confirmReview(data: Snapshot, proposalId: string, reason: string
     activity: [{ id: `review:${proposal.id}`, incidentId: proposal.incidentId, version: 1, text: `Source review confirmed. ${reason.trim()}`, actor, at }, ...data.activity],
   };
 }
+
+export function resolveDecision(data: Snapshot, decisionId: string, actor: string, at: string): Snapshot {
+  const decision = data.decisions.find(d => d.id === decisionId && d.incidentId === data.incident.id);
+  if (!decision) throw new Error('Decision not found.');
+  if (decision.state === 'closed') return data;
+  return {
+    ...data,
+    decisions: data.decisions.map(d => d.id === decision.id ? { ...d, state: 'closed', version: d.version + 1 } : d),
+    activity: [{ id: `resolve:${decision.id}`, incidentId: decision.incidentId, version: 1, text: `Decision ${decision.id} resolved.`, actor, at }, ...data.activity],
+  };
+}
