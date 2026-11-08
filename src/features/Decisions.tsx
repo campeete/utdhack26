@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Activity as ActivityIcon, AlertTriangle, ArrowRight, Check, ChevronDown, FileText, Layers3, ShieldQuestion } from 'lucide-react';
 import type { Snapshot } from '../../shared/contracts';
 import type { IncidentData } from '../data/interface';
-import { focusContext, Status } from '../components/ui';
+import { focusContext, localTime, Status } from '../components/ui';
 import { IncidentConversation } from './IncidentPages';
 import { proposalForEvidence } from '../../shared/reassessment';
 import { IncidentStory } from './IncidentStory';
@@ -27,7 +27,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   }
   return <>
     <div className="workspace-overview">
-      <div className="workspace-heading"><div><span className="eyebrow"><ActivityIcon size={14} /> INCIDENT OPERATIONS</span><h1>Incident overview</h1><p>Monitor incoming evidence, decision risk, and verification work.</p></div><span className="review-count">{needsReviewCount ? `${needsReviewCount} decision${needsReviewCount === 1 ? '' : 's'} needs review` : `${reviewCount} review${reviewCount === 1 ? '' : 's'} to consider`}<span>{latestActivity ? `Last activity ${new Date(latestActivity.at).toISOString().slice(11, 16)} UTC` : 'All times UTC'}</span></span></div>
+      <div className="workspace-heading"><div><span className="eyebrow"><ActivityIcon size={14} /> INCIDENT OPERATIONS</span><h1>Incident overview</h1><p>Monitor incoming evidence, decision risk, and verification work.</p></div><span className="review-count">{needsReviewCount ? `${needsReviewCount} decision${needsReviewCount === 1 ? '' : 's'} needs review` : `${reviewCount} review${reviewCount === 1 ? '' : 's'} to consider`}<span>{latestActivity ? `Last activity ${localTime(latestActivity.at)} · local time` : 'Times shown in local time'}</span></span></div>
       <section className="signal-summary" aria-label="Incident signal summary">
       <article className={reviewCount ? 'signal-card attention' : 'signal-card'}>
         <span className="signal-icon"><AlertTriangle size={17} /></span><div><strong>{reviewCount}</strong><small>{reviewCount === 1 ? 'Proposal awaiting review' : 'Proposals awaiting review'}</small></div>

@@ -2,10 +2,10 @@ import { useEffect, useId, useState } from 'react';
 import { ChevronDown, Send, ShieldOff } from 'lucide-react';
 import type { Briefing as BriefingRecord, Snapshot } from '../../shared/contracts';
 import type { IncidentData } from '../data/interface';
-import { label, Status, utc } from '../components/ui';
+import { label, localTime, Status } from '../components/ui';
 
 export function Activity({ data }: { data: Snapshot }) {
-  return <section className="activity" aria-label="Incident activity"><ol>{data.activity.map(a => <li key={a.id}><time>{utc(a.at)} UTC</time><div><p>{a.text}</p><small>{a.actor}</small></div></li>)}</ol></section>;
+  return <section className="activity" aria-label="Incident activity"><ol>{data.activity.map(a => <li key={a.id}><time>{localTime(a.at)}</time><div><p>{a.text}</p><small>{a.actor}</small></div></li>)}</ol></section>;
 }
 export function Briefing({ briefing }: { briefing: BriefingRecord }) {
   return <><div className="briefing-heading"><h3>{briefing.title}</h3></div>{briefing.state === 'outdated' && <p className="notice">A supporting decision needs review. Verify this briefing before sharing.</p>}<p className="briefing-copy">{briefing.text}</p><small className="muted">Depends on {briefing.decisionIds.join(', ')} · Original text retained</small></>;
@@ -35,7 +35,7 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate }: { 
   return <section className="chat change-conversation" aria-labelledby={`${id}-heading`}>
     <div className="section-heading"><h3 id={`${id}-heading`}>Change discussion</h3><span className="local-label">Linked to {evidenceId}</span></div>
     <p className="conversation-note">Messages here are attached to “{evidence?.title ?? evidenceId}” and stay separate from other changes.</p>
-    <div className="messages" role="log" aria-live="polite">{messages.length ? messages.map(m => <article key={m.id}><div><strong>{m.author}</strong><time>{utc(m.at)} UTC</time></div><small className="message-recipient">To: {data.members.find(member => member.id === m.recipientId)?.name ?? 'Administrator'}</small><p>{m.text}</p></article>) : <p className="empty">No messages on this change yet.</p>}</div>
+    <div className="messages" role="log" aria-live="polite">{messages.length ? messages.map(m => <article key={m.id}><div><strong>{m.author}</strong><time>{localTime(m.at)}</time></div><small className="message-recipient">To: {data.members.find(member => member.id === m.recipientId)?.name ?? 'Administrator'}</small><p>{m.text}</p></article>) : <p className="empty">No messages on this change yet.</p>}</div>
     <form onSubmit={async e => { e.preventDefault(); if (busy || !selectedRecipient) return; setBusy(true); setError(''); try { onUpdate(await adapter.sendMessage(evidenceId, selectedRecipient.id, text)); setText(''); } catch (err) { setError((err as Error).message); } finally { setBusy(false); } }} aria-busy={busy}>
       <label htmlFor={`${id}-message`}>Send a message</label>
       <textarea id={`${id}-message`} required maxLength={2000} rows={3} value={text} onChange={e => setText(e.target.value)} placeholder="Add context to this change…" />

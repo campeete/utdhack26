@@ -9,7 +9,7 @@ import {
 import type { Snapshot } from "../../shared/contracts";
 import type { IncidentData } from "../data/interface";
 import type { Selection } from "./Decisions";
-import { focusContext, Modal, Status, utc } from "../components/ui";
+import { focusContext, localTime, Modal, Status } from "../components/ui";
 import { ReviewComposer, type ReviewAction } from "./ReviewDetails";
 import { SupportingRecords, type RecordView } from "./SupportingRecords";
 import { proposalForEvidence } from "../../shared/reassessment";
@@ -156,7 +156,7 @@ export function IncidentStory({
                               <Status value="under_review" />
                             )}
                             <span className="procedure-report-time">
-                              {evidence.id} · {utc(evidence.recordedAt)} UTC
+                              {evidence.id} · {localTime(evidence.recordedAt)}
                             </span>
                           </div>
                           {source?.trust === "under_review" && (

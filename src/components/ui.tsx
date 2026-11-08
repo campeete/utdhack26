@@ -2,7 +2,8 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { AlertTriangle, Check, CheckCheck, CircleHelp, Clock3, FileWarning, X } from 'lucide-react';
 
 export const label = (s: string) => s.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
-export const utc = (s: string) => new Date(s).toLocaleTimeString('en-GB', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' });
+export const localTime = (s: string) => new Date(s).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+export const localDateTime = (s: string) => new Date(s).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 export function focusContext(element: HTMLElement | null) {
   if (!element) return;
