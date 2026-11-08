@@ -16,6 +16,7 @@ import { SupportingRecords, type RecordView } from "./SupportingRecords";
 import { proposalForEvidence } from "../../shared/reassessment";
 import { DismissalRecord, DismissDialog } from "./DismissDialog";
 import { DecisionTrail, TeamUpdates } from "./DecisionContext";
+import { AccountsNamed, accountsNamedIn } from "./AccountContext";
 
 type Step = 1 | 2 | 3;
 export function IncidentStory({
@@ -174,6 +175,7 @@ export function IncidentStory({
                           <blockquote className="procedure-excerpt">
                             “{proposal?.excerpt ?? evidence.text}”
                           </blockquote>
+                          <AccountsNamed accounts={accountsNamedIn(evidence, data.accounts)} />
                           <p className="procedure-note">
                             {source?.trust === "under_review"
                               ? "Source trust is under review. The report has not been declared false."

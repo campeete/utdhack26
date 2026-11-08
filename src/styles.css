@@ -1124,3 +1124,27 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 :root[data-theme="light"] .issue-head.static { background: transparent; }
 :root[data-theme="light"] .issue-title small, :root[data-theme="light"] .issue-empty, :root[data-theme="light"] .issue-note { color: #60737a; }
 .issue-items .change-item { width: 100%; min-width: 0; max-width: none; flex: none; }
+
+/* Accounts named in a report: who they are and how exposed they are. */
+.accounts-named { margin-top: 14px; padding: 12px 14px; border: 1px solid #2c4650; border-radius: 7px; background: #101c22; }
+.accounts-named h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; color: #c4d6dc; font-family: inherit; font-size: 12px; font-weight: 650; letter-spacing: 0; }
+.accounts-named ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.accounts-named li { display: flex; gap: 11px; padding: 10px 12px; border: 1px solid #2c4650; border-left: 3px solid #3c6a70; border-radius: 6px; background: #13232a; }
+.accounts-named li.hot { border-color: #5a3a3d; border-left-color: #e0707a; background: #21191b; }
+.accounts-named .avatar { flex-shrink: 0; width: 30px; height: 30px; }
+.account-main { display: grid; gap: 4px; min-width: 0; }
+.account-main strong { color: #e8f0f2; font-size: 14px; }
+.account-main small { color: #8fa9b3; font-size: 11px; line-height: 1.5; }
+.account-tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0; }
+.account-tags .tag { padding: 2px 8px; border: 1px solid #3a525b; border-radius: 10px; color: #c3d9de; background: #172a30; font-size: 11px; font-weight: 600; }
+.account-tags .tag.warn { color: #f2c47a; border-color: #5b482b; background: #2a2318; }
+.account-tags .tag.bad { color: #ffb4ba; border-color: #6e3a40; background: #3a1f23; }
+:root[data-theme="light"] .accounts-named { background: #fff; border-color: #d7e0e4; }
+:root[data-theme="light"] .accounts-named h4 { color: #30464c; }
+:root[data-theme="light"] .accounts-named li { background: #f7fafa; border-color: #d7e0e4; border-left-color: #8dbeb1; }
+:root[data-theme="light"] .accounts-named li.hot { background: #fdf0f0; border-color: #e5c0c2; border-left-color: #c24b56; }
+:root[data-theme="light"] .account-main strong { color: #19333b; }
+:root[data-theme="light"] .account-main small { color: #60737a; }
+:root[data-theme="light"] .account-tags .tag { color: #3f5f68; background: #eef3f4; border-color: #c9d6da; }
+:root[data-theme="light"] .account-tags .tag.warn { color: #80550f; background: #fff1d1; border-color: #e0bd79; }
+:root[data-theme="light"] .account-tags .tag.bad { color: #8f2a34; background: #fbe4e6; border-color: #e0a8ad; }
