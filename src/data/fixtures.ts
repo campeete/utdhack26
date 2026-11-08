@@ -35,7 +35,7 @@ export function createFixture(): Snapshot {
       { ...base('A-2'), actor: 'Morgan Patel', at: '2026-11-07T18:42:00Z', text: 'D-001 approved provisionally with an explicit backup timing assumption.' },
       { ...base('A-1'), actor: 'Morgan Patel', at: '2026-11-07T18:17:00Z', text: 'Backup validation report added to the incident.' },
     ],
-    messages: [{ ...base('M-1'), evidenceId: 'E-002', recipientId: 'U-3', author: 'Morgan Patel', at: '2026-11-07T18:49:00Z', text: 'The restore test is useful, but it does not establish that the backup is clean. I’ve queued a source review.' }],
+    messages: [{ ...base('M-0'), evidenceId: 'E-007', recipientId: '', author: 'Nora (Nemotron)', at: '2026-11-07T18:53:00Z', text: 'New evidence E-007 (Backup service account used by attacker) challenges D-001 (Restore customer portal). The attacker login on Sunday came before the Monday backup, so the backup may hold their changes. Suggested check: compare the backup against a known-clean snapshot before restoring. A person decides what happens next.' }, { ...base('M-1'), evidenceId: 'E-002', recipientId: 'U-3', author: 'Morgan Patel', at: '2026-11-07T18:49:00Z', text: 'The restore test is useful, but it does not establish that the backup is clean. I’ve queued a source review.' }],
     scope: [
       { ...base('S-1'), system: 'Customer database', data: 'Customer account records', extent: 'Extent under investigation', encryption: 'confirmed', exfiltration: 'unknown', owner: 'Morgan Patel' },
       { ...base('S-2'), system: 'Customer portal', data: 'Application services', extent: 'Portal unavailable', encryption: 'suspected', exfiltration: 'unknown', owner: 'Morgan Patel' },
@@ -50,5 +50,9 @@ export function createFixture(): Snapshot {
       { ...base('F-3'), accountRef: 'NSR-1012', severity: 'low', queue: 'low_severity', title: 'Routine sign-in with a leaked password', reason: 'Usual laptop and office network with 2FA, but the password is in the leak.', clues: { breached_password: true, new_device: false, new_network: false }, attackTechnique: '', proposedFix: 'Require a password reset at next sign-in.', proposedAction: 'force_password_reset', ruleId: '1', state: 'auto_fixed', decidedBy: 'Nora (Nemotron)', decidedAt: '2026-11-07T07:12:00Z', dismissalFeedback: '', model: 'sample (fixture)', createdAt: '2026-11-07T07:12:00Z', signIn: 'Laptop / Windows / Edge from 198.51.100.44, password + 2FA' },
     ],
     audit: { entries: [], verified: null },
+    evidenceReviews: [
+      { evidenceId: 'E-007', outcome: 'conflict', decisionId: 'D-001', proposalId: 'P-001', summary: 'The Sunday attacker login precedes the Monday backup.', at: '2026-11-07T18:53:00Z' },
+      { evidenceId: 'E-006', outcome: 'no_impact', summary: 'A printer outage does not affect any open decision.', at: '2026-11-07T18:32:00Z' },
+    ],
   };
 }

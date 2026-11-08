@@ -1249,3 +1249,16 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 :root[data-theme="light"] .state-chip.state-needs_review { color: #a6561a; }
 .state-chip.state-urgent { border-color: #d9534f; color: #f08a87; font-weight: 650; }
 :root[data-theme="light"] .state-chip.state-urgent { color: #a3302c; }
+
+/* ---------- Nora (Nemotron) inside the Workspace ---------- */
+.nora-verdict { display: inline-block; margin-top: 6px; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--rule); color: var(--muted); }
+.nora-verdict.conflict { border-color: #e8893a; color: #f2a865; }
+.nora-verdict.urgent { border-color: #d9534f; color: #f08a87; }
+.nora-verdict.ok { border-color: var(--accent); color: var(--accent); }
+.nora-verdict.pending { border-style: dashed; }
+.bubble.nora .bubble-body { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.bubble.nora .avatar { color: var(--accent); }
+.nora-inline { display: flex; gap: 6px; align-items: baseline; font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+.nora-inline svg { color: var(--accent); flex: none; }
+:root[data-theme="light"] .nora-verdict.conflict { color: #a6561a; }
+:root[data-theme="light"] .nora-verdict.urgent { color: #a3302c; }

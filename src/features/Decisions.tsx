@@ -43,9 +43,24 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   const activeStage = [1, 2, 3].find(i => stages[i].value > 0) ?? 0;
   // Evidence is grouped under the decision it supports, so related reports sit together.
   const flagged = (evidenceId: string) => data.proposals.some(p => p.evidenceId === evidenceId && isReviewSuggested(p));
+  // Evidence Nora (Nemotron) found to challenge a decision sits under that decision too.
+  const linkedByNora = (decisionId: string) => [
+    ...data.proposals.filter(p => p.origin === 'nemotron' && Object.prototype.hasOwnProperty.call(p.decisionVersions, decisionId)).map(p => p.evidenceId),
+    ...(data.evidenceReviews ?? []).filter(r => r.decisionId === decisionId && r.outcome !== 'no_impact' && r.outcome !== 'failed').map(r => r.evidenceId),
+  ];
+  const evidenceFor = (decision: Snapshot['decisions'][number]) => [...new Set([...decision.evidenceIds, ...linkedByNora(decision.id)])];
+  const reviews = new Map((data.evidenceReviews ?? []).map(r => [r.evidenceId, r]));
+  const noraVerdict = (evidenceId: string) => {
+    const r = reviews.get(evidenceId);
+    if (!r) return adapter.mode === 'live' ? { text: 'Nora (Nemotron) is reviewing…', tone: 'pending' } : null;
+    if (r.outcome === 'no_impact') return { text: 'Nora (Nemotron): no decision affected', tone: 'quiet' };
+    if (r.outcome === 'supports') return { text: `Nora (Nemotron): supports ${r.decisionId ?? 'the decision'}`, tone: 'ok' };
+    if (r.outcome === 'failed') return { text: 'Nora (Nemotron) couldn’t finish', tone: 'quiet' };
+    return { text: `${r.outcome === 'urgent' ? 'URGENT · ' : ''}Nora (Nemotron): challenges ${r.decisionId}`, tone: r.outcome };
+  };
   const groups = [
-    ...data.decisions.map(decision => ({ decision, items: decision.evidenceIds.map(id => data.evidence.find(e => e.id === id)).filter((e): e is Snapshot['evidence'][number] => !!e) })),
-    { decision: null, items: data.evidence.filter(e => !data.decisions.some(d => d.evidenceIds.includes(e.id))) },
+    ...data.decisions.map(decision => ({ decision, items: evidenceFor(decision).map(id => data.evidence.find(e => e.id === id)).filter((e): e is Snapshot['evidence'][number] => !!e) })),
+    { decision: null, items: data.evidence.filter(e => !data.decisions.some(d => evidenceFor(d).includes(e.id))) },
   ]
     .map(group => ({ ...group, shown: group.items.filter(e => filter !== 'review' || flagged(e.id)) }))
     .filter(group => {
@@ -60,8 +75,8 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   }
   function openReference(id: string) {
     const decision = data.decisions.find(d => d.id === id);
-    if (decision) return select({ evidenceId: decision.evidenceIds[0] ?? null, decisionId: decision.id });
-    const linked = data.decisions.find(d => d.evidenceIds.includes(id));
+    if (decision) return select({ evidenceId: evidenceFor(decision)[0] ?? null, decisionId: decision.id });
+    const linked = data.decisions.find(d => evidenceFor(d).includes(id));
     select({ evidenceId: id, decisionId: linked?.id ?? null });
   }
   return <>
@@ -95,6 +110,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
               <span className="change-time">{e.id}<span>{underReview ? 'Source update' : 'Evidence added'}</span></span>
               <strong>{underReview ? 'Recovery source under review' : e.title}</strong>
               <span className="change-summary">{s?.label}</span>
+              {noraVerdict(e.id) && <span className={`nora-verdict ${noraVerdict(e.id)!.tone}`}>{noraVerdict(e.id)!.text}</span>}
               {reviewState && <span className="change-bottom"><Status value={reviewState} /><ArrowRight size={16} /></span>}
             </button>;
           }) : <p className="issue-empty">{decision ? 'No evidence linked to this decision yet.' : 'Every report is linked to a decision.'}</p>}</div>
