@@ -73,7 +73,7 @@ export interface AuditEntry {
 }
 /** Nora (Nemotron)'s review of one piece of evidence. */
 export interface EvidenceReview {
-  evidenceId: string; outcome: 'no_impact' | 'conflict' | 'urgent' | 'failed';
+  evidenceId: string; outcome: 'no_impact' | 'supports' | 'conflict' | 'urgent' | 'failed';
   decisionId?: string; proposalId?: string; summary: string; at: string;
 }
 export interface AuditLog {

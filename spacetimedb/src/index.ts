@@ -1686,7 +1686,7 @@ export const complete_reassessment = spacetimedb.reducer(
 
 // ---------- Nora (Nemotron) investigating new evidence ----------
 
-const REVIEW_OUTCOMES = ['no_impact', 'failed'] as const;
+const REVIEW_OUTCOMES = ['no_impact', 'supports', 'failed'] as const; // supports: findings back a decision
 
 function requireUnreviewed(ctx: Ctx, evidenceId: bigint) {
   const ev = ctx.db.evidence.id.find(evidenceId);
@@ -1707,7 +1707,9 @@ export const record_evidence_review = spacetimedb.reducer(
       model: cleanText(model, 'Model', 1, MAX_LABEL), reviewed_at: ctx.timestamp,
     });
     logActivity(ctx, ev.incident_id, 'evidence_reviewed', 'evidence', ev.id,
-      row.outcome === 'no_impact' ? `Nora (Nemotron) reviewed ${ev.title}: no decision affected.` : `Nora (Nemotron) could not finish reviewing ${ev.title}.`,
+      row.outcome === 'no_impact' ? `Nora (Nemotron) reviewed ${ev.title}: no decision affected.`
+        : row.outcome === 'supports' ? `Nora (Nemotron): ${ev.title} supports the decision it verifies. ${row.summary}`.slice(0, 500)
+        : `Nora (Nemotron) could not finish reviewing ${ev.title}.`,
       'EVIDENCE_REVIEWED', { outcome: row.outcome });
   }
 );
@@ -1804,6 +1806,30 @@ export const accept_task = spacetimedb.reducer(
     if (tk.state !== 'open') fail('Only an open task can be accepted');
     ctx.db.task.id.update({ ...tk, state: 'accepted', version: tk.version + 1 });
     logActivity(ctx, tk.incident_id, 'task_accepted', 'task', tk.id, tk.title, 'TASK_ACCEPTED');
+  }
+);
+
+/**
+ * The assignee submits what they found. In one step: the findings become evidence
+ * (source type "verification", titled with the decision they verify) and the task is
+ * resolved. Nora (Nemotron) then investigates the findings like any new evidence.
+ */
+export const submit_findings = spacetimedb.reducer(
+  { task_id: t.u64(), findings: t.string() },
+  (ctx, { task_id, findings }) => {
+    const tk = requireAssignee(ctx, task_id);
+    if (tk.state === 'resolved') fail('This task is already resolved');
+    const text = cleanText(findings, 'Findings', 1, MAX_EVIDENCE_CONTENT);
+    const ev = ctx.db.evidence.insert({
+      id: 0n, incident_id: tk.incident_id,
+      title: `Verification of D-${tk.decision_id.toString().padStart(3, '0')}: ${tk.title}`.slice(0, MAX_EVIDENCE_TITLE),
+      source_label: 'Verification findings', source_type: 'verification', content_text: text,
+      event_time: ctx.timestamp, recorded_at: ctx.timestamp, submitted_by: ctx.sender, version: 1,
+      source_id: undefined, standing: 'under_review',
+    });
+    ctx.db.task.id.update({ ...tk, state: 'resolved', version: tk.version + 1 });
+    logActivity(ctx, tk.incident_id, 'evidence_added', 'evidence', ev.id, ev.title);
+    logActivity(ctx, tk.incident_id, 'task_resolved', 'task', tk.id, `${tk.title} (findings in E-${ev.id.toString().padStart(3, '0')})`, 'TASK_RESOLVED');
   }
 );
 

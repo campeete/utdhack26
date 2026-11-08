@@ -8,7 +8,7 @@ import type {
   Decision, Evidence, EvidenceReview, Finding, IncidentRecord, LoginEvent, LowSeverityRule, Membership, MessageRecord,
   NoraMemory, NorthstarAccount, ReassessmentRequestRecord, Source, Suggestion, TaskRecord, TeamUpdate,
 } from './bindings.ts';
-import { discussionNote, escalationNote, investigate, type CaseFile } from './investigate.ts';
+import { discussionNote, escalationNote, investigate, supportsNote, type CaseFile } from './investigate.ts';
 import type { Enricher } from './enrich.ts';
 import {
   attentionReasons, computeClues, fallbackFinding, FINDING_SYSTEM_PROMPT, findingPrompt, parseFinding,
@@ -57,7 +57,7 @@ export interface NoraStore {
   onRequest(cb: (row: ReassessmentRequestRecord) => void): void;
   createFinding(call: CreateFindingCall): Promise<void>;
   completeReassessment(requestId: bigint, resultJson: string): Promise<void>;
-  recordEvidenceReview(call: { evidenceId: bigint; outcome: 'no_impact' | 'failed'; summary: string; model: string }): Promise<void>;
+  recordEvidenceReview(call: { evidenceId: bigint; outcome: 'no_impact' | 'supports' | 'failed'; summary: string; model: string }): Promise<void>;
   flagDecision(call: { evidenceId: bigint; decisionId: bigint; excerpt: string; explanation: string; verification: string; urgent: boolean; model: string }): Promise<void>;
   post(call: { incidentId: bigint; text: string; recipient: Identity | undefined; evidenceId: bigint | undefined }): Promise<void>;
 }
@@ -168,7 +168,9 @@ export class NoraWatcher {
     const { store } = this.deps;
     const inc = ev.incidentId;
     const sourceOf = (e: Evidence) => store.sources().find(s => s.id === e.sourceId)?.label ?? e.sourceLabel;
-    const item = (e: Evidence) => ({ id: e.id, title: e.title, text: e.contentText, source: sourceOf(e) });
+    // Findings from submit_findings are titled "Verification of D-003: …".
+    const verifies = (e: Evidence) => { const m = e.sourceType === 'verification' ? /^Verification of D-(\d+)/.exec(e.title) : null; return m ? BigInt(m[1]) : undefined; };
+    const item = (e: Evidence) => ({ id: e.id, title: e.title, text: e.contentText, source: sourceOf(e), verifies: verifies(e) });
     return {
       evidence: item(ev),
       otherEvidence: store.evidence().filter(e => e.incidentId === inc && e.id !== ev.id).map(item),
@@ -201,6 +203,12 @@ export class NoraWatcher {
     try {
       if (verdict.kind === 'no_impact') {
         await store.recordEvidenceReview({ evidenceId: ev.id, outcome: 'no_impact', summary: verdict.summary, model: brain.model });
+        return;
+      }
+      if (verdict.kind === 'supports') {
+        const supported = file.decisions.find(d => d.id === verdict.decisionId)!;
+        await store.recordEvidenceReview({ evidenceId: ev.id, outcome: 'supports', summary: verdict.summary, model: brain.model });
+        await store.post({ incidentId: ev.incidentId, text: supportsNote(verdict, file.evidence, supported), recipient: undefined, evidenceId: ev.id });
         return;
       }
       const decision = file.decisions.find(d => d.id === verdict.decisionId)!;

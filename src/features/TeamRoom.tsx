@@ -141,10 +141,10 @@ function TasksPanel({ data, adapter, onUpdate }: { data: Snapshot; adapter: Inci
       <div className="team-row"><strong>{t.decisionId}</strong><span className={`state-chip state-${t.state}`}>{label(t.state)}</span></div>
       <p>{t.title}</p>
       <small className="muted">Assigned to {mine(t) ? 'you' : t.owner}</small>
-      {mine(t) && t.state !== 'resolved' && <div className="action-row compact">
-        {t.state === 'open' && <button className="secondary" disabled={busy} onClick={() => run(() => adapter.acceptTask(t.id))}>Accept</button>}
-        <button className="secondary" disabled={busy} onClick={() => run(() => adapter.resolveTask(t.id))}>Mark verified<Check size={14} /></button>
+      {mine(t) && t.state === 'open' && <div className="action-row compact">
+        <button className="secondary" disabled={busy} onClick={() => run(() => adapter.acceptTask(t.id))}>Accept</button>
       </div>}
+      {mine(t) && t.state !== 'resolved' && <FindingsForm onSubmit={findings => run(() => adapter.submitFindings(t.id, findings))} busy={busy} />}
     </li>)}</ul>
     {error && <p role="alert" className="error">{error}</p>}
   </Panel>;
@@ -158,6 +158,7 @@ function EvidencePanel({ data, live }: { data: Snapshot; live: boolean }) {
     const r = reviews.get(id);
     if (!r) return live ? <span className="state-chip">Nora (Nemotron) is reviewing…</span> : null;
     if (r.outcome === 'no_impact') return <span className="state-chip">No decision affected</span>;
+    if (r.outcome === 'supports') return <span className="state-chip state-approved">Supports the decision</span>;
     if (r.outcome === 'failed') return <span className="state-chip">Nora (Nemotron) couldn’t finish</span>;
     return <span className={`state-chip ${r.outcome === 'urgent' ? 'state-urgent' : 'state-needs_review'}`}>{r.outcome === 'urgent' ? 'URGENT · ' : ''}Challenges {r.decisionId}</span>;
   };
@@ -168,6 +169,17 @@ function EvidencePanel({ data, live }: { data: Snapshot; live: boolean }) {
       {reviews.get(ev.id)?.summary && <small className="muted">{reviews.get(ev.id)!.summary}</small>}
     </li>)}</ul>
   </Panel>;
+}
+
+/** The assignee's findings: saved as evidence that Nora (Nemotron) checks against the decision. */
+function FindingsForm({ onSubmit, busy }: { onSubmit: (findings: string) => Promise<boolean>; busy: boolean }) {
+  const [findings, setFindings] = useState('');
+  return <form className="assign-form" onSubmit={async e => { e.preventDefault(); if (await onSubmit(findings.trim())) setFindings(''); }}>
+    <label>What you found <textarea rows={3} maxLength={50000} value={findings} onChange={e => setFindings(e.target.value)} disabled={busy}
+      placeholder="Backup job logs show the Monday backup finished at 01:40, before the 03:12 session." /></label>
+    <button className="primary" disabled={busy || !findings.trim()}>{busy ? 'Submitting…' : 'Submit findings'}<Check size={14} /></button>
+    <small className="muted">Closes this task and hands your findings to Nora (Nemotron), who checks them against the decision.</small>
+  </form>;
 }
 
 function AddEvidence({ adapter, onUpdate }: { adapter: IncidentData; onUpdate: (next: Snapshot) => void }) {

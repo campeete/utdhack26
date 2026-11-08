@@ -199,7 +199,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       findings,
       audit: auditLog(inc.toString(), name),
       evidenceReviews: mine(d.incidentEvidenceReviews.iter()).map(r => ({
-        evidenceId: ids.evidence(r.evidenceId), outcome: r.outcome as 'no_impact' | 'conflict' | 'urgent' | 'failed',
+        evidenceId: ids.evidence(r.evidenceId), outcome: r.outcome as 'no_impact' | 'supports' | 'conflict' | 'urgent' | 'failed',
         ...(r.decisionId !== undefined ? { decisionId: ids.decision(r.decisionId) } : {}),
         ...(r.suggestionId !== undefined ? { proposalId: ids.proposal(r.suggestionId) } : {}),
         summary: r.summary, at: iso(r.reviewedAt),
@@ -294,6 +294,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     assignTask: (decisionId, memberId, title) => act(() => conn!.reducers.assignTask({ decision_id: parseId(decisionId, 'D'), assignee: identityOf(memberId), title })),
     acceptTask: taskId => act(() => conn!.reducers.acceptTask({ task_id: parseId(taskId, 'T') })),
     resolveTask: taskId => act(() => conn!.reducers.resolveTask({ task_id: parseId(taskId, 'T') })),
+    submitFindings: (taskId, findings) => act(() => conn!.reducers.submitFindings({ task_id: parseId(taskId, 'T'), findings })),
     resolveDecision: decisionId => act(() => conn!.reducers.resolveDecision({ decision_id: parseId(decisionId, 'D') })),
   };
 }

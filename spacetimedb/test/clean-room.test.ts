@@ -319,6 +319,21 @@ describe('suggested reviews (ported rules)', () => {
     expect(last('task').state).toBe('resolved');
   });
 
+  it('the assignee submits findings in one step: new evidence for Nora, and the task resolved', () => {
+    as('cmd', c => mod.assign_task(c, { decision_id: decisionId, assignee: id.analyst, title: 'Verify backup timing' }));
+    const tk = last('task');
+    denied(() => as('cmd', c => mod.submit_findings(c, { task_id: tk.id, findings: 'x' })), /Only the assignee/);
+    denied(() => as('analyst', c => mod.submit_findings(c, { task_id: tk.id, findings: '   ' })), /Findings is required/);
+    as('analyst', c => mod.submit_findings(c, { task_id: tk.id, findings: 'Backup job logs show the Monday backup finished at 01:40, before the 03:12 session.' }));
+    expect(last('task').state).toBe('resolved');
+    expect(last('evidence')).toMatchObject({ source_type: 'verification', title: `Verification of D-${decisionId.toString().padStart(3, '0')}: Verify backup timing` });
+    denied(() => as('analyst', c => mod.submit_findings(c, { task_id: tk.id, findings: 'again' })), /already resolved/);
+    // Nora records that the findings support the decision.
+    const evId = last('evidence').id;
+    as('nora', c => mod.record_evidence_review(c, { evidence_id: evId, outcome: 'supports', summary: 'The backup predates the session.', model: 'm' }));
+    expect(rows('evidence_review').find(r => r.evidence_id === evId).outcome).toBe('supports');
+  });
+
   it('Tier 2 resolves a decision; resolving twice is a no-op', () => {
     denied(() => as('analyst', c => mod.resolve_decision(c, { decision_id: decisionId })), /needs Tier 2/);
     as('cmd', c => mod.resolve_decision(c, { decision_id: decisionId }));

@@ -4,6 +4,7 @@
 //   npm run nora:try-evidence
 //   npm run nora:try-evidence -- urgent      (a report that should be escalated)
 //   npm run nora:try-evidence -- unrelated   (a report that affects no decision)
+//   npm run nora:try-evidence -- findings    (an assignee's verification findings)
 
 import { createBrain } from './brain.ts';
 import { discussionNote, escalationNote, investigate, type CaseFile } from './investigate.ts';
@@ -14,12 +15,13 @@ const REPORTS: Record<string, { title: string; text: string; source: string }> =
   conflict: { title: 'Suspicious access on Sunday', source: 'Firewall logs', text: 'Firewall logs show an administrator session from an unknown host at 03:12 on Sunday, using the backup service account. The Monday backup job ran at 02:00 on Monday, after that session.' },
   urgent: { title: 'Backup contains encryptor', source: 'EDR scan of the backup volume', text: 'An EDR scan of the Monday backup volume found the same ransomware encryptor binary that encrypted the customer database. Restoring this backup would reintroduce the encryptor.' },
   unrelated: { title: 'Office printer outage', source: 'Facilities desk', text: 'The third-floor printer is offline after a firmware update. No network anomalies were seen.' },
+  findings: { title: 'Verification of D-001: Verify the backup predates the intrusion', source: 'Verification findings', text: 'Backup job logs show the Monday backup completed at 01:40 on Sunday, before the 03:12 session. A hash comparison with the Saturday snapshot found no changed system files.' },
 };
 const which = process.argv[2] ?? 'conflict';
 const report = REPORTS[which] ?? REPORTS.conflict;
 
 const file: CaseFile = {
-  evidence: { id: 7n, ...report },
+  evidence: { id: 7n, ...report, ...(which === 'findings' ? { verifies: 1n } : {}) },
   otherEvidence: [{ id: 2n, title: 'Backup validation report', source: 'Recovery operations log', text: 'The Monday backup restored successfully in the isolated test environment. The test did not assess whether the backup predates initial access.' }],
   decisions: [
     { id: 1n, title: 'Restore the customer portal from Monday\'s backup', assumption: 'Monday\'s backup predates the intrusion', state: 'approved', evidenceIds: [2n] },
@@ -44,7 +46,9 @@ const result = await investigate(file, async (system, user) => {
 });
 console.log(`\nVerdict after ${result.rounds} round(s), ${((Date.now() - started) / 1000).toFixed(1)} s: ${result.verdict.kind.toUpperCase()}`);
 const v = result.verdict;
-if (v.kind === 'no_impact') {
+if (v.kind === 'supports') {
+  console.log(`Findings support D-${v.decisionId.toString().padStart(3, '0')}: ${v.summary}`);
+} else if (v.kind === 'no_impact') {
   console.log(`Saved quietly to the incident history: ${v.summary}`);
 } else {
   const decision = file.decisions.find(d => d.id === v.decisionId)!;

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Identity, Timestamp } from 'spacetimedb';
-import { checkVerdict, discussionNote, investigate, MAX_ROUNDS, runTool, type CaseFile } from './investigate.ts';
+import { checkVerdict, discussionNote, investigate, MAX_ROUNDS, runTool, supportsNote, type CaseFile } from './investigate.ts';
 import { NoraWatcher, type NoraStore } from './watcher.ts';
 import type { Evidence } from './bindings.ts';
 
@@ -70,7 +70,7 @@ test('Nemotron that never answers is cut off after the last round', async () => 
 
 test('the discussion note names the evidence, the decision and the check', () => {
   const v = checkVerdict(CONFLICT, file());
-  if (v.kind === 'no_impact') throw new Error('expected conflict');
+  if (v.kind === 'no_impact' || v.kind === 'supports') throw new Error('expected conflict');
   const note = discussionNote(v, file().evidence, file().decisions[0]);
   assert.match(note, /E-007/); assert.match(note, /D-003/); assert.match(note, /Find when the intrusion began/); assert.match(note, /a person decides/);
 });
@@ -143,4 +143,24 @@ test('unreviewed evidence from before Nora started is picked up at startup', asy
   const w = watcherWith(s, [{ final: CONFLICT }]);
   w.start(); await w.idle();
   assert.deepEqual(calls.map(c => c.kind), ['flag', 'post']);
+});
+
+test('verification findings can support the decision they verify, and only that one', () => {
+  const findings = file({ evidence: { id: 9n, title: 'Verification of D-003: check timing', text: 'The backup finished at 01:40, before the session.', source: 'Verification findings', verifies: 3n } });
+  const v = checkVerdict({ impact: 'supports', decision_id: 3, summary: 'The backup predates the session.' }, findings);
+  assert.deepEqual(v, { kind: 'supports', decisionId: 3n, summary: 'The backup predates the session.' });
+  if (v.kind !== 'supports') throw new Error('expected supports');
+  assert.match(supportsNote(v, findings.evidence, findings.decisions[0]), /support D-003.*re-approve/);
+  assert.throws(() => checkVerdict({ impact: 'supports', decision_id: 4, summary: 's' }, findings), /different decision/);
+  assert.throws(() => checkVerdict({ impact: 'supports', decision_id: 3, summary: 's' }, file()), /Only verification findings/);
+});
+
+test('submitted findings that support the decision: a quiet "supports" record and a note to re-approve', async () => {
+  const { s, calls, add } = store();
+  const w = watcherWith(s, [{ final: { impact: 'supports', decision_id: 3, summary: 'The backup predates the session.' } }]);
+  w.start();
+  add({ ...evidenceRow(12n, 'The backup finished at 01:40, before the session.'), sourceType: 'verification', title: 'Verification of D-003: check timing' });
+  await w.idle();
+  assert.deepEqual(calls.map(c => [c.kind, c.call.outcome ?? '']), [['review', 'supports'], ['post', '']]);
+  assert.match(String(calls[1].call.text), /re-approve D-003/);
 });
