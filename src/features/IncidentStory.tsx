@@ -74,6 +74,11 @@ export function IncidentStory({
     "Review the decision",
     "Independent verification",
   ];
+  const purposes = [
+    `What came in from ${source?.label ?? "the original source"}, and how far to trust it`,
+    "Does the recorded decision still hold, given this evidence?",
+    "A named person, not the analysis, confirms the facts",
+  ];
   const summaries = [
     evidence?.title ?? "No report linked",
     decision?.title ?? "No decision linked",
@@ -126,11 +131,7 @@ export function IncidentStory({
                     <strong>{titles[number - 1]}</strong>
                     <small>
                       {step === number
-                        ? number === 1
-                          ? (source?.label ?? "Original evidence")
-                          : number === 2
-                            ? "Check the reason behind the recorded decision"
-                            : "Human verification, assigned separately"
+                        ? purposes[number - 1]
                         : summaries[number - 1]}
                     </small>
                   </span>
@@ -229,10 +230,7 @@ export function IncidentStory({
                             >
                               <FileText size={16} />
                               <span>
-                                {briefings.length} team update
-                                {briefings.length === 1 ? "" : "s"} use
-                                {briefings.length === 1 ? "s" : ""} this
-                                decision
+                                {briefings.length} team update{briefings.length === 1 ? " uses" : "s use"} this decision
                               </span>
                               {briefings.some((b) => b.state === "outdated") ? (
                                 <Status value="outdated" />
