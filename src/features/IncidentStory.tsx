@@ -69,6 +69,7 @@ export function IncidentStory({
   const [dismissOpen, setDismissOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState("");
+  const [resolveConfirmOpen, setResolveConfirmOpen] = useState(false);
   const [detail, setDetail] = useState<"trail" | "updates" | null>(null);
   const stepHeadings = useRef<(HTMLButtonElement | null)[]>([]);
   function showStep(next: Step) {
@@ -81,14 +82,16 @@ export function IncidentStory({
     setComposer(null);
     showStep(next.tasks.some((t) => t.proposalId === proposal?.id) ? 3 : 2);
   }
-  async function resolve() {
-    if (!decision || decision.state === "closed" || resolving) return;
+  async function resolve(): Promise<boolean> {
+    if (!decision || decision.state === "closed" || resolving) return false;
     setResolving(true);
     setResolveError("");
     try {
       onUpdate(await adapter.resolveDecision(decision.id));
+      return true;
     } catch (error) {
       setResolveError((error as Error).message);
+      return false;
     } finally {
       setResolving(false);
     }
@@ -408,8 +411,18 @@ export function IncidentStory({
           {decision && (decision.state === "closed" ? (
             <span className="resolve-complete" role="status">Resolved</span>
           ) : (
-            <button className="primary" onClick={resolve} disabled={resolving}>
-              {resolving ? "Resolving…" : "Resolve"}
+            <button
+              className="primary"
+              onClick={() => {
+                if (decision.state === "needs_review" || source?.trust === "under_review" || proposal?.state === "pending") {
+                  setResolveConfirmOpen(true);
+                } else {
+                  void resolve();
+                }
+              }}
+              disabled={resolving}
+            >
+              Resolve
               <Check size={16} />
             </button>
           ))}
@@ -438,6 +451,33 @@ export function IncidentStory({
             onSelectProposal(proposal.id);
           }}
         />
+      )}
+      {resolveConfirmOpen && decision && (
+        <Modal
+          title="Resolve an issue under review?"
+          onClose={() => {
+            if (!resolving) setResolveConfirmOpen(false);
+          }}
+          closeDisabled={resolving}
+        >
+          <div className="dismiss-dialog">
+            <p>This issue is still under review. Resolving it will remove it from the active review list, but it does not verify the evidence or clear the source concerns. Are you sure you want to continue?</p>
+            {resolveError && <p className="error" role="alert">{resolveError}</p>}
+            <div className="action-row">
+              <button
+                className="primary"
+                onClick={async () => {
+                  if (await resolve()) setResolveConfirmOpen(false);
+                }}
+                disabled={resolving}
+              >
+                {resolving ? "Resolving…" : "Resolve anyway"}
+                <Check size={16} />
+              </button>
+              <button className="secondary" onClick={() => setResolveConfirmOpen(false)} disabled={resolving}>Cancel</button>
+            </div>
+          </div>
+        </Modal>
       )}
       {composer && proposal && (
         <Modal
