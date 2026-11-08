@@ -13,7 +13,8 @@ const live = params.get('data') === 'live' || (import.meta.env.VITE_DATA_MODE ==
 const mode = params.get('reassess');
 const data = live
   ? createLiveAdapter({
-    uri: import.meta.env.VITE_SPACETIME_URI || `ws://${location.hostname}:3000`,
+    // Same address as the page; vite.config.ts passes /v1 through to SpacetimeDB.
+    uri: import.meta.env.VITE_SPACETIME_URI || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`,
     dbName: import.meta.env.VITE_SPACETIME_DB_NAME || 'clean-room',
     incidentId: params.get('incident') ?? undefined,
     freshIdentity: params.get('fresh') === '1',
