@@ -20,7 +20,7 @@ export interface LiveConfig {
   /** Open this incident; otherwise the newest one this browser can see. */
   incidentId?: string;
   freshIdentity?: boolean;
-  /** Sets this browser's display name once connected (?name=Alex%20Chen). */
+  /** Sets this browser's display name once connected (?name=Cameron). */
   displayName?: string;
 }
 

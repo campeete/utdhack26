@@ -173,6 +173,13 @@ describe("Nora's findings", () => {
     expect(last('nora_memory')).toMatchObject({ finding_id: f.id, decision: 'approved' });
   });
 
+  it('writes at most one finding per sign-in', () => {
+    const loginId = rows('login_event')[0].id;
+    as('nora', c => mod.create_finding(c, finding({ login_event_id: loginId, account_ref: undefined })));
+    denied(() => as('nora', c => mod.create_finding(c, finding({ login_event_id: loginId, account_ref: undefined }))), /already has a finding/);
+    expect(rows('finding').length).toBe(1);
+  });
+
   it('refuses invented clues, techniques and actions', () => {
     denied(() => as('nora', c => mod.create_finding(c, finding({ clues: '{"password":"Northstar#97"}' }))), /Unknown clue/);
     denied(() => as('nora', c => mod.create_finding(c, finding({ attack_technique: 'hacking' }))), /ATT&CK/);

@@ -1670,6 +1670,10 @@ export const create_finding = spacetimedb.reducer(
       if (!login || login.incident_id !== a.incident_id) fail('Login event not found');
       if (accountId !== undefined && login.account_id !== accountId) fail('Login event is for a different account');
       accountId ??= login.account_id;
+      // One finding per sign-in, even if two copies of Nora are running.
+      for (const f of ctx.db.finding.incident_id.filter(a.incident_id)) {
+        if (f.login_event_id === a.login_event_id) fail('This sign-in already has a finding');
+      }
     }
 
     const rule = a.rule_id === undefined ? undefined : ctx.db.low_severity_rule.id.find(a.rule_id) ?? undefined;

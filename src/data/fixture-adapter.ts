@@ -29,7 +29,7 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
   const reassess = options.reassess ?? syntheticReassessor;
   const delayMs = options.delayMs ?? 1600;
   const actor = 'Morgan Patel (fixture)';
-  const identity = { name: 'Morgan Patel', roles: ['analyst'], authenticated: false };
+  const identity = { name: 'Morgan Patel', roles: ['commander', 'analyst'], authenticated: false };
   let data = createFixture();
   const listeners = new Set<(data: Snapshot) => void>();
   const copy = () => structuredClone(data);
@@ -76,12 +76,16 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
       data = { ...data, findings: (data.findings ?? []).map(f => f.id === id && f.state === 'open' ? { ...f, state: 'dismissed' as const, dismissalFeedback: feedback.trim(), decidedBy: actor, decidedAt: new Date().toISOString(), version: f.version + 1 } : f) };
       return copy();
     },
-    async undoFinding() { throw new Error('Only a commander can undo an automatic fix.'); },
+    async undoFinding(id) {
+      if (!identity.roles.includes('commander')) throw new Error('Only a commander can undo an automatic fix.');
+      data = { ...data, findings: (data.findings ?? []).map(f => f.id === id && f.state === 'auto_fixed' ? { ...f, state: 'undone' as const, decidedBy: actor, decidedAt: new Date().toISOString(), version: f.version + 1 } : f) };
+      return copy();
+    },
     async sendMessage(evidenceId, recipientId, text) {
       if (!text.trim() || text.length > 2000) throw new Error('Use 1–2,000 characters.');
       if (!data.evidence.some(e => e.id === evidenceId)) throw new Error('Select an existing evidence item before sending a message.');
-      const recipient = data.members.find(m => m.id === recipientId && m.active && m.roles.includes('admin'));
-      if (!recipient) throw new Error('Choose an active incident administrator.');
+      const recipient = data.members.find(m => m.id === recipientId && m.active && m.name !== identity.name);
+      if (!recipient) throw new Error('Choose an active teammate.');
       data = { ...data, messages: [...data.messages, { id: crypto.randomUUID(), incidentId: data.incident.id, evidenceId, recipientId, version: 1, author: actor, text: text.trim(), at: new Date().toISOString() }] };
       return copy();
     },

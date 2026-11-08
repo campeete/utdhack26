@@ -6,7 +6,7 @@ import { createFixtureAdapter, failOnceReassessor, noFurtherReviewReassessor, sy
 import { createLiveAdapter } from './live/live-adapter';
 
 // Explicit single mode, never a silent fallback from live to sample data.
-//   Live:    ?data=live (or VITE_DATA_MODE=live). Optional ?incident=2, ?name=Alex%20Chen, ?fresh=1.
+//   Live:    ?data=live (or VITE_DATA_MODE=live). Optional ?incident=2, ?name=Cameron, ?fresh=1.
 //   Fixture: default. Demo switch for the synthetic reassessor: ?reassess=none or ?reassess=fail-once.
 const params = new URLSearchParams(location.search);
 const live = params.get('data') === 'live' || (import.meta.env.VITE_DATA_MODE === 'live' && params.get('data') !== 'fixture');

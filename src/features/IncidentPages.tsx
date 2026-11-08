@@ -47,7 +47,8 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const administrators = data.members.filter(member => member.active && member.roles.includes('admin'));
+  // Any active teammate other than yourself (the module allows any active member).
+  const administrators = data.members.filter(member => member.active && member.id !== adapter.identityHex && member.name !== adapter.identity?.name);
   const [recipientId, setRecipientId] = useState<string | null>(administrators.length === 1 ? administrators[0].id : null);
   const [recipientPickerOpen, setRecipientPickerOpen] = useState(false);
   const selectedRecipient = administrators.find(member => member.id === recipientId);
@@ -132,11 +133,11 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
         <div className="composer-bar">
           <div className="admin-recipient-picker">
             {administrators.length > 1 || !selectedRecipient
-              ? <button type="button" className="recipient-chip" disabled={!administrators.length} aria-expanded={recipientPickerOpen} aria-controls={`${id}-admins`} onClick={() => setRecipientPickerOpen(open => !open)}>{selectedRecipient ? <>To: {selectedRecipient.name}</> : 'Choose admin'}<ChevronDown size={14} /></button>
-              : <span className="recipient-chip static">To: {selectedRecipient.name} · Administrator</span>}
-            {recipientPickerOpen && <div id={`${id}-admins`} className="admin-recipient-options" role="group" aria-label="Choose an active administrator">
+              ? <button type="button" className="recipient-chip" disabled={!administrators.length} aria-expanded={recipientPickerOpen} aria-controls={`${id}-admins`} onClick={() => setRecipientPickerOpen(open => !open)}>{selectedRecipient ? <>To: {selectedRecipient.name}</> : 'Choose recipient'}<ChevronDown size={14} /></button>
+              : <span className="recipient-chip static">To: {selectedRecipient.name} · {selectedRecipient.roles.map(label).join(', ')}</span>}
+            {recipientPickerOpen && <div id={`${id}-admins`} className="admin-recipient-options" role="group" aria-label="Choose a recipient">
               {administrators.map(admin => <button key={admin.id} type="button" aria-pressed={recipientId === admin.id} onClick={() => { setRecipientId(admin.id); setRecipientPickerOpen(false); setError(''); }}>
-                <span className="avatar">{initials(admin.name)}</span><span><strong>{admin.name}</strong><small>Administrator</small></span>
+                <span className="avatar">{initials(admin.name)}</span><span><strong>{admin.name}</strong><small>{admin.roles.map(label).join(', ')}</small></span>
               </button>)}
             </div>}
           </div>
@@ -144,7 +145,7 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
           <button className="primary" disabled={busy || !text.trim() || !selectedRecipient}>{busy ? 'Sending…' : 'Send'}<Send size={15} /></button>
         </div>
       </div>
-      {!administrators.length && <p className="recipient-selection" role="status">No active administrators are available.</p>}
+      {!administrators.length && <p className="recipient-selection" role="status">No other active teammates in this incident yet.</p>}
       {error && <p role="alert" className="error">{error}</p>}
       {adapter.mode === 'fixture' && <small className="muted comms-footnote">Local demo · messages last until reload</small>}
     </form>
