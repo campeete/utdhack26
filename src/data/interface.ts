@@ -11,6 +11,8 @@ export interface IncidentData {
   load(): Promise<Snapshot>;
   resolveDecision(decisionId: string): Promise<Snapshot>;
   confirm(proposalId: string, reason: string): Promise<Snapshot>;
+  /** Tier 2+: confirm Nora (Nemotron)'s suggestion and hand its verification to one teammate. */
+  flagAndAssign(proposalId: string, reason: string, memberId: string): Promise<Snapshot>;
   /**
    * Dismisses a suggestion. Empty or whitespace feedback dismisses without AI.
    * Non-empty feedback also asks the backend for a Nemotron reassessment; the

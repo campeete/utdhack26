@@ -1284,3 +1284,27 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 .invite-link code { word-break: break-all; }
 .join-gate form { display: grid; gap: 8px; max-width: 320px; margin-top: 12px; }
 .join-gate input { padding: 8px 10px; border: 1px solid var(--rule); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+/* Human reports, AI suggestions and confirmed decisions look different at a glance. */
+.kind-tag { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--rule); color: var(--muted); }
+.kind-tag.human { border-color: #6b8afd; color: #9db0ff; }
+.kind-tag.ai { border-color: var(--accent); color: var(--accent); border-style: dashed; }
+.kind-tag.confirmed { border-color: #3fb97a; color: #3fb97a; background: color-mix(in srgb, #3fb97a 10%, transparent); }
+.kind-tag.decision { border-color: #c9a227; color: #e0bd4a; }
+.kind-tag.verify { border-color: #b07de0; color: #c9a3f0; }
+:root[data-theme="light"] .kind-tag.human { color: #3550c4; }
+:root[data-theme="light"] .kind-tag.confirmed { color: #1f7a4b; }
+:root[data-theme="light"] .kind-tag.decision { color: #8a6a08; }
+:root[data-theme="light"] .kind-tag.verify { color: #6b3aa0; }
+.next-action { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 24px 8px; padding: 10px 14px; border: 1px solid var(--rule); border-left-width: 4px; border-radius: 6px; }
+.next-action.waiting { border-left-color: #e0bd4a; }
+.next-action.ok { border-left-color: #3fb97a; }
+.next-action strong { text-transform: uppercase; font-size: 11px; letter-spacing: .05em; color: var(--muted); }
+.next-action .ack { margin-left: auto; font-weight: 600; }
+.next-action.ok .ack { color: #3fb97a; }
+.next-action.waiting .ack { color: #e0bd4a; }
+.ack-state { margin: 6px 0 0; font-size: 13px; font-weight: 600; }
+.ack-state.ok { color: #3fb97a; }
+.ack-state.waiting { color: #e0bd4a; }
+.prepared { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+.save-finding { font-size: 12px; margin-top: 4px; }
+.flag-assign { border-top: 0; padding-top: 0; margin: 10px 0; }

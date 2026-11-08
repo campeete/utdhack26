@@ -67,13 +67,53 @@ export function DecisionTasks({ decisionId, data, adapter, onUpdate }: { decisio
     <ul className="team-list">{tasks.map(t => <li key={t.id}>
       <div className="team-row"><strong>{t.title}</strong><span className={`state-chip state-${t.state}`}>{label(t.state)}</span></div>
       <small className="muted">Assigned to {mine(t) ? 'you' : t.owner}</small>
-      {mine(t) && t.state === 'open' && <div className="action-row compact">
-        <button className="secondary" disabled={busy} onClick={() => run(() => adapter.acceptTask(t.id))}>Accept</button>
-      </div>}
-      {mine(t) && t.state !== 'resolved' && <FindingsForm onSubmit={findings => run(() => adapter.submitFindings(t.id, findings))} busy={busy} />}
+      {mine(t) && t.state === 'open' && <Acknowledge busy={busy} onAcknowledge={reply => run(async () => {
+        const next = await adapter.acceptTask(t.id);
+        return reply ? adapter.sendMessage('', '', reply, decisionId) : next;
+      })} />}
+      {!mine(t) && t.state !== 'resolved' && <p className={`ack-state ${t.state === 'accepted' ? 'ok' : 'waiting'}`}>{t.state === 'accepted' ? `${t.owner} acknowledged this.` : `Waiting for ${t.owner} to acknowledge.`}</p>}
+      {mine(t) && t.state === 'accepted' && <FindingsForm onSubmit={findings => run(() => adapter.submitFindings(t.id, findings))} busy={busy} />}
     </li>)}</ul>
     {error && <p role="alert" className="error">{error}</p>}
   </div>;
+}
+
+/** The assignee acknowledges the action, optionally with a reply that goes to the issue's discussion. */
+function Acknowledge({ busy, onAcknowledge }: { busy: boolean; onAcknowledge: (reply: string) => Promise<boolean> }) {
+  const [reply, setReply] = useState('');
+  return <form className="assign-form ack-form" onSubmit={async e => { e.preventDefault(); if (await onAcknowledge(reply.trim())) setReply(''); }}>
+    <label>Reply to the team (optional) <input value={reply} onChange={e => setReply(e.target.value)} maxLength={2000} disabled={busy} placeholder="Checking the backup against the revised timeline." /></label>
+    <button className="primary" disabled={busy}>{busy ? 'Sending…' : 'Acknowledge'}<Check size={14} /></button>
+  </form>;
+}
+
+/** Who owns the next action on this issue, and whether they have acknowledged it. */
+export function NextAction({ data, decisionId, pendingSuggestion }: { data: Snapshot; decisionId?: string; pendingSuggestion: boolean }) {
+  const task = data.tasks.find(t => t.decisionId === decisionId && t.state !== 'resolved');
+  if (task) return <p className={`next-action ${task.state === 'accepted' ? 'ok' : 'waiting'}`} role="status">
+    <strong>Next action</strong><span>{task.owner}: {task.title}</span>
+    <span className="ack">{task.state === 'accepted' ? 'Acknowledged' : 'Not acknowledged yet'}</span>
+  </p>;
+  if (pendingSuggestion) return <p className="next-action waiting" role="status"><strong>Next action</strong><span>A Tier 2 reviews Nora (Nemotron)'s suggestion: flag & assign, or dismiss.</span></p>;
+  return null;
+}
+
+/** Tier 2+: confirm Nora (Nemotron)'s suggestion and give the verification to one person, in one step. */
+export function FlagAndAssign({ proposalId, data, adapter, onUpdate }: { proposalId: string; data: Snapshot; adapter: IncidentData; onUpdate: (next: Snapshot) => void }) {
+  const [run, busy, error] = useRun(onUpdate);
+  const members = data.members.filter(m => m.active);
+  const others = members.filter(m => m.id !== adapter.identityHex && m.name !== adapter.identity?.name);
+  const [assignee, setAssignee] = useState(others.find(m => tierOf(m.roles) === 1)?.id ?? others[0]?.id ?? '');
+  const [reason, setReason] = useState('The new evidence puts the assumption in question.');
+  return <form className="assign-form flag-assign" onSubmit={e => { e.preventDefault(); void run(() => adapter.flagAndAssign(proposalId, reason.trim(), assignee)); }}>
+    <label>Assign verification to <select value={assignee} onChange={e => setAssignee(e.target.value)} required disabled={busy}>
+      <option value="" disabled>Choose a teammate</option>
+      {members.map(m => <option key={m.id} value={m.id}>{m.name} ({m.roles.map(roleLabel).join(', ')})</option>)}
+    </select></label>
+    <label>Why <input value={reason} onChange={e => setReason(e.target.value)} maxLength={500} required disabled={busy} /></label>
+    <button className="primary" disabled={busy || !assignee || reason.trim().length < 10}>{busy ? 'Flagging…' : 'Flag & assign'}<ClipboardList size={14} /></button>
+    {error && <p role="alert" className="error">{error}</p>}
+  </form>;
 }
 
 /** The assignee's findings: saved as evidence that Nora (Nemotron) checks against the decision. */
@@ -87,17 +127,27 @@ function FindingsForm({ onSubmit, busy }: { onSubmit: (findings: string) => Prom
   </form>;
 }
 
+/** Synthetic reports for the demo: one that conflicts with the plan, one urgent, one unrelated. */
+export const PREPARED_REPORTS = [
+  { label: 'Sunday admin access', title: 'Admin session from unknown host on Sunday', source: 'Firewall logs', text: 'Firewall logs show an admin session from an unknown host at 03:12 on Sunday. The Monday backup ran after that session.' },
+  { label: 'Files encrypting now', title: 'Ransom note on the file server', source: 'Helpdesk call', text: 'A ransom note was found on file server FS-02 at 06:40 Monday. Files on the finance share are being renamed with .lock right now, so encryption appears to be ongoing.' },
+  { label: 'Printer outage', title: 'Printer outage on floor 3', source: 'Facilities ticket', text: 'The floor 3 printer has been offline since Saturday because of a failed toner sensor. Facilities replaced it this morning.' },
+];
+
 export function AddEvidence({ adapter, onUpdate, onDone }: { adapter: IncidentData; onUpdate: (next: Snapshot) => void; onDone?: () => void }) {
   const [title, setTitle] = useState('');
   const [source, setSource] = useState('');
   const [text, setText] = useState('');
   const [run, busy, error] = useRun(onUpdate);
-  return <Panel icon={<FilePlus2 size={18} aria-hidden="true" />} title="Add evidence" hint="Paste what you found. Nora (Nemotron) reads new evidence.">
+  return <Panel icon={<FilePlus2 size={18} aria-hidden="true" />} title="Add finding" hint="A human report. Nora (Nemotron) analyzes it against every open decision as soon as you submit.">
+    <div className="prepared" role="group" aria-label="Prepared reports"><span className="muted">Prepared reports:</span>
+      {PREPARED_REPORTS.map(r => <button key={r.label} type="button" className="secondary" onClick={() => { setTitle(r.title); setSource(r.source); setText(r.text); }}>{r.label}</button>)}
+    </div>
     <form className="team-form" onSubmit={async e => { e.preventDefault(); if (await run(() => adapter.addEvidence({ title, source, text }))) { setTitle(''); setSource(''); setText(''); onDone?.(); } }}>
       <label>Title <input value={title} onChange={e => setTitle(e.target.value)} maxLength={200} required placeholder="Suspicious access on Sunday" /></label>
       <label>Source <input value={source} onChange={e => setSource(e.target.value)} maxLength={64} placeholder="Firewall logs" /></label>
       <label>What it shows <textarea value={text} onChange={e => setText(e.target.value)} rows={3} maxLength={50000} required placeholder="An admin session from an unknown host at 03:12 Sunday…" /></label>
-      <button className="primary" disabled={busy || !title.trim() || !text.trim()}>{busy ? 'Saving…' : 'Add evidence'}</button>
+      <button className="primary" disabled={busy || !title.trim() || !text.trim()}>{busy ? 'Submitting…' : 'Submit & analyze'}</button>
       {error && <p role="alert" className="error">{error}</p>}
     </form>
   </Panel>;

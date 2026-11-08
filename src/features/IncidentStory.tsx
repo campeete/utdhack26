@@ -18,7 +18,8 @@ import { proposalForEvidence } from "../../shared/reassessment";
 import { DismissalRecord, DismissDialog } from "./DismissDialog";
 import { DecisionTrail, TeamUpdates } from "./DecisionContext";
 import { AccountsNamed, accountsNamedIn } from "./AccountContext";
-import { DecisionActions, DecisionTasks } from "./TeamActions";
+import { DecisionActions, DecisionTasks, FlagAndAssign, NextAction } from "./TeamActions";
+import { tierOf } from "../../shared/contracts";
 
 type Step = 1 | 2 | 3;
 export function IncidentStory({
@@ -152,6 +153,7 @@ export function IncidentStory({
             Overview
           </button>
         </header>
+        <NextAction data={data} decisionId={decision?.id} pendingSuggestion={proposal?.state === "pending"} />
         <ol className="response-procedure" aria-label="Review workflow steps">
           {([1, 2, 3] as Step[]).map((number) => (
             <li
@@ -349,14 +351,17 @@ export function IncidentStory({
                               . It still needs a human decision.
                             </p>
                           )}
+                          {tierOf(adapter.identity?.roles ?? []) >= 2 && (
+                            <FlagAndAssign proposalId={proposal.id} data={data} adapter={adapter} onUpdate={(next) => { onUpdate(next); showStep(3); }} />
+                          )}
                           <div className="procedure-actions">
-                            <button
+                            {tierOf(adapter.identity?.roles ?? []) < 2 && <button
                               className="primary"
                               onClick={() => setComposer("confirm")}
                             >
                               Request decision review
                               <ArrowRight size={16} />
-                            </button>
+                            </button>}
                             <button
                               className="text-button"
                               onClick={() => setDismissOpen(true)}
@@ -557,6 +562,7 @@ function NoraAssessment({
     <section className={`nora-assessment ${verdict.tone}`} aria-label="Nora (Nemotron) assessment">
       <header>
         <Sparkles size={15} aria-hidden="true" />
+        <span className="kind-tag ai">AI suggestion</span>
         <strong>Nora (Nemotron)</strong>
         <span className={`nora-verdict ${verdict.tone}`}>{verdict.text}</span>
         {review && review.evidenceId !== currentEvidenceId && <span className="nora-about">about {review.evidenceId}</span>}

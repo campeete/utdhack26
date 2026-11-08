@@ -278,6 +278,20 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       }
       return build();
     },
+    flagAndAssign: (proposalId, reason, memberId) => act(async () => {
+      const sid = parseId(proposalId, 'P');
+      const assignee = identityOf(memberId);
+      await conn!.reducers.confirmSuggestion({ suggestion_id: sid, reason });
+      // The confirm creates the verification task; wait for it, then hand it over.
+      let tasks: { id: bigint }[] = [];
+      for (let i = 0; i < 30; i++) {
+        tasks = [...db().incidentTasks.iter()].filter(t => t.suggestionId === sid && t.state !== 'resolved');
+        if (tasks.length) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      if (!tasks.length) throw new Error('The review was flagged, but its verification task has not appeared yet. Assign it from Review the decision.');
+      for (const t of tasks) await conn!.reducers.reassignTask({ task_id: t.id, assignee });
+    }),
     setInvite: (code, tier) => act(() => conn!.reducers.setJoinCode({ incident_id: incidentId(), code, tier })),
     confirm: (proposalId, reason) => act(() => conn!.reducers.confirmSuggestion({ suggestion_id: parseId(proposalId, 'P'), reason })),
     dismiss: (proposalId, feedback) => act(() => conn!.reducers.dismissSuggestion({ suggestion_id: parseId(proposalId, 'P'), feedback })),

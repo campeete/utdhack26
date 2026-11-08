@@ -32,7 +32,7 @@ export async function connectAdmin(): Promise<DbConnection> {
   });
   await new Promise<void>((resolve, reject) => conn.subscriptionBuilder()
     .onApplied(() => resolve()).onError(() => reject(new Error('Subscription failed.')))
-    .subscribe(['SELECT * FROM my_incidents', 'SELECT * FROM low_severity_rules']));
+    .subscribe(['SELECT * FROM my_incidents', 'SELECT * FROM low_severity_rules', 'SELECT * FROM incident_decisions']));
   return conn;
 }
 

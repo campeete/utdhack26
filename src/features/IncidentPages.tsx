@@ -107,6 +107,16 @@ export function IncidentConversation({ evidenceId, decisionId, relatedEvidenceId
     ...(decision ? [{ label: 'Ask for an update', text: `Where are we on ${decision.id} “${decision.title}”? Has anyone started on it?` }] : []),
     ...(task?.state === 'open' ? [{ label: `Nudge ${task.owner.split(' ')[0]}`, text: `Reminder for ${task.owner}: “${task.title}” is still open (${decision?.id ?? threadId}).` }] : []),
   ];
+  const [savedIds, setSavedIds] = useState<string[]>([]);
+  /** Turns an important message into a documented finding (evidence) that Nora (Nemotron) analyzes. */
+  async function saveAsFinding(m: Snapshot['messages'][number]) {
+    setError('');
+    try {
+      const title = `From discussion: ${m.text.length > 70 ? `${m.text.slice(0, 67)}…` : m.text}`;
+      onUpdate(await adapter.addEvidence({ title, source: `Discussion: ${displayName(m.author)}`.slice(0, 64), text: `${displayName(m.author)} wrote in the ${threadId} discussion at ${localTime(m.at)}: ${m.text}` }));
+      setSavedIds(ids => [...ids, m.id]);
+    } catch (err) { setError((err as Error).message); }
+  }
   async function send() {
     if (busy || !text.trim()) return;
     setBusy(true); setError('');
@@ -134,6 +144,7 @@ export function IncidentConversation({ evidenceId, decisionId, relatedEvidenceId
           <div className="bubble-body">
             <div className="bubble-meta"><strong>{mine ? 'You' : displayName(m.author)}</strong><span>→ {recipient}</span><time>{localTime(m.at)}</time></div>
             <MessageText text={m.text} data={data} onOpenReference={onOpenReference} />
+            {!fromNora && !m.text.startsWith('Status ·') && <button type="button" className="text-button save-finding" disabled={savedIds.includes(m.id)} onClick={() => void saveAsFinding(m)}>{savedIds.includes(m.id) ? 'Saved as a finding' : 'Save as finding'}</button>}
           </div>
         </article>;
       }) : <p className="empty">No messages on this item yet. Start with a quick draft below.</p>}

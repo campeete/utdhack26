@@ -68,6 +68,7 @@ export const DASHBOARD_REDUCERS = {
   resolve_task: { task_id: __t.u64() },
   resolve_decision: { decision_id: __t.u64() },
   submit_findings: { task_id: __t.u64(), findings: __t.string() },
+  reassign_task: { task_id: __t.u64(), assignee: __t.identity() },
   set_join_code: { incident_id: __t.u64(), code: __t.string(), tier: __t.string() },
   join_with_code: { code: __t.string() },
   add_issue_message: { decision_id: __t.u64(), text: __t.string(), client_request_id: __t.option(__t.string()), recipient: __t.option(__t.identity()) },
@@ -120,6 +121,7 @@ const reducersSchema = __reducers(
   __reducerSchema('resolve_decision', DASHBOARD_REDUCERS.resolve_decision),
   __reducerSchema('submit_findings', DASHBOARD_REDUCERS.submit_findings),
   __reducerSchema('add_issue_message', DASHBOARD_REDUCERS.add_issue_message),
+  __reducerSchema('reassign_task', DASHBOARD_REDUCERS.reassign_task),
   __reducerSchema('set_join_code', DASHBOARD_REDUCERS.set_join_code),
   __reducerSchema('join_with_code', DASHBOARD_REDUCERS.join_with_code),
 );

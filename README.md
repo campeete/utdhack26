@@ -122,14 +122,19 @@ npm run nora:try-evidence -- findings   # verification findings that support the
 npm run nora:try                        # one suspicious sign-in
 ```
 
-## Demo walkthrough (two browsers)
+## Demo walkthrough (two windows, one laptop, about two minutes)
 
-1. **Lead** (`?as=lead`, Tier 3): in the Workspace, press Record a decision: record the decision "Restore the customer portal from Monday's backup", resting on "Monday's backup predates the intrusion", and approve it.
-2. **Analyst** (`?as=analyst`, Tier 1), on another device: add evidence: "Firewall logs show an admin session from an unknown host at 03:12 on Sunday. The Monday backup ran after that session."
-3. Within seconds, in **both** browsers: the report shows "Challenges D-001" under that issue, Review the decision shows Nora (Nemotron)'s verdict quoting that sentence, and she posts a note in the issue's discussion.
-4. The team discusses live; the lead confirms the review, the decision is flagged, and the lead assigns "Verify the backup predates the intrusion" to the analyst.
-5. The analyst submits findings; Nora checks them and reports that they support the decision (or not); the lead re-approves or changes the plan.
-6. **Monitor**: the audit log shows every step, Nora's included, with "Chain intact".
+Setup, once: open two windows, `?data=live&as=commander&name=Morgan` and `?data=live&as=analyst&name=Sam`, copy the ID each shows, then
+`npm run demo:setup -- --nora <Nora's ID> --commander <Morgan's ID> --analyst <Sam's ID>` and reload both. The new incident starts as **Awaiting information**, severity **Unknown**, with two confirmed decisions.
+
+| # | Live action | What judges see |
+|---|---|---|
+| 1 | **Analyst**: Add finding → Prepared report "Sunday admin access" → Submit & analyze | The human report appears in both windows |
+| 2 | Nora (Nemotron) investigates in the background (a few seconds) | An AI suggestion on "Restore the customer portal from Monday's backup", quoting the report, and her note in that issue's discussion |
+| 3 | **Commander**: Review the decision → Flag & assign → Sam | The decision becomes Needs review; Next action: Sam, not acknowledged yet |
+| 4 | **Analyst**: Acknowledge, replying "Checking the backup against the revised timeline." | The commander sees "Acknowledged" and the reply live |
+
+Optional: "Save as finding" on any message turns it into a documented finding Nora analyzes; the analyst's Submit findings closes the loop and Nora reports whether they support the decision; Monitor shows every step in the audit chain ("Chain intact").
 
 ## Tests
 

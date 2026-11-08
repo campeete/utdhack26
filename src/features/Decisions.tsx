@@ -97,13 +97,13 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
         <div className="section-heading"><h2 id="changes-heading" ref={changesHeading} tabIndex={-1}>Issues & Evidence</h2><span className="quiet-count">{data.evidence.length} reports</span></div>
         <p className="stream-intro">Each decision is an issue with its own discussion. Reports are grouped under the issue they affect.</p>
         <div className="workspace-add" role="group" aria-label="Add to the incident">
-          <button className="secondary" onClick={() => setAdding('evidence')}><FilePlus2 size={15} />Add evidence</button>
+          <button className="primary" onClick={() => setAdding('evidence')}><FilePlus2 size={15} />Add finding</button>
           <button className="secondary" onClick={() => setAdding('decision')}><Gavel size={15} />Record a decision</button>
         </div>
         <div className="change-filters" role="group" aria-label="Filter changes"><button className={filter === 'all' ? 'selected' : ''} aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>All evidence</button><button className={filter === 'review' ? 'selected' : ''} aria-pressed={filter === 'review'} onClick={() => setFilter('review')}>Flagged for review <span>{reviewCount}</span></button><button className={filter === 'resolved' ? 'selected' : ''} aria-pressed={filter === 'resolved'} onClick={() => setFilter('resolved')}>Resolved</button></div>
         <div className="issue-groups">{groups.length ? groups.map(({ decision, shown, items }) => <section key={decision?.id ?? 'unlinked'} className={`issue-group ${decision && selection.decisionId === decision.id ? 'active' : ''} ${decision ? '' : 'unlinked'}`} aria-label={decision ? `${decision.id} ${decision.title}${decision.state === 'closed' ? ', resolved' : ''}` : 'Evidence not linked to a decision'}>
           {decision ? <button className="issue-head" onClick={() => select({ evidenceId: items[0]?.id ?? null, decisionId: decision.id })} aria-controls="change-context" aria-pressed={selection.decisionId === decision.id && !items.some(e => e.id === selection.evidenceId)}>
-            <span className="issue-title"><small>Decision {decision.id}</small><strong>{decision.title}</strong></span>
+            <span className="issue-title"><small><span className={`kind-tag ${decision.state === 'approved' ? 'confirmed' : 'decision'}`}>{decision.state === 'approved' ? 'Confirmed decision' : decision.state === 'draft' ? 'Draft decision' : decision.state === 'closed' ? 'Resolved decision' : 'Decision under review'}</span> {decision.id}</small><strong>{decision.title}</strong></span>
             <Status value={decision.state} />
           </button> : <div className="issue-head static"><span className="issue-title"><small>Not linked yet</small><strong>Reports with no decision attached</strong></span></div>}
           <div className="issue-items">{shown.length ? shown.map(e => {
@@ -114,7 +114,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
             const reviewState = resolved ? undefined : p?.state === 'accepted' ? 'needs_review' : p?.state;
             const isSelected = selection.evidenceId === e.id && (selection.decisionId ?? null) === (decision?.id ?? null);
             return <button key={e.id} className={`change-item ${isSelected ? 'selected' : ''} ${!resolved && p?.state === 'pending' ? 'attention' : ''}`} onClick={() => select({ evidenceId: e.id, decisionId: decision?.id ?? null })} aria-pressed={isSelected} aria-controls="change-context">
-              <span className="change-time">{e.id}<span>{underReview ? 'Source update' : 'Evidence added'}</span></span>
+              <span className="change-time">{e.id}<span className={`kind-tag ${e.title.startsWith('Verification of') ? 'verify' : 'human'}`}>{e.title.startsWith('Verification of') ? 'Verification findings' : e.title.startsWith('From discussion') ? 'Finding from discussion' : 'Human report'}</span></span>
               <strong>{underReview ? 'Recovery source under review' : e.title}</strong>
               <span className="change-summary">{s?.label}</span>
               {noraVerdict(e.id) && <span className={`nora-verdict ${noraVerdict(e.id)!.tone}`}>{noraVerdict(e.id)!.text}</span>}
@@ -132,7 +132,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
           : evidence && <IncidentConversation key={evidence.id} evidenceId={evidence.id} data={data} adapter={adapter} onUpdate={onUpdate} draft={draft} onOpenReference={openReference} />}
       </div>
     </div>
-    {adding && <Modal title={adding === 'evidence' ? 'Add evidence' : 'Record a decision'} onClose={() => setAdding(null)}>
+    {adding && <Modal title={adding === 'evidence' ? 'Add finding' : 'Record a decision'} onClose={() => setAdding(null)}>
       {adding === 'evidence'
         ? <AddEvidence adapter={adapter} onUpdate={onUpdate} onDone={() => setAdding(null)} />
         : <RecordDecision data={data} adapter={adapter} onUpdate={next => { onUpdate(next); const d = next.decisions[next.decisions.length - 1]; if (d) onSelect({ evidenceId: d.evidenceIds[0] ?? null, decisionId: d.id }); }} onDone={() => setAdding(null)} />}

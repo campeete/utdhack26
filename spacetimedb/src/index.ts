@@ -38,8 +38,9 @@ type Tier = 1 | 2 | 3;
 /** The highest tier in a membership's roles (0 if none is a tier). */
 const tierOf = (roles: readonly string[]): number => Math.max(0, ...roles.map(r => ROLES.indexOf(r as Role) + 1));
 
-const STATUSES = ['investigating', 'containing', 'recovering', 'monitoring', 'closed'] as const;
-const SEVERITIES = ['critical', 'high', 'medium', 'low'] as const;
+// Every incident starts as awaiting information with unknown severity: nobody guesses before the facts are in.
+const STATUSES = ['awaiting_information', 'investigating', 'containing', 'recovering', 'monitoring', 'closed'] as const;
+const SEVERITIES = ['unknown', 'critical', 'high', 'medium', 'low'] as const;
 
 const ENCRYPTION_STATES = ['unknown', 'suspected', 'confirmed', 'not_observed'] as const;
 const EXFILTRATION_STATES = ['unknown', 'suspected', 'confirmed', 'not_observed'] as const;
@@ -699,7 +700,7 @@ export const create_incident = spacetimedb.reducer(
       id: 0n,
       title: cleanText(title, 'Title', 1, MAX_TITLE),
       summary: cleanText(summary, 'Summary', 0, MAX_SUMMARY),
-      status: 'investigating',
+      status: 'awaiting_information',
       severity,
       commander: undefined,
       created_by: ctx.sender,
@@ -1921,6 +1922,21 @@ export const accept_task = spacetimedb.reducer(
     if (tk.state !== 'open') fail('Only an open task can be accepted');
     ctx.db.task.id.update({ ...tk, state: 'accepted', version: tk.version + 1 });
     logActivity(ctx, tk.incident_id, 'task_accepted', 'task', tk.id, tk.title, 'TASK_ACCEPTED');
+  }
+);
+
+/** Tier 2+: hand a verification task to another active member. It starts again as open (not yet acknowledged). */
+export const reassign_task = spacetimedb.reducer(
+  { task_id: t.u64(), assignee: t.identity() },
+  (ctx, { task_id, assignee }) => {
+    const tk = ctx.db.task.id.find(task_id);
+    if (!tk) fail('Task not found');
+    requireTier(ctx, tk.incident_id, 2);
+    if (tk.state === 'resolved') fail('This task is already resolved');
+    if (!activeMembership(ctx, tk.incident_id, assignee)) fail('Assignee must be an active member of this incident');
+    if (tk.assignee.isEqual(assignee)) return;
+    ctx.db.task.id.update({ ...tk, assignee, state: 'open', version: tk.version + 1 });
+    logActivity(ctx, tk.incident_id, 'task_assigned', 'task', tk.id, `${tk.title} -> ${assignee.toHexString().slice(0, 12)}`, 'TASK_ASSIGNED');
   }
 );
 

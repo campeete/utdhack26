@@ -307,6 +307,19 @@ describe('suggested reviews (ported rules)', () => {
     expect(last('task').state).toBe('accepted');
   });
 
+  it('Flag & assign: Tier 2 hands the verification to a teammate, who acknowledges it', () => {
+    suggest();
+    const sid = last('suggestion').id;
+    as('cmd', c => mod.confirm_suggestion(c, { suggestion_id: sid, reason: 'Backup ran after the session' }));
+    const tk = last('task');
+    denied(() => as('analyst', c => mod.reassign_task(c, { task_id: tk.id, assignee: id.analyst })), /Access denied|Tier/i);
+    denied(() => as('cmd', c => mod.reassign_task(c, { task_id: tk.id, assignee: id.outsider })), /active member/);
+    as('cmd', c => mod.reassign_task(c, { task_id: tk.id, assignee: id.analyst }));
+    expect(last('task').assignee.isEqual(id.analyst)).toBe(true);
+    as('analyst', c => mod.accept_task(c, { task_id: tk.id }));
+    expect(last('task').state).toBe('accepted');
+  });
+
   it('Tier 2 assigns verification work on a decision to a teammate; only the assignee accepts it', () => {
     denied(() => as('analyst', c => mod.assign_task(c, { decision_id: decisionId, assignee: id.analyst, title: 'Verify backup timing' })), /needs Tier 2/);
     denied(() => as('cmd', c => mod.assign_task(c, { decision_id: decisionId, assignee: id.outsider, title: 'Verify backup timing' })), /active member/);
@@ -520,6 +533,13 @@ describe('Change 1: direct messages', () => {
     expect(view('forensics', mod.incident_messages).map((m: any) => m.text)).toEqual(['For everyone']);
     denied(() => as('analyst', c => mod.add_message(c, { incident_id: inc, text: 'x', client_request_id: undefined, recipient: id.outsider, evidence_id: undefined })), /Recipient must be/);
     denied(() => as('analyst', c => mod.add_message(c, { incident_id: inc, text: 'x', client_request_id: undefined, recipient: undefined, evidence_id: 999n })), /Evidence not found/);
+  });
+});
+
+describe('new incidents', () => {
+  it('start as awaiting information with unknown severity', () => {
+    as('owner', c => mod.create_incident(c, { title: 'Fresh', summary: '', severity: 'unknown' }));
+    expect(last('incident')).toMatchObject({ status: 'awaiting_information', severity: 'unknown' });
   });
 });
 

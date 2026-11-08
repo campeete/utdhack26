@@ -52,6 +52,14 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
     async load() { return copy(); },
     async resolveDecision(id) { requireReviewer(); data = resolveDecision(data, id, actor, new Date().toISOString()); return copy(); },
     async confirm(id, reason) { requireReviewer(); data = confirmReview(data, id, reason, actor, new Date().toISOString()); return copy(); },
+    async flagAndAssign(id, reason, memberId) {
+      requireTier(2);
+      const member = data.members.find(m => m.id === memberId && m.active);
+      if (!member) throw new Error('Choose an active teammate.');
+      data = confirmReview(data, id, reason, actor, new Date().toISOString());
+      data = { ...data, tasks: data.tasks.map(t => t.proposalId === id && t.state !== 'resolved' ? { ...t, owner: member.name, ownerId: member.id, state: 'open' as const, version: t.version + 1 } : t) };
+      return copy();
+    },
     async dismiss(id, feedback) {
       requireReviewer();
       const before = data;
