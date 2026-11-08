@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { ChevronDown, Send, ShieldOff } from 'lucide-react';
 import type { Briefing as BriefingRecord, Snapshot } from '../../shared/contracts';
 import type { IncidentData } from '../data/interface';
@@ -21,16 +21,39 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate }: { 
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [recipientId, setRecipientId] = useState<string | null>(null);
+  const [recipientPickerOpen, setRecipientPickerOpen] = useState(false);
+  const administrators = data.members.filter(member => member.active && member.roles.includes('admin'));
+  const selectedRecipient = administrators.find(member => member.id === recipientId);
   const messages = data.messages.filter(message => message.evidenceId === evidenceId);
   const evidence = data.evidence.find(item => item.id === evidenceId);
+  useEffect(() => {
+    setRecipientId(null);
+    setRecipientPickerOpen(false);
+    setError('');
+  }, [evidenceId]);
   return <section className="chat change-conversation" aria-labelledby={`${id}-heading`}>
     <div className="section-heading"><h3 id={`${id}-heading`}>Change discussion</h3><span className="local-label">Linked to {evidenceId}</span></div>
     <p className="conversation-note">Messages here are attached to “{evidence?.title ?? evidenceId}” and stay separate from other changes.</p>
-    <div className="messages" role="log" aria-live="polite">{messages.length ? messages.map(m => <article key={m.id}><div><strong>{m.author}</strong><time>{utc(m.at)} UTC</time></div><p>{m.text}</p></article>) : <p className="empty">No messages on this change yet.</p>}</div>
-    <form onSubmit={async e => { e.preventDefault(); if (busy) return; setBusy(true); setError(''); try { onUpdate(await adapter.sendMessage(evidenceId, text)); setText(''); } catch (err) { setError((err as Error).message); } finally { setBusy(false); } }} aria-busy={busy}>
+    <div className="messages" role="log" aria-live="polite">{messages.length ? messages.map(m => <article key={m.id}><div><strong>{m.author}</strong><time>{utc(m.at)} UTC</time></div><small className="message-recipient">To: {data.members.find(member => member.id === m.recipientId)?.name ?? 'Administrator'}</small><p>{m.text}</p></article>) : <p className="empty">No messages on this change yet.</p>}</div>
+    <form onSubmit={async e => { e.preventDefault(); if (busy || !selectedRecipient) return; setBusy(true); setError(''); try { onUpdate(await adapter.sendMessage(evidenceId, selectedRecipient.id, text)); setText(''); } catch (err) { setError((err as Error).message); } finally { setBusy(false); } }} aria-busy={busy}>
       <label htmlFor={`${id}-message`}>Send a message</label>
       <textarea id={`${id}-message`} required maxLength={2000} rows={3} value={text} onChange={e => setText(e.target.value)} placeholder="Add context to this change…" />
-      <div className="chat-actions"><small className="muted">Local demo · Threaded under {evidenceId}</small><button className="primary" disabled={busy || !text.trim()}>{busy ? 'Sending…' : 'Send message'}<Send size={16} /></button></div>
+      <div className="chat-actions">
+        <small className="muted">Local demo · Threaded under {evidenceId}</small>
+        <div className="message-actions">
+          <div className="admin-recipient-picker">
+            <button type="button" className="secondary" disabled={!administrators.length} aria-expanded={recipientPickerOpen} aria-controls={`${id}-admins`} onClick={() => setRecipientPickerOpen(open => !open)}>Choose admin<ChevronDown size={15} /></button>
+            {recipientPickerOpen && <div id={`${id}-admins`} className="admin-recipient-options" role="group" aria-label="Choose an active administrator">
+              {administrators.map(admin => <button key={admin.id} type="button" aria-pressed={recipientId === admin.id} onClick={() => { setRecipientId(admin.id); setRecipientPickerOpen(false); setError(''); }}>
+                <span className="avatar">{admin.name.split(' ').map(part => part[0]).join('')}</span><span><strong>{admin.name}</strong><small>Administrator</small></span>
+              </button>)}
+            </div>}
+          </div>
+          <button className="primary" disabled={busy || !text.trim() || !selectedRecipient}>{busy ? 'Sending…' : 'Send message'}<Send size={16} /></button>
+        </div>
+      </div>
+      <p className="recipient-selection" role="status">{selectedRecipient ? `To: ${selectedRecipient.name}` : administrators.length ? 'Choose an administrator before sending.' : 'No active administrators are available.'}</p>
       {error && <p role="alert" className="error">{error}</p>}
     </form>
   </section>;

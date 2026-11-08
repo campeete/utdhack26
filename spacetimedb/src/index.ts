@@ -154,13 +154,16 @@ export const recordReassessment = spacetimedb.reducer({ incidentId: t.string(), 
   ctx.db.incident.id.update({ ...row, payload: JSON.stringify(next), version: row.version + 1, updatedAt: ctx.timestamp });
   log(ctx, args.incidentId, `Reassessment recorded: ${args.proposalId}`);
 });
-export const sendMessage = spacetimedb.reducer({ incidentId: t.string(), expectedVersion: t.u32(), requestId: t.string(), text: t.string() }, (ctx, args) => {
+export const sendMessage = spacetimedb.reducer({ incidentId: t.string(), expectedVersion: t.u32(), requestId: t.string(), evidenceId: t.string(), recipientId: t.string(), text: t.string() }, (ctx, args) => {
   authorize(ctx, args.incidentId);
   if (!args.text.trim() || args.text.length > 2000 || !/^[a-zA-Z0-9-]{8,80}$/.test(args.requestId)) throw new SenderError('Invalid message or request identifier.');
   const { row, data } = load(ctx, args.incidentId, args.expectedVersion);
+  if (!data.evidence.some(e => e.id === args.evidenceId)) throw new SenderError('Message must be linked to existing evidence.');
+  const recipient = ctx.db.membership.id.find(args.recipientId);
+  if (!recipient || recipient.incidentId !== args.incidentId || !recipient.active || !recipient.roles.includes('admin')) throw new SenderError('Choose an active administrator in this incident.');
   const id = `${ctx.sender.toHexString()}:${args.requestId}`;
   if (data.messages.some(m => m.id === id)) return;
-  data.messages.push({ id, incidentId: args.incidentId, version: 1, author: ctx.sender.toHexString(), text: args.text.trim(), at: ctx.timestamp.toDate().toISOString() });
+  data.messages.push({ id, incidentId: args.incidentId, evidenceId: args.evidenceId, recipientId: args.recipientId, version: 1, author: ctx.sender.toHexString(), text: args.text.trim(), at: ctx.timestamp.toDate().toISOString() });
   ctx.db.incident.id.update({ ...row, payload: JSON.stringify(data), version: row.version + 1, updatedAt: ctx.timestamp });
   log(ctx, args.incidentId, 'Message recorded.');
 });
