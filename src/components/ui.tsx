@@ -35,22 +35,23 @@ export function Status({ value, emphasis = false }: { value: string; emphasis?: 
     {Icon && <Icon size={emphasis ? 18 : 15} aria-hidden="true" />}{spec?.text ?? label(value)}
   </span>;
 }
-export function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+export function Modal({ title, children, onClose, closeDisabled = false }: { title: string; children: ReactNode; onClose: () => void; closeDisabled?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
   useEffect(() => {
     const el = ref.current!;
     const trigger = document.activeElement as HTMLElement | null;
     el.showModal();
+    el.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
     return () => { el.close(); trigger?.focus({ preventScroll: true }); };
   }, []);
-  return <dialog ref={ref} onCancel={e => { e.preventDefault(); onClose(); }} aria-labelledby={id} onKeyDown={event => {
+  return <dialog ref={ref} onCancel={e => { e.preventDefault(); if (!closeDisabled) onClose(); }} aria-labelledby={id} onKeyDown={event => {
     if (event.key !== 'Tab') return;
     const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), summary, [tabindex="0"]')].filter(el => el.getClientRects().length > 0);
     const first = controls[0]; const last = controls[controls.length - 1];
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
   }}>
-    <div className="modal-heading"><h2 id={id}>{title}</h2><button className="icon-button" aria-label="Close dialog" onClick={onClose}><X size={20} /></button></div>{children}
+    <div className="modal-heading"><h2 id={id} tabIndex={-1}>{title}</h2><button className="icon-button" aria-label="Close dialog" onClick={onClose} disabled={closeDisabled}><X size={20} /></button></div>{children}
   </dialog>;
 }

@@ -7,11 +7,11 @@
  */
 import type { Identity, Timestamp } from 'spacetimedb';
 import { checkMetadata, genesisHash, hashEvent, LONE_SURROGATE, type EventFields } from './chain';
-import { isAuditAction, type AuditAction } from './actions';
+import { isAuditAction, isIncidentId, type AuditAction } from './actions';
 
 export interface AuditEventRow {
   id: bigint;
-  incident_id: bigint;
+  incident_id: string;
   seq: bigint;
   actor: Identity;
   actor_kind: string;
@@ -26,7 +26,7 @@ export interface AuditEventRow {
   hash: string;
 }
 export interface AuditHeadRow {
-  incident_id: bigint;
+  incident_id: string;
   seq: bigint;
   hash: string;
   updated_at: Timestamp;
@@ -42,13 +42,13 @@ export interface AuditCtx {
     audit_event: { insert(row: AuditEventRow): AuditEventRow };
     audit_head: {
       insert(row: AuditHeadRow): AuditHeadRow;
-      incident_id: { find(id: bigint): AuditHeadRow | null | undefined; update(row: AuditHeadRow): AuditHeadRow };
+      incident_id: { find(id: string): AuditHeadRow | null | undefined; update(row: AuditHeadRow): AuditHeadRow };
     };
   };
 }
 
 export interface AppendInput {
-  incidentId: bigint;
+  incidentId: string;
   action: AuditAction;
   entityType: string;
   entityId: string | bigint | number;
@@ -67,6 +67,7 @@ const MAX_ID = 128;
  *  so rolls back the whole reducer) on invalid input. */
 export function appendEvent(ctx: AuditCtx, input: AppendInput): AuditEventRow {
   if (!isAuditAction(input.action)) throw new Error(`unknown audit action: ${input.action}`);
+  if (!isIncidentId(input.incidentId)) throw new Error('invalid audit incident id');
   const entityId = input.entityId.toString();
   if (input.entityType.length > MAX_ID || entityId.length > MAX_ID) throw new Error('audit entity reference too long');
   if (LONE_SURROGATE.test(input.entityType) || LONE_SURROGATE.test(entityId)) throw new Error('audit entity reference contains malformed Unicode');

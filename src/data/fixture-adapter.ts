@@ -1,26 +1,74 @@
+import type { Snapshot } from '../../shared/contracts';
 import type { IncidentData } from './interface';
 import { createFixture } from './fixtures';
 import { confirmReview } from '../../shared/review';
+import { buildReassessmentRequest, dismissProposal, recordReassessment, retryReassessment, REVIEW_ROLES, type ReassessmentRequest } from '../../shared/reassessment';
 
-export function createFixtureAdapter(): IncidentData {
+/** Stands in for the server-side Nemotron worker. Returns the model's raw reply. */
+export type Reassessor = (request: ReassessmentRequest) => Promise<unknown>;
+
+// A deterministic, clearly synthetic reply: it quotes a different sentence of
+// the same evidence, so the demo shows a linked revision without any AI.
+export const syntheticReassessor: Reassessor = async request => {
+  const sentences = (request.evidence?.text ?? '').match(/[^.!?]+[.!?]/g)?.map(s => s.trim()) ?? [];
+  const excerpt = sentences.find(s => s !== request.originalSuggestion.excerpt) ?? sentences[0];
+  return {
+    kind: 'revision', excerpt,
+    explanation: `Revised after reviewer feedback: “${request.dismissal.feedback.slice(0, 200)}”. The concern is narrowed to what the evidence leaves unverified. Synthetic stand-in; Nemotron is not connected.`,
+    verification: 'Confirm what the original test did not assess before relying on it.',
+  };
+};
+export const noFurtherReviewReassessor: Reassessor = async () => ({ kind: 'no_further_review', note: 'The feedback resolves the concern. Synthetic stand-in; Nemotron is not connected.' });
+/** Fails the first attempt so the Retry path can be demonstrated. */
+export function failOnceReassessor(then: Reassessor = syntheticReassessor): Reassessor {
+  let failed = false;
+  return async request => { if (!failed) { failed = true; throw new Error('The reassessment service did not respond.'); } return then(request); };
+}
+
+export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?: number } = {}): IncidentData {
+  const reassess = options.reassess ?? syntheticReassessor;
+  const delayMs = options.delayMs ?? 1600;
+  const actor = 'Morgan Patel (fixture)';
+  const identity = { name: 'Morgan Patel', roles: ['analyst'], authenticated: false };
   let data = createFixture();
+  const listeners = new Set<(data: Snapshot) => void>();
   const copy = () => structuredClone(data);
+  const publish = () => { const snapshot = copy(); listeners.forEach(l => l(snapshot)); };
+  const requireReviewer = () => { if (!identity.roles.some(r => (REVIEW_ROLES as readonly string[]).includes(r))) throw new Error('Only analysts and commanders can review suggestions.'); };
+  // Runs outside the request, the way a server-side worker would.
+  function runPending(proposalId: string) {
+    let request: ReassessmentRequest;
+    try { request = buildReassessmentRequest(data, proposalId); } catch { return; }
+    setTimeout(() => {
+      reassess(request)
+        .then(raw => raw, (e: Error) => ({ kind: 'error', message: e.message }))
+        .then(raw => { data = recordReassessment(data, proposalId, request.requestId, raw, 'Nora (synthetic)', new Date().toISOString(), 'synthetic'); publish(); });
+    }, delayMs);
+  }
   return {
     mode: 'fixture',
-    identity: { name: 'Morgan Patel', roles: ['analyst'], authenticated: false },
+    identity,
     async load() { return copy(); },
-    async confirm(id, reason) { data = confirmReview(data, id, reason, 'Morgan Patel (fixture)', new Date().toISOString()); return copy(); },
-    async dismiss(id, reason) {
-      if (reason.trim().length < 8) throw new Error('Add a reason of at least 8 characters.');
-      const p = data.proposals.find(p => p.id === id);
-      if (!p || p.state !== 'pending') throw new Error('Proposal is no longer pending.');
-      data = { ...data, proposals: data.proposals.map(p => p.id === id ? { ...p, state: 'dismissed', version: p.version + 1 } : p), activity: [{ id: `dismiss:${id}`, incidentId: data.incident.id, version: 1, text: `Proposal dismissed. ${reason}`, actor: 'Morgan Patel (fixture)', at: new Date().toISOString() }, ...data.activity] };
+    async confirm(id, reason) { requireReviewer(); data = confirmReview(data, id, reason, actor, new Date().toISOString()); return copy(); },
+    async dismiss(id, feedback) {
+      requireReviewer();
+      const before = data;
+      data = dismissProposal(data, id, feedback, actor, new Date().toISOString());
+      if (data !== before) runPending(id);
       return copy();
     },
+    async retryReassessment(id) {
+      requireReviewer();
+      const before = data;
+      data = retryReassessment(data, id, actor, new Date().toISOString());
+      if (data !== before) runPending(id);
+      return copy();
+    },
+    subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     async sendMessage(evidenceId, text) {
       if (!text.trim() || text.length > 2000) throw new Error('Use 1–2,000 characters.');
       if (!data.evidence.some(e => e.id === evidenceId)) throw new Error('Select an existing evidence item before sending a message.');
-      data = { ...data, messages: [...data.messages, { id: crypto.randomUUID(), incidentId: data.incident.id, evidenceId, version: 1, author: 'Morgan Patel (fixture)', text: text.trim(), at: new Date().toISOString() }] };
+      data = { ...data, messages: [...data.messages, { id: crypto.randomUUID(), incidentId: data.incident.id, evidenceId, version: 1, author: actor, text: text.trim(), at: new Date().toISOString() }] };
       return copy();
     },
   };

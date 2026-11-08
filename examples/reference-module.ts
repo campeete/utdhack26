@@ -14,7 +14,7 @@ const membership = table(
   { name: 'membership', public: false },
   {
     id: t.u64().primaryKey().autoInc(),
-    incident_id: t.u64().index(),
+    incident_id: t.string().index(),
     user_identity: t.identity().index(),
     role: t.string(), // admin | commander | analyst | reviewer
     active: t.bool(),
@@ -22,7 +22,7 @@ const membership = table(
 );
 const message = table(
   { name: 'message', public: false },
-  { id: t.u64().primaryKey().autoInc(), incident_id: t.u64().index(), author: t.identity(), text: t.string(), recorded_at: t.timestamp() },
+  { id: t.u64().primaryKey().autoInc(), incident_id: t.string().index(), author: t.identity(), text: t.string(), recorded_at: t.timestamp() },
 );
 
 const spacetimedb = schema({ config, membership, message, audit_event: auditEvent, audit_head: auditHead });
@@ -30,7 +30,7 @@ export default spacetimedb;
 
 type Ctx = ReducerCtx<InferSchema<typeof spacetimedb>>;
 
-function activeRole(ctx: Ctx, incidentId: bigint): string | null {
+function activeRole(ctx: Ctx, incidentId: string): string | null {
   for (const m of ctx.db.membership.user_identity.filter(ctx.sender)) {
     if (m.incident_id === incidentId && m.active) return m.role;
   }
@@ -45,7 +45,7 @@ export const init = spacetimedb.init((ctx) => {
 
 /** Owner (CLI identity) grants admin on an incident to a browser identity. */
 export const grant_admin = spacetimedb.reducer(
-  { incident_id: t.u64(), who: t.identity() },
+  { incident_id: t.string(), who: t.identity() },
   (ctx, { incident_id, who }) => {
     if (ctx.db.config.key.find('owner')?.value !== ctx.sender.toHexString()) throw new SenderError('owner only');
     ctx.db.membership.insert({ id: 0n, incident_id, user_identity: who, role: 'admin', active: true });
@@ -54,7 +54,7 @@ export const grant_admin = spacetimedb.reducer(
 );
 
 export const admit_member = spacetimedb.reducer(
-  { incident_id: t.u64(), who: t.identity(), role: t.string() },
+  { incident_id: t.string(), who: t.identity(), role: t.string() },
   (ctx, { incident_id, who, role }) => {
     if (activeRole(ctx, incident_id) !== 'admin') throw new SenderError('admin only');
     if (!['commander', 'analyst', 'reviewer'].includes(role)) throw new SenderError('invalid role');
@@ -64,7 +64,7 @@ export const admit_member = spacetimedb.reducer(
 );
 
 export const send_message = spacetimedb.reducer(
-  { incident_id: t.u64(), text: t.string(), client_ts_micros: t.i64() },
+  { incident_id: t.string(), text: t.string(), client_ts_micros: t.i64() },
   (ctx, { incident_id, text, client_ts_micros }) => {
     if (!activeRole(ctx, incident_id)) throw new SenderError('not a member');
     if (text.length === 0 || text.length > 4000) throw new SenderError('message length');
