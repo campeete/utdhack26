@@ -10,7 +10,11 @@ export interface IncidentData {
   } | null;
   load(): Promise<Snapshot>;
   resolveDecision(decisionId: string): Promise<Snapshot>;
+  /** Tier 2+: retire a decision and record its replacement as a draft, in one transaction. */
+  replaceDecision(decisionId: string, title: string, assumption: string): Promise<Snapshot>;
   confirm(proposalId: string, reason: string): Promise<Snapshot>;
+  /** Tier 2+: confirm Nora (Nemotron)'s suggestion and hand its verification to one teammate. */
+  flagAndAssign(proposalId: string, reason: string, memberId: string): Promise<Snapshot>;
   /**
    * Dismisses a suggestion. Empty or whitespace feedback dismisses without AI.
    * Non-empty feedback also asks the backend for a Nemotron reassessment; the
@@ -21,7 +25,10 @@ export interface IncidentData {
   retryReassessment(proposalId: string): Promise<Snapshot>;
   /** Pushes snapshots that change without a local action, such as a finished reassessment. */
   subscribe(listener: (data: Snapshot) => void): () => void;
-  sendMessage(evidenceId: string, recipientId: string, text: string): Promise<Snapshot>;
+  /** Posts to one discussion: an issue (decisionId) or, for unlinked reports, an evidence item. */
+  /** Tier 3: create (or with '' turn off) the invite link code. */
+  setInvite(code: string, tier: 'tier1' | 'tier2'): Promise<Snapshot>;
+  sendMessage(evidenceId: string, recipientId: string, text: string, decisionId?: string): Promise<Snapshot>;
   /** Runs the finding's proposed action. Tier 2 and up. */
   approveFinding(findingId: string): Promise<Snapshot>;
   /** Marks a false alarm (Tier 1 and up). Optional feedback is saved to Nora's memory. */

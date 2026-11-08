@@ -16,11 +16,11 @@ A human report → Nora (Nemotron) investigates → the team discusses → a hum
 |---|---|---|
 | 1 | Open the incident and record what is affected | Incident lead (Tier 2+) |
 | 2 | Record the plan as a decision, with the assumption it rests on ("Monday's backup predates the intrusion") | Tier 1+ records, Tier 2 approves |
-| 3 | Add new evidence in the Team room | Tier 1+ |
+| 3 | Add new evidence in the Workspace | Tier 1+ |
 | 4 | Nora (Nemotron) investigates **immediately**, using tools to read the evidence, the decisions and their assumptions, earlier evidence and the discussion | Nora, in the background |
 | 5 | She posts a suggested review on the decision, quoting the exact sentence from the evidence, and a note in the team discussion | Nora |
 | 6 | Confirm the suggestion (the decision is flagged for review, team updates go out of date, verification is assigned), or dismiss it with feedback so Nora reassesses | Tier 1+ |
-| 7 | The team coordinates live in the discussion ("Has restoration started?" "Not yet.") | Everyone |
+| 7 | The team coordinates live in that issue's own discussion ("Has restoration started?" "Not yet.") | Everyone |
 | 8 | Hold or change the plan, and assign verification to a teammate | Tier 2+ |
 | 9 | The assignee submits findings | Assignee |
 | 10 | Nora checks the findings against the decision: they **support** it (Tier 2 can re-approve) or they **conflict** (back to step 5) | Nora advises, people approve |
@@ -52,7 +52,7 @@ Nora runs as her own service (`npm run nora`) with her own SpacetimeDB identity.
 | Track | What we built |
 |---|---|
 | **SpacetimeDB** | All data lives in one SpacetimeDB module (26 tables). Every table is private; clients read only through per-person views filtered to incidents they are an active member of; every change goes through a reducer that checks identity and tier; every screen updates live through subscriptions. Two browsers, two laptops or a phone share the same incident with no refresh. |
-| **Winstead: incident response** | The Team room (one discussion for every tier, evidence, decisions, assignments, findings), the Workspace for reviewing suggestions, the Monitor for Nora's findings and the audit log, tiered access, and calm, ordered next steps from Nora to cut through the panic. |
+| **Winstead: incident response** | The Workspace: every issue (decision) with its evidence, Nora (Nemotron)'s verdict inside "Review the decision", approval and assignment, verification findings, and its own live discussion for every tier; the Monitor for Nora's findings and the audit log, tiered access, and calm, ordered next steps from Nora to cut through the panic. |
 | **NVIDIA: Nemotron beyond a chatbot** | Nora is a background agent on `nvidia/nemotron-3-ultra-550b-a55b` that investigates with tools, quotes her evidence, advises the tier that must act, escalates urgent danger, learns from feedback, and is boxed in by hard rules. |
 | **CTF: forensics** | Every change, Nora's included, is written in the same transaction to a SHA-256 hash chain. The browser re-verifies the chain on every update ("Chain intact" / "broken at entry #N"); `tools/verify_audit.py` verifies an export independently; `tools/tamper_audit.py` demonstrates an attack and its detection. |
 
@@ -61,7 +61,7 @@ Nora runs as her own service (`npm run nora`) with her own SpacetimeDB identity.
 ```mermaid
 flowchart LR
   subgraph Browsers["Browsers, any tier (one per person)"]
-    UI["Dashboard<br/>Team room · Workspace · Monitor"]
+    UI["Dashboard<br/>Workspace · Monitor"]
   end
   subgraph Laptop["Demo laptop"]
     Vite["Vite dev server<br/>serves the app and passes /v1 through"]
@@ -108,7 +108,7 @@ Open `http://127.0.0.1:5173/?data=live&as=lead&name=Alex`. The page shows this b
 npm run demo:admit -- --user <the 64-character ID> --tier tier3
 ```
 
-After that, admit everyone else from **Administration** in the app. Each `?as=` name in the same browser is a separate person (for example `?as=analyst&name=Sam`), with its own saved login.
+After that, open **Administration → Create invite link** and send teammates the link: they type their name and they are in. Teammates on another network: run `npm run share` and replace the start of the link with the `https://….trycloudflare.com` address it prints. Each `?as=` name in the same browser is a separate person (for example `?as=analyst&name=Sam`), with its own saved login.
 
 Without a backend, `npm run dev` and `http://127.0.0.1:5173/` show the same screens with sample data.
 
@@ -122,14 +122,25 @@ npm run nora:try-evidence -- findings   # verification findings that support the
 npm run nora:try                        # one suspicious sign-in
 ```
 
-## Demo walkthrough (two browsers)
+## Demo story (two windows, one laptop, about three minutes)
 
-1. **Lead** (`?as=lead`, Tier 3): in the Team room, record the decision "Restore the customer portal from Monday's backup", resting on "Monday's backup predates the intrusion", and approve it.
-2. **Analyst** (`?as=analyst`, Tier 1), on another device: add evidence: "Firewall logs show an admin session from an unknown host at 03:12 on Sunday. The Monday backup ran after that session."
-3. Within seconds, in **both** browsers: the Evidence panel shows "Challenges D-001", a suggested review appears on the decision quoting that sentence, and Nora (Nemotron) posts a note in the discussion.
-4. The team discusses live; the lead confirms the review, the decision is flagged, and the lead assigns "Verify the backup predates the intrusion" to the analyst.
-5. The analyst submits findings; Nora checks them and reports that they support the decision (or not); the lead re-approves or changes the plan.
-6. **Monitor**: the audit log shows every step, Nora's included, with "Chain intact".
+**First time:** `npm run demo:setup -- --nora <Nora's ID> --lead <lead window's ID> --analyst <analyst window's ID>` (IDs: Administration → Your ID). **Every judge after that:** `npm run demo:reset`, then reload both windows. It creates a fresh incident and admits the same two windows; nothing to copy.
+
+The synthetic incident opens as **Awaiting information · Unknown severity**, with the plan the night shift left: four confirmed decisions, each with the assumption it rests on and a note in its own discussion.
+
+| Act | Who | What they do | What the audience sees | Track |
+|---|---|---|---|---|
+| 1. The morning after | Lead | Opens the Workspace: four issues, each with its plan, assumption and night-shift note | One calm place to start; nothing guessed yet | Winstead |
+| 2. A tip in the chat | Analyst | In D-001's discussion: "Firewall team just told me there was an admin session from an unknown host at 03:12 Sunday, and the Monday backup ran after it." Enter | The message appears in the lead's window instantly | SpacetimeDB |
+| 3. Make it official | Lead | **Save as finding** on that message | It becomes a documented finding, tagged as from the discussion | Winstead / CTF |
+| 4. Nora connects the dots | Nora (Nemotron) | Investigates in the background (about 10 s) | "Challenges D-001", an AI suggestion quoting the sentence, and her note in D-001's discussion | NVIDIA |
+| 5. A person decides | Lead | Review the decision → Flag & assign → the analyst | D-001: Needs review. Next action: analyst, not acknowledged yet | Winstead |
+| 6. Acknowledged | Analyst | Independent verification → Acknowledge (reply pre-filled) | Lead sees "Acknowledged" and the reply, live | SpacetimeDB |
+| 7. The check | Analyst | Submits findings (type anything, or "Backup is compromised") | Nora judges them live: they contradict D-001 | NVIDIA |
+| 8. Change the plan | Lead | Review the decision → Replace the plan (Nora drafts it from the findings; edit if needed) → the new plan opens as a draft → Approve decision | One transaction retires the old plan and records the new one; a person approves it | Winstead |
+| 9. The receipts | Lead | Monitor | Every step, Nora's included, in the hash-chained log: "Chain intact" | CTF |
+
+Optional: Add finding → "Files encrypting now" → Format with Nora (Nemotron) → Submit shows an urgent escalation and a direct message to the lead.
 
 ## Tests
 

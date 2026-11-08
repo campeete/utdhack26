@@ -1274,3 +1274,51 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 .nora-assessment .nora-escalate { font-weight: 600; color: #f08a87; }
 :root[data-theme="light"] .nora-assessment .nora-escalate { color: #a3302c; }
 .nora-assessment .nora-about { font-size: 12px; color: var(--muted); }
+.workspace-add { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
+.workspace-add button { display: inline-flex; align-items: center; gap: 6px; }
+.decision-actions { margin: 12px 0; }
+.decision-actions .assign-form { margin-top: 10px; }
+.decision-tasks .team-list { margin: 0; }
+.invite-link { border: 1px solid var(--accent); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; display: grid; gap: 8px; }
+.invite-link h3 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.invite-link code { word-break: break-all; }
+.join-gate form { display: grid; gap: 8px; max-width: 320px; margin-top: 12px; }
+.join-gate input { padding: 8px 10px; border: 1px solid var(--rule); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+/* Human reports, AI suggestions and confirmed decisions look different at a glance. */
+.kind-tag { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--rule); color: var(--muted); }
+.kind-tag.human { border-color: #6b8afd; color: #9db0ff; }
+.kind-tag.ai { border-color: var(--accent); color: var(--accent); border-style: dashed; }
+.kind-tag.confirmed { border-color: #3fb97a; color: #3fb97a; background: color-mix(in srgb, #3fb97a 10%, transparent); }
+.kind-tag.decision { border-color: #c9a227; color: #e0bd4a; }
+.kind-tag.verify { border-color: #b07de0; color: #c9a3f0; }
+:root[data-theme="light"] .kind-tag.human { color: #3550c4; }
+:root[data-theme="light"] .kind-tag.confirmed { color: #1f7a4b; }
+:root[data-theme="light"] .kind-tag.decision { color: #8a6a08; }
+:root[data-theme="light"] .kind-tag.verify { color: #6b3aa0; }
+.next-action { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 24px 8px; padding: 10px 14px; border: 1px solid var(--rule); border-left-width: 4px; border-radius: 6px; }
+.next-action.waiting { border-left-color: #e0bd4a; }
+.next-action.ok { border-left-color: #3fb97a; }
+.next-action strong { text-transform: uppercase; font-size: 11px; letter-spacing: .05em; color: var(--muted); }
+.next-action .ack { margin-left: auto; font-weight: 600; }
+.next-action.ok .ack { color: #3fb97a; }
+.next-action.waiting .ack { color: #e0bd4a; }
+.ack-state { margin: 6px 0 0; font-size: 13px; font-weight: 600; }
+.ack-state.ok { color: #3fb97a; }
+.ack-state.waiting { color: #e0bd4a; }
+.prepared { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+.save-finding { font-size: 12px; margin-top: 4px; }
+.flag-assign { border-top: 0; padding-top: 0; margin: 10px 0; }
+.format-notes { margin-bottom: 8px; }
+.format-step { margin: 6px 0; font-size: 12.5px; }
+.replace-plan { border-top: 0; padding-top: 0; margin: 12px 0; }
+.incident-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 0; color: var(--muted); }
+.state-pill { font-size: 12px; font-weight: 600; padding: 2px 8px; border: 1px solid var(--rule); border-radius: 999px; color: var(--text, inherit); }
+/* Overview counters: one number, one label. */
+.stage-copy.simple { display: flex; align-items: baseline; gap: 10px; }
+.stage-copy.simple .stage-value { font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; }
+.stage-copy.simple .stage-label { font-size: 14px; color: var(--muted); }
+.stage.current .stage-copy.simple .stage-value { color: #f2bf68; }
+/* The issue list scrolls on its own, beside the selected issue. */
+@media (min-width: 821px) {
+  .incident-workspace .change-stream { position: sticky; top: 96px; max-height: calc(100vh - 112px); overflow-y: auto; overscroll-behavior: contain; }
+}

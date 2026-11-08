@@ -17,7 +17,7 @@ import {
   type RemoteModule as __RemoteModule,
 } from 'spacetimedb';
 import {
-  ActivityEventRow, AuditEventRow, AuditHeadRow, DecisionRow, EvidenceReviewRow, EvidenceRow, FindingRow, IncidentRow, LoginEventRow, SuggestionTargetRow,
+  ActivityEventRow, AuditEventRow, MessageDecisionRow, JoinCodeRow, AuditHeadRow, DecisionRow, EvidenceReviewRow, EvidenceRow, FindingRow, IncidentRow, LoginEventRow, SuggestionTargetRow,
   MembershipRow, MessageRow, NorthstarAccountRow, ScopeItemRow, SourceRow, SuggestionRow, TaskRow, TeamUpdateRow,
   UserProfileRow,
 } from '../../shared/module-rows';
@@ -44,6 +44,8 @@ export const DASHBOARD_VIEWS = {
   incident_audit_heads: 'audit_head',
   incident_evidence_reviews: 'evidence_review',
   incident_suggestion_targets: 'suggestion_target',
+  incident_message_decisions: 'message_decision',
+  incident_join_codes: 'join_code',
 } as const;
 
 export const DASHBOARD_REDUCERS = {
@@ -66,6 +68,11 @@ export const DASHBOARD_REDUCERS = {
   resolve_task: { task_id: __t.u64() },
   resolve_decision: { decision_id: __t.u64() },
   submit_findings: { task_id: __t.u64(), findings: __t.string() },
+  replace_decision: { decision_id: __t.u64(), title: __t.string(), assumption: __t.string() },
+  reassign_task: { task_id: __t.u64(), assignee: __t.identity() },
+  set_join_code: { incident_id: __t.u64(), code: __t.string(), tier: __t.string() },
+  join_with_code: { code: __t.string() },
+  add_issue_message: { decision_id: __t.u64(), text: __t.string(), client_request_id: __t.option(__t.string()), recipient: __t.option(__t.identity()) },
 } as const;
 
 const view = (name: string) => ({ name, indexes: [], constraints: [] });
@@ -90,6 +97,8 @@ const tablesSchema = __schema({
   incidentAuditHeads: __table(view('incident_audit_heads'), AuditHeadRow),
   incidentEvidenceReviews: __table(view('incident_evidence_reviews'), EvidenceReviewRow),
   incidentSuggestionTargets: __table(view('incident_suggestion_targets'), SuggestionTargetRow),
+  incidentMessageDecisions: __table(view('incident_message_decisions'), MessageDecisionRow),
+  incidentJoinCodes: __table(view('incident_join_codes'), JoinCodeRow),
 });
 
 const reducersSchema = __reducers(
@@ -112,6 +121,11 @@ const reducersSchema = __reducers(
   __reducerSchema('resolve_task', DASHBOARD_REDUCERS.resolve_task),
   __reducerSchema('resolve_decision', DASHBOARD_REDUCERS.resolve_decision),
   __reducerSchema('submit_findings', DASHBOARD_REDUCERS.submit_findings),
+  __reducerSchema('add_issue_message', DASHBOARD_REDUCERS.add_issue_message),
+  __reducerSchema('replace_decision', DASHBOARD_REDUCERS.replace_decision),
+  __reducerSchema('reassign_task', DASHBOARD_REDUCERS.reassign_task),
+  __reducerSchema('set_join_code', DASHBOARD_REDUCERS.set_join_code),
+  __reducerSchema('join_with_code', DASHBOARD_REDUCERS.join_with_code),
 );
 const proceduresSchema = __procedures();
 

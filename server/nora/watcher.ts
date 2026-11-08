@@ -109,6 +109,11 @@ export function buildReassessmentRequest(store: NoraStore, req: ReassessmentRequ
 
 export class NoraWatcher {
   private chain: Promise<void> = Promise.resolve();
+  // Evidence and reassessments jump ahead of sign-in scoring, so a new report is never
+  // stuck behind a backlog of sign-ins (or the API's rate limit).
+  private readonly high: (() => Promise<void>)[] = [];
+  private readonly low: (() => Promise<void>)[] = [];
+  private running = false;
   private readonly loginsSeen = new Set<bigint>();
   private readonly requestsSeen = new Set<bigint>();
   private readonly evidenceSeen = new Set<bigint>();
@@ -121,16 +126,18 @@ export class NoraWatcher {
     const pending = [...store.logins()]
       .filter(l => !this.hasFinding(l.id))
       .sort((a, b) => Number(a.occurredAt.microsSinceUnixEpoch - b.occurredAt.microsSinceUnixEpoch));
-    this.enqueue(async () => {
-      let analysed = 0;
-      for (const login of pending) {
+    let analysed = 0;
+    let warned = false;
+    for (const login of pending) {
+      this.enqueue(async () => {
         if (analysed >= backlogMax) {
-          this.deps.log(`Backlog limit (${backlogMax}) reached; older sign-ins left unanalysed.`);
-          break;
+          if (!warned) this.deps.log(`Backlog limit (${backlogMax}) reached; older sign-ins left unanalysed.`);
+          warned = true;
+          return;
         }
         if (await this.analyseLogin(login)) analysed++;
-      }
-    });
+      });
+    }
     for (const req of store.requests()) this.queueRequest(req);
     // Evidence nobody has reviewed yet, newest first, capped like the sign-in backlog.
     const reviewed = new Set(store.evidenceReviews().map(r => r.evidenceId));
@@ -147,20 +154,28 @@ export class NoraWatcher {
     return this.chain;
   }
 
-  private enqueue(task: () => Promise<void>) {
-    this.chain = this.chain.then(task).catch(e => this.deps.log(`Nora task failed: ${(e as Error).message}`));
+  private enqueue(task: () => Promise<void>, priority: 'high' | 'low' = 'low') {
+    (priority === 'high' ? this.high : this.low).push(task);
+    if (this.running) return;
+    this.running = true;
+    this.chain = (async () => {
+      for (let next = this.high.shift() ?? this.low.shift(); next; next = this.high.shift() ?? this.low.shift()) {
+        try { await next(); } catch (e) { this.deps.log(`Nora task failed: ${(e as Error).message}`); }
+      }
+      this.running = false;
+    })();
   }
 
   private queueRequest(req: ReassessmentRequestRecord) {
     if (req.state !== 'requested' || this.requestsSeen.has(req.id)) return;
     this.requestsSeen.add(req.id);
-    this.enqueue(() => this.reassess(req));
+    this.enqueue(() => this.reassess(req), 'high');
   }
 
   private queueEvidence(ev: Evidence) {
     if (this.evidenceSeen.has(ev.id)) return;
     this.evidenceSeen.add(ev.id);
-    this.enqueue(() => this.investigateEvidence(ev));
+    this.enqueue(() => this.investigateEvidence(ev), 'high');
   }
 
   /** Builds what Nora may look at for this evidence's incident. */

@@ -307,6 +307,19 @@ describe('suggested reviews (ported rules)', () => {
     expect(last('task').state).toBe('accepted');
   });
 
+  it('Flag & assign: Tier 2 hands the verification to a teammate, who acknowledges it', () => {
+    suggest();
+    const sid = last('suggestion').id;
+    as('cmd', c => mod.confirm_suggestion(c, { suggestion_id: sid, reason: 'Backup ran after the session' }));
+    const tk = last('task');
+    denied(() => as('analyst', c => mod.reassign_task(c, { task_id: tk.id, assignee: id.analyst })), /Access denied|Tier/i);
+    denied(() => as('cmd', c => mod.reassign_task(c, { task_id: tk.id, assignee: id.outsider })), /active member/);
+    as('cmd', c => mod.reassign_task(c, { task_id: tk.id, assignee: id.analyst }));
+    expect(last('task').assignee.isEqual(id.analyst)).toBe(true);
+    as('analyst', c => mod.accept_task(c, { task_id: tk.id }));
+    expect(last('task').state).toBe('accepted');
+  });
+
   it('Tier 2 assigns verification work on a decision to a teammate; only the assignee accepts it', () => {
     denied(() => as('analyst', c => mod.assign_task(c, { decision_id: decisionId, assignee: id.analyst, title: 'Verify backup timing' })), /needs Tier 2/);
     denied(() => as('cmd', c => mod.assign_task(c, { decision_id: decisionId, assignee: id.outsider, title: 'Verify backup timing' })), /active member/);
@@ -520,6 +533,62 @@ describe('Change 1: direct messages', () => {
     expect(view('forensics', mod.incident_messages).map((m: any) => m.text)).toEqual(['For everyone']);
     denied(() => as('analyst', c => mod.add_message(c, { incident_id: inc, text: 'x', client_request_id: undefined, recipient: id.outsider, evidence_id: undefined })), /Recipient must be/);
     denied(() => as('analyst', c => mod.add_message(c, { incident_id: inc, text: 'x', client_request_id: undefined, recipient: undefined, evidence_id: 999n })), /Evidence not found/);
+  });
+});
+
+describe('replacing a plan', () => {
+  it('retires the old decision and records the new one as a draft, in one step', () => {
+    as('cmd', c => mod.draft_decision(c, { incident_id: inc, title: 'Restore from Monday backup', assumption: 'The backup predates the intrusion', evidence_ids: [] }));
+    const old = last('decision');
+    denied(() => as('analyst', c => mod.replace_decision(c, { decision_id: old.id, title: 'Rebuild', assumption: 'Clean image' })), /Access denied|Tier/i);
+    as('cmd', c => mod.replace_decision(c, { decision_id: old.id, title: 'Pause the restore', assumption: 'No clean restore point is confirmed yet' }));
+    expect(byId('decision', old.id).state).toBe('closed');
+    expect(last('decision')).toMatchObject({ title: 'Pause the restore', state: 'draft' });
+    denied(() => as('cmd', c => mod.replace_decision(c, { decision_id: old.id, title: 'x', assumption: 'y' })), /already closed/);
+  });
+});
+
+describe('new incidents', () => {
+  it('start as awaiting information with unknown severity', () => {
+    as('owner', c => mod.create_incident(c, { title: 'Fresh', summary: '', severity: 'unknown' }));
+    expect(last('incident')).toMatchObject({ status: 'awaiting_information', severity: 'unknown' });
+  });
+});
+
+describe('invite links', () => {
+  it('a Tier 3 creates a code; anyone with it joins at its tier; removed people cannot rejoin', () => {
+    denied(() => as('cmd', c => mod.set_join_code(c, { incident_id: inc, code: 'Abc12345xyz', tier: 'tier1' })), /Access denied|Tier 3|tier/i);
+    denied(() => as('forensics', c => mod.set_join_code(c, { incident_id: inc, code: 'Abc12345xyz', tier: 'tier3' })), /Tier 1 or Tier 2/);
+    as('forensics', c => mod.set_join_code(c, { incident_id: inc, code: 'Abc12345xyz', tier: 'tier1' }));
+    expect(view('forensics', mod.incident_join_codes).length).toBe(1);
+    expect(view('analyst', mod.incident_join_codes).length).toBe(0);
+    denied(() => as('outsider', c => mod.join_with_code(c, { code: 'wrongcode1' })), /not valid/);
+    as('outsider', c => mod.join_with_code(c, { code: 'Abc12345xyz' }));
+    as('outsider', c => mod.join_with_code(c, { code: 'Abc12345xyz' }));
+    const mine = rows('membership').filter((m: any) => m.user.isEqual(id.outsider) && m.incident_id === inc);
+    expect(mine.length).toBe(1);
+    expect(mine[0].roles).toEqual(['tier1']);
+    as('outsider', c => mod.add_message(c, { incident_id: inc, text: 'Joined by link', client_request_id: undefined, recipient: undefined, evidence_id: undefined }));
+    as('forensics', c => mod.revoke_member(c, { incident_id: inc, user: id.outsider }));
+    denied(() => as('outsider', c => mod.join_with_code(c, { code: 'Abc12345xyz' })), /removed/);
+    as('forensics', c => mod.set_join_code(c, { incident_id: inc, code: '', tier: 'tier1' }));
+    expect(view('forensics', mod.incident_join_codes).length).toBe(0);
+  });
+});
+
+describe('each issue has its own discussion', () => {
+  it('a message posted on a decision is linked to it, and only members can post', () => {
+    as('cmd', c => mod.draft_decision(c, { incident_id: inc, title: 'Restore from Monday backup', assumption: "Monday's backup predates the intrusion", evidence_ids: [] }));
+    const did = last('decision').id;
+    as('analyst', c => mod.add_issue_message(c, { decision_id: did, text: 'Has restoration started?', client_request_id: 'r1', recipient: undefined }));
+    as('cmd', c => mod.add_issue_message(c, { decision_id: did, text: 'Not yet.', client_request_id: undefined, recipient: id.analyst }));
+    as('analyst', c => mod.add_issue_message(c, { decision_id: did, text: 'Has restoration started?', client_request_id: 'r1', recipient: undefined }));
+    const links = view('analyst', mod.incident_message_decisions);
+    expect(links.length).toBe(2);
+    expect(links.every((l: any) => l.decision_id === did)).toBe(true);
+    expect(view('forensics', mod.incident_messages).map((m: any) => m.text)).toEqual(['Has restoration started?']);
+    denied(() => as('outsider', c => mod.add_issue_message(c, { decision_id: did, text: 'x', client_request_id: undefined, recipient: undefined })), /Access denied|not a member|Not a member/);
+    denied(() => as('analyst', c => mod.add_issue_message(c, { decision_id: 999n, text: 'x', client_request_id: undefined, recipient: undefined })), /Decision not found/);
   });
 });
 

@@ -18,6 +18,8 @@ import { proposalForEvidence } from "../../shared/reassessment";
 import { DismissalRecord, DismissDialog } from "./DismissDialog";
 import { DecisionTrail, TeamUpdates } from "./DecisionContext";
 import { AccountsNamed, accountsNamedIn } from "./AccountContext";
+import { DecisionActions, DecisionTasks, FlagAndAssign, NextAction, ReplacePlan, verificationVerdict } from "./TeamActions";
+import { tierOf } from "../../shared/contracts";
 
 type Step = 1 | 2 | 3;
 export function IncidentStory({
@@ -29,7 +31,10 @@ export function IncidentStory({
   onOverview,
   onSelectProposal,
   onDiscuss,
+  onOpenDecision,
 }: {
+  /** Opens another decision, e.g. the new plan after Replace the plan. */
+  onOpenDecision?: (decisionId: string) => void;
   data: Snapshot;
   adapter: IncidentData;
   onUpdate: (next: Snapshot) => void;
@@ -55,9 +60,10 @@ export function IncidentStory({
   const proposal = decision?.state === "closed" && selectedProposal?.state === "pending"
     ? undefined
     : selectedProposal;
-  const task = data.tasks.find(
-    (t) => t.proposalId === proposal?.id && t.decisionId === decision?.id,
-  );
+  const task =
+    data.tasks.find((t) => t.proposalId === proposal?.id && t.decisionId === decision?.id) ??
+    data.tasks.find((t) => t.decisionId === decision?.id && t.state !== "resolved") ??
+    data.tasks.find((t) => t.decisionId === decision?.id);
   const briefings = data.briefings.filter((b) =>
     proposal
       ? Object.prototype.hasOwnProperty.call(proposal.briefingVersions, b.id)
@@ -125,6 +131,14 @@ export function IncidentStory({
     decision?.title ?? "No decision linked",
     task ? `Assigned to ${task.owner}` : "No task assigned",
   ];
+  if (!evidence && !decision) {
+    return (
+      <article className="review-panel workflow-workbench" aria-label="Getting started">
+        <header className="workbench-header"><div><h1 ref={headingRef} tabIndex={-1}>Nothing to review yet</h1></div></header>
+        <p className="procedure-summary">Every issue starts as a decision. Press <strong>Record a decision</strong> on the left (for example “Restore the portal from Monday’s backup”, resting on “Monday’s backup predates the intrusion”), or <strong>Add evidence</strong>. The issue opens here with its own discussion, and Nora (Nemotron) reviews new evidence against it.</p>
+      </article>
+    );
+  }
   return (
     <>
       <article
@@ -142,6 +156,7 @@ export function IncidentStory({
             Overview
           </button>
         </header>
+        <NextAction data={data} decisionId={decision?.id} pendingSuggestion={proposal?.state === "pending"} />
         <ol className="response-procedure" aria-label="Review workflow steps">
           {([1, 2, 3] as Step[]).map((number) => (
             <li
@@ -266,6 +281,9 @@ export function IncidentStory({
                             </div>
                           </dl>
                           <NoraAssessment review={noraReview} proposal={noraProposal} live={adapter.mode === "live"} hasEvidence={!!evidence} currentEvidenceId={evidence?.id} />
+                          {decision.state !== "closed" && ["conflict", "urgent"].includes(verificationVerdict(data, decision.id)?.outcome ?? "")
+                            ? <ReplacePlan decision={decision} data={data} adapter={adapter} onUpdate={onUpdate} onReplaced={onOpenDecision} />
+                            : <DecisionActions decision={decision} data={data} adapter={adapter} onUpdate={onUpdate} />}
                           <div className="context-toggles" role="group" aria-label="More about this decision">
                             <button
                               aria-expanded={detail === "trail"}
@@ -338,14 +356,17 @@ export function IncidentStory({
                               . It still needs a human decision.
                             </p>
                           )}
+                          {tierOf(adapter.identity?.roles ?? []) >= 2 && (
+                            <FlagAndAssign proposalId={proposal.id} data={data} adapter={adapter} onUpdate={(next) => { onUpdate(next); showStep(3); }} />
+                          )}
                           <div className="procedure-actions">
-                            <button
+                            {tierOf(adapter.identity?.roles ?? []) < 2 && <button
                               className="primary"
                               onClick={() => setComposer("confirm")}
                             >
                               Request decision review
                               <ArrowRight size={16} />
-                            </button>
+                            </button>}
                             <button
                               className="text-button"
                               onClick={() => setDismissOpen(true)}
@@ -375,27 +396,13 @@ export function IncidentStory({
                         </p>
                       )}
                     </>
-                  ) : task ? (
+                  ) : task && decision ? (
                     <>
-                      <p className="procedure-summary task-summary">
-                        {task.title}
-                      </p>
-                      <div className="procedure-assignee">
-                        <span className="avatar">
-                          {task.owner
-                            .split(" ")
-                            .map((s) => s[0])
-                            .join("")}
-                        </span>
-                        <span>
-                          <strong>{task.owner}</strong>
-                          <small>Verification owner</small>
-                        </span>
-                        <Status value={task.state} />
-                      </div>
+                      <DecisionTasks decisionId={decision.id} data={data} adapter={adapter} onUpdate={onUpdate} />
                       <p className="procedure-note">
-                        Task completion awaits backend integration. This
-                        assignment does not confirm the evidence is true.
+                        Findings are saved as evidence; Nora (Nemotron) checks
+                        them against the decision. An assignment does not
+                        confirm the evidence is true.
                       </p>
                     </>
                   ) : (
@@ -403,7 +410,7 @@ export function IncidentStory({
                       <p className="procedure-summary">
                         {proposal?.state === "dismissed"
                           ? "No verification task was created. The suggestion was dismissed."
-                          : "No verification task is assigned yet. A confirmed review request creates one for the decision owner."}
+                          : "No verification task is assigned yet. A Tier 2 assigns one in Review the decision, or a confirmed review request creates one."}
                       </p>
                       {decision && (
                         <button
@@ -560,6 +567,7 @@ function NoraAssessment({
     <section className={`nora-assessment ${verdict.tone}`} aria-label="Nora (Nemotron) assessment">
       <header>
         <Sparkles size={15} aria-hidden="true" />
+        <span className="kind-tag ai">AI suggestion</span>
         <strong>Nora (Nemotron)</strong>
         <span className={`nora-verdict ${verdict.tone}`}>{verdict.text}</span>
         {review && review.evidenceId !== currentEvidenceId && <span className="nora-about">about {review.evidenceId}</span>}

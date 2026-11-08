@@ -50,8 +50,25 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
     mode: 'fixture',
     identity,
     async load() { return copy(); },
+    async replaceDecision(id, title, assumption) {
+      requireTier(2);
+      const old = data.decisions.find(d => d.id === id);
+      if (!old || old.state === 'closed') throw new Error('That decision is already closed.');
+      if (!title.trim() || !assumption.trim()) throw new Error('Add the new plan and the assumption it rests on.');
+      const newId = `D-${String(data.decisions.length + 100).padStart(3, '0')}`;
+      data = { ...data, decisions: [...data.decisions.map(d => d.id === id ? { ...d, state: 'closed' as const, version: d.version + 1 } : d), { id: newId, incidentId: data.incident.id, version: 1, title: title.trim(), rationale: '', assumption: assumption.trim(), evidenceIds: [], owner: actor, state: 'draft' }] };
+      return copy();
+    },
     async resolveDecision(id) { requireReviewer(); data = resolveDecision(data, id, actor, new Date().toISOString()); return copy(); },
     async confirm(id, reason) { requireReviewer(); data = confirmReview(data, id, reason, actor, new Date().toISOString()); return copy(); },
+    async flagAndAssign(id, reason, memberId) {
+      requireTier(2);
+      const member = data.members.find(m => m.id === memberId && m.active);
+      if (!member) throw new Error('Choose an active teammate.');
+      data = confirmReview(data, id, reason, actor, new Date().toISOString());
+      data = { ...data, tasks: data.tasks.map(t => t.proposalId === id && t.state !== 'resolved' ? { ...t, owner: member.name, ownerId: member.id, state: 'open' as const, version: t.version + 1 } : t) };
+      return copy();
+    },
     async dismiss(id, feedback) {
       requireReviewer();
       const before = data;
@@ -149,11 +166,13 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
       data = { ...data, findings: (data.findings ?? []).map(f => f.id === id && f.state === 'auto_fixed' ? { ...f, state: 'undone' as const, decidedBy: actor, decidedAt: new Date().toISOString(), version: f.version + 1 } : f) };
       return copy();
     },
-    async sendMessage(evidenceId, recipientId, text) {
+    async setInvite() { throw new Error('Invite links work in live mode (?data=live).'); },
+    async sendMessage(evidenceId, recipientId, text, decisionId) {
       if (!text.trim() || text.length > 2000) throw new Error('Use 1–2,000 characters.');
+      if (decisionId && !data.decisions.some(d => d.id === decisionId)) throw new Error('That decision no longer exists.');
       if (evidenceId && !data.evidence.some(e => e.id === evidenceId)) throw new Error('That evidence item no longer exists.');
       if (recipientId && !data.members.some(m => m.id === recipientId && m.active && m.name !== identity.name)) throw new Error('Choose an active teammate.');
-      data = { ...data, messages: [...data.messages, { id: crypto.randomUUID(), incidentId: data.incident.id, evidenceId, recipientId, version: 1, author: actor, text: text.trim(), at: new Date().toISOString() }] };
+      data = { ...data, messages: [...data.messages, { id: crypto.randomUUID(), incidentId: data.incident.id, evidenceId: decisionId ? '' : evidenceId, ...(decisionId ? { decisionId } : {}), recipientId, version: 1, author: actor, text: text.trim(), at: new Date().toISOString() }] };
       return copy();
     },
   };

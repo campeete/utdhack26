@@ -16,7 +16,7 @@ import {
   type DbConnectionConfig as __DbConnectionConfig,
   type RemoteModule as __RemoteModule,
 } from 'spacetimedb';
-import { IncidentRow, LowSeverityRuleRow } from '../../shared/module-rows.ts';
+import { DecisionRow, IncidentRow, LowSeverityRuleRow } from '../../shared/module-rows.ts';
 
 // Struct argument types: field order must match the module's t.object(...) exactly.
 export const SeedAccountType = __t.object('SeedAccount', {
@@ -45,7 +45,7 @@ export const SeedLoginType = __t.object('SeedLogin', {
   password_breached: __t.option(__t.bool()),
 });
 
-export const DEMO_VIEWS = { my_incidents: 'incident', low_severity_rules: 'low_severity_rule' } as const;
+export const DEMO_VIEWS = { my_incidents: 'incident', low_severity_rules: 'low_severity_rule', incident_decisions: 'decision' } as const;
 
 export const DEMO_REDUCERS = {
   create_incident: { title: __t.string(), summary: __t.string(), severity: __t.string() },
@@ -53,12 +53,17 @@ export const DEMO_REDUCERS = {
   save_low_severity_rule: { rule_id: __t.option(__t.u64()), situation: __t.string(), allowed_action: __t.string(), enabled: __t.bool() },
   load_demo_scenario: { incident_id: __t.u64(), accounts: __t.array(SeedAccountType), logins: __t.array(SeedLoginType) },
   admit_member: { incident_id: __t.u64(), user: __t.identity(), roles: __t.array(__t.string()) },
+  set_display_name: { display_name: __t.string() },
+  draft_decision: { incident_id: __t.u64(), title: __t.string(), assumption: __t.string(), evidence_ids: __t.array(__t.u64()) },
+  approve_decision: { decision_id: __t.u64(), expected_version: __t.u32() },
+  add_issue_message: { decision_id: __t.u64(), text: __t.string(), client_request_id: __t.option(__t.string()), recipient: __t.option(__t.identity()) },
 } as const;
 
 const view = (name: string) => ({ name, indexes: [], constraints: [] });
 const tablesSchema = __schema({
   myIncidents: __table(view('my_incidents'), IncidentRow),
   lowSeverityRules: __table(view('low_severity_rules'), LowSeverityRuleRow),
+  incidentDecisions: __table(view('incident_decisions'), DecisionRow),
 });
 const reducersSchema = __reducers(
   __reducerSchema('create_incident', DEMO_REDUCERS.create_incident),
@@ -66,6 +71,10 @@ const reducersSchema = __reducers(
   __reducerSchema('save_low_severity_rule', DEMO_REDUCERS.save_low_severity_rule),
   __reducerSchema('load_demo_scenario', DEMO_REDUCERS.load_demo_scenario),
   __reducerSchema('admit_member', DEMO_REDUCERS.admit_member),
+  __reducerSchema('set_display_name', DEMO_REDUCERS.set_display_name),
+  __reducerSchema('draft_decision', DEMO_REDUCERS.draft_decision),
+  __reducerSchema('approve_decision', DEMO_REDUCERS.approve_decision),
+  __reducerSchema('add_issue_message', DEMO_REDUCERS.add_issue_message),
 );
 const proceduresSchema = __procedures();
 

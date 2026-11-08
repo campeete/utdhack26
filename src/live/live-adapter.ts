@@ -20,6 +20,8 @@ export interface LiveConfig {
   /** Open this incident; otherwise the newest one this browser can see. */
   incidentId?: string;
   freshIdentity?: boolean;
+  /** Invite link code (?join=…): joins the incident it belongs to. */
+  joinCode?: string;
   /** Sets this browser's display name once connected (?name=Cameron). */
   displayName?: string;
   /**
@@ -117,7 +119,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     const wanted = config.incidentId ? incidents.find(i => i.id.toString() === config.incidentId) : incidents.sort((a, b) => (a.id < b.id ? 1 : -1))[0];
     if (!wanted) {
       const hex = me?.toHexString() ?? 'unknown';
-      throw new Error(`This browser is not a member of ${config.incidentId ? `incident ${config.incidentId}` : 'any incident'} yet. Ask the platform admin to run: npm run demo:admit -- --user ${hex} --tier tier3   Then press Try again.`);
+      throw new Error(`This browser is not a member of ${config.incidentId ? `incident ${config.incidentId}` : 'any incident'} yet. Open the invite link a Tier 3 shared (Administration → Invite link), or have them admit this ID: ${hex}`);
     }
     return wanted;
   }
@@ -132,6 +134,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     const activity = mine(d.incidentActivity.iter());
     // Nora is not a member, so she has no visible profile; she is the actor of every finding.
     const nora = new Set(activity.filter(a => a.action === 'finding_created' || a.action === 'evidence_reviewed').map(a => a.actor.toHexString()));
+    const issueOf = new Map(mine(d.incidentMessageDecisions.iter()).map(x => [x.messageId, x.decisionId]));
     const urgentTargets = new Set(mine(d.incidentSuggestionTargets.iter()).filter(x => x.urgent).map(x => x.suggestionId));
     const name = (who: Identity | undefined) => {
       if (!who) return '';
@@ -189,7 +192,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       proposals,
       tasks: mine(d.incidentTasks.iter()).map(t => ({ id: `T-${t.id}`, incidentId: inc.toString(), version: t.version, proposalId: t.suggestionId === 0n ? '' : ids.proposal(t.suggestionId), decisionId: ids.decision(t.decisionId), title: t.title, owner: name(t.assignee), ownerId: t.assignee.toHexString(), state: (t.state === 'resolved' || t.state === 'accepted' ? t.state : 'open') as 'open' | 'accepted' | 'resolved' })),
       activity: activity.sort((a, b) => (a.timestamp.microsSinceUnixEpoch < b.timestamp.microsSinceUnixEpoch ? 1 : -1)).map(a => ({ id: `A-${a.id}`, incidentId: inc.toString(), version: 1, text: a.detail, actor: name(a.actor), at: iso(a.timestamp) })),
-      messages: mine(d.incidentMessages.iter()).sort((a, b) => (a.id < b.id ? -1 : 1)).map(m => ({ id: `M-${m.id}`, incidentId: inc.toString(), version: 1, evidenceId: m.evidenceId !== undefined ? ids.evidence(m.evidenceId) : '', recipientId: m.recipient?.toHexString() ?? '', author: name(m.author), text: m.text, at: iso(m.recordedAt) })),
+      messages: mine(d.incidentMessages.iter()).sort((a, b) => (a.id < b.id ? -1 : 1)).map(m => ({ id: `M-${m.id}`, incidentId: inc.toString(), version: 1, evidenceId: m.evidenceId !== undefined ? ids.evidence(m.evidenceId) : '', ...(issueOf.has(m.id) ? { decisionId: ids.decision(issueOf.get(m.id)!) } : {}), recipientId: m.recipient?.toHexString() ?? '', author: name(m.author), text: m.text, at: iso(m.recordedAt) })),
       scope: mine(d.incidentScope.iter()).map(s => ({ id: `S-${s.id}`, incidentId: inc.toString(), version: s.version, system: s.systemName, data: s.dataCategory, extent: s.affectedExtent, encryption: s.encryptionStatus as Snapshot['scope'][number]['encryption'], exfiltration: s.exfiltrationStatus as Snapshot['scope'][number]['exfiltration'], owner: name(s.owner) })),
       members: members.map(m => ({ id: m.user.toHexString(), incidentId: inc.toString(), version: 1, name: name(m.user), roles: m.roles as Snapshot['members'][number]['roles'], active: m.active })),
       accounts: accounts.map(a => {
@@ -198,6 +201,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       }),
       findings,
       audit: auditLog(inc.toString(), name),
+      ...(() => { const j = mine(d.incidentJoinCodes.iter())[0]; return j ? { invite: { code: j.code, tier: j.tier as 'tier1' | 'tier2' } } : {}; })(),
       evidenceReviews: mine(d.incidentEvidenceReviews.iter()).map(r => ({
         evidenceId: ids.evidence(r.evidenceId), outcome: r.outcome as 'no_impact' | 'supports' | 'conflict' | 'urgent' | 'failed',
         ...(r.decisionId !== undefined ? { decisionId: ids.decision(r.decisionId) } : {}),
@@ -265,12 +269,39 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       } catch { /* not a member yet */ }
       return { name: label, roles, authenticated: true };
     },
-    async load() { await connect(); return build(); },
+    async load() {
+      await connect();
+      // Invite link: join once, then wait for the membership to arrive through the views.
+      if (config.joinCode && ![...db().myIncidents.iter()].length) {
+        await conn!.reducers.joinWithCode({ code: config.joinCode });
+        for (let i = 0; i < 40 && ![...db().myIncidents.iter()].length; i++) await new Promise(r => setTimeout(r, 100));
+      }
+      return build();
+    },
+    replaceDecision: (decisionId, title, assumption) => act(() => conn!.reducers.replaceDecision({ decision_id: parseId(decisionId, 'D'), title, assumption })),
+    flagAndAssign: (proposalId, reason, memberId) => act(async () => {
+      const sid = parseId(proposalId, 'P');
+      const assignee = identityOf(memberId);
+      await conn!.reducers.confirmSuggestion({ suggestion_id: sid, reason });
+      // The confirm creates the verification task; wait for it, then hand it over.
+      let tasks: { id: bigint }[] = [];
+      for (let i = 0; i < 30; i++) {
+        tasks = [...db().incidentTasks.iter()].filter(t => t.suggestionId === sid && t.state !== 'resolved');
+        if (tasks.length) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      if (!tasks.length) throw new Error('The review was flagged, but its verification task has not appeared yet. Assign it from Review the decision.');
+      for (const t of tasks) await conn!.reducers.reassignTask({ task_id: t.id, assignee });
+    }),
+    setInvite: (code, tier) => act(() => conn!.reducers.setJoinCode({ incident_id: incidentId(), code, tier })),
     confirm: (proposalId, reason) => act(() => conn!.reducers.confirmSuggestion({ suggestion_id: parseId(proposalId, 'P'), reason })),
     dismiss: (proposalId, feedback) => act(() => conn!.reducers.dismissSuggestion({ suggestion_id: parseId(proposalId, 'P'), feedback })),
     retryReassessment: proposalId => act(() => conn!.reducers.retryReassessment({ suggestion_id: parseId(proposalId, 'P') })),
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    sendMessage: (evidenceId, recipientId, text) => act(() => conn!.reducers.addMessage({
+    sendMessage: (evidenceId, recipientId, text, decisionId) => act(() => decisionId ? conn!.reducers.addIssueMessage({
+      decision_id: parseId(decisionId, 'D'), text, client_request_id: requestId(),
+      recipient: recipientId ? Identity.fromString(recipientId) : undefined,
+    }) : conn!.reducers.addMessage({
       incident_id: incidentId(), text, client_request_id: requestId(),
       recipient: recipientId ? Identity.fromString(recipientId) : undefined,
       evidence_id: evidenceId ? parseId(evidenceId, 'E') : undefined,

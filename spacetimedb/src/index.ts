@@ -38,8 +38,9 @@ type Tier = 1 | 2 | 3;
 /** The highest tier in a membership's roles (0 if none is a tier). */
 const tierOf = (roles: readonly string[]): number => Math.max(0, ...roles.map(r => ROLES.indexOf(r as Role) + 1));
 
-const STATUSES = ['investigating', 'containing', 'recovering', 'monitoring', 'closed'] as const;
-const SEVERITIES = ['critical', 'high', 'medium', 'low'] as const;
+// Every incident starts as awaiting information with unknown severity: nobody guesses before the facts are in.
+const STATUSES = ['awaiting_information', 'investigating', 'containing', 'recovering', 'monitoring', 'closed'] as const;
+const SEVERITIES = ['unknown', 'critical', 'high', 'medium', 'low'] as const;
 
 const ENCRYPTION_STATES = ['unknown', 'suspected', 'confirmed', 'not_observed'] as const;
 const EXFILTRATION_STATES = ['unknown', 'suspected', 'confirmed', 'not_observed'] as const;
@@ -472,6 +473,30 @@ const evidence_review = table(
   }
 );
 
+// Which issue (decision) a message belongs to, so each issue has its own discussion.
+// A separate table because published tables cannot gain columns.
+const message_decision = table(
+  {},
+  {
+    message_id: t.u64().primaryKey(),
+    incident_id: t.u64().index('btree'),
+    decision_id: t.u64(),
+  }
+);
+
+// An invite link for one incident: anyone with the code joins at the stated tier.
+// Only a Tier 3 can create, see or turn it off; removed people cannot rejoin with it.
+const join_code = table(
+  {},
+  {
+    incident_id: t.u64().primaryKey(),
+    code: t.string(),
+    tier: t.string(),
+    created_by: t.identity(),
+    created_at: t.timestamp(),
+  }
+);
+
 const spacetimedb = schema({
   platform_admin,
   user_profile,
@@ -497,6 +522,8 @@ const spacetimedb = schema({
   reassessment_request,
   suggestion_target,
   evidence_review,
+  message_decision,
+  join_code,
   audit_event: auditEvent,
   audit_head: auditHead,
 });
@@ -673,7 +700,7 @@ export const create_incident = spacetimedb.reducer(
       id: 0n,
       title: cleanText(title, 'Title', 1, MAX_TITLE),
       summary: cleanText(summary, 'Summary', 0, MAX_SUMMARY),
-      status: 'investigating',
+      status: 'awaiting_information',
       severity,
       commander: undefined,
       created_by: ctx.sender,
@@ -717,6 +744,64 @@ export const admit_member = spacetimedb.reducer(
     });
     logActivity(ctx, incident_id, 'member_admitted', 'membership', row.id,
       `${user.toHexString().slice(0, 12)} as ${validated.join(',')}`);
+  }
+);
+
+const JOIN_CODE = /^[A-Za-z0-9]{8,64}$/;
+
+/** Tier 3: create or replace the incident's invite code. An empty code turns invites off. */
+export const set_join_code = spacetimedb.reducer(
+  { incident_id: t.u64(), code: t.string(), tier: t.string() },
+  (ctx, { incident_id, code, tier }) => {
+    requireTier(ctx, incident_id, 3);
+    requireIncident(ctx, incident_id);
+    const existing = ctx.db.join_code.incident_id.find(incident_id);
+    if (code === '') {
+      if (existing) ctx.db.join_code.incident_id.delete(incident_id);
+      logActivity(ctx, incident_id, 'invite_disabled', 'incident', incident_id, 'Invite link turned off', 'INCIDENT_UPDATED');
+      return;
+    }
+    if (!JOIN_CODE.test(code)) fail('Invite code must be 8-64 letters or digits');
+    const [role] = validateRoles([tier]);
+    if (role === 'tier3') fail('Invite links admit Tier 1 or Tier 2; promote people to Tier 3 by hand');
+    for (const other of ctx.db.join_code.iter()) {
+      if (other.code === code && other.incident_id !== incident_id) fail('Choose a different invite code');
+    }
+    const row = { incident_id, code, tier: role, created_by: ctx.sender, created_at: ctx.timestamp };
+    if (existing) ctx.db.join_code.incident_id.update(row); else ctx.db.join_code.insert(row);
+    logActivity(ctx, incident_id, 'invite_created', 'incident', incident_id, `Invite link for ${role}`, 'INCIDENT_UPDATED');
+  }
+);
+
+/** Anyone with a valid invite code joins that incident at the invite's tier. */
+export const join_with_code = spacetimedb.reducer(
+  { code: t.string() },
+  (ctx, { code }) => {
+    if (!JOIN_CODE.test(code)) fail('That invite link is not valid');
+    let invite;
+    for (const row of ctx.db.join_code.iter()) if (row.code === code) invite = row;
+    if (!invite) fail('That invite link is not valid or was turned off');
+    const incident_id = invite.incident_id;
+    let wasRemoved = false;
+    for (const m of ctx.db.membership.user.filter(ctx.sender)) {
+      if (m.incident_id !== incident_id) continue;
+      if (m.active) return; // already in
+      wasRemoved = true;
+    }
+    if (wasRemoved) fail('You were removed from this incident. Ask a Tier 3 to admit you again.');
+    const row = ctx.db.membership.insert({
+      id: 0n,
+      incident_id,
+      user: ctx.sender,
+      roles: [invite.tier],
+      active: true,
+      admitted_by: invite.created_by,
+      admitted_at: ctx.timestamp,
+      revoked_by: undefined,
+      revoked_at: undefined,
+    });
+    logActivity(ctx, incident_id, 'member_admitted', 'membership', row.id,
+      `${ctx.sender.toHexString().slice(0, 12)} as ${invite.tier} via invite link`);
   }
 );
 
@@ -885,15 +970,16 @@ export const add_evidence = spacetimedb.reducer(
   }
 );
 
-export const add_message = spacetimedb.reducer(
-  {
-    incident_id: t.u64(),
-    text: t.string(),
-    client_request_id: t.option(t.string()),
-    recipient: t.option(t.identity()),
-    evidence_id: t.option(t.u64()),
-  },
-  (ctx, { incident_id, text, client_request_id, recipient, evidence_id }) => {
+/** Shared by add_message and add_issue_message. Returns the new row, or undefined on an idempotent retry. */
+function insertMessage(
+  ctx: Ctx,
+  incident_id: bigint,
+  text: string,
+  client_request_id: string | undefined,
+  recipient: Identity | undefined,
+  evidence_id: bigint | undefined,
+  decision_id: bigint | undefined,
+) {
     requireTier(ctx, incident_id, 1); // every tier may chat
     const body = cleanText(text, 'Message', 1, MAX_MESSAGE);
     if (recipient !== undefined && !activeMembership(ctx, incident_id, recipient)) {
@@ -907,7 +993,7 @@ export const add_message = spacetimedb.reducer(
       if (client_request_id.length > MAX_REQUEST_ID) fail('Invalid request id');
       // Idempotent retry: same author + request id in this incident is a no-op.
       for (const m of ctx.db.message.incident_id.filter(incident_id)) {
-        if (m.author.isEqual(ctx.sender) && m.client_request_id === client_request_id) return;
+        if (m.author.isEqual(ctx.sender) && m.client_request_id === client_request_id) return undefined;
       }
     }
     const row = ctx.db.message.insert({
@@ -920,12 +1006,42 @@ export const add_message = spacetimedb.reducer(
       recipient,
       evidence_id,
     });
+    if (decision_id !== undefined) ctx.db.message_decision.insert({ message_id: row.id, incident_id, decision_id });
     // The text stays out of the audit chain; the event proves who sent what, when.
     auditOnly(ctx, incident_id.toString(), 'MESSAGE_SENT', 'message', row.id, {
       length: body.length,
       direct: recipient !== undefined,
       evidence_id: evidence_id?.toString() ?? null,
+      ...(decision_id !== undefined ? { decision_id: decision_id.toString() } : {}),
     });
+    return row;
+}
+
+export const add_message = spacetimedb.reducer(
+  {
+    incident_id: t.u64(),
+    text: t.string(),
+    client_request_id: t.option(t.string()),
+    recipient: t.option(t.identity()),
+    evidence_id: t.option(t.u64()),
+  },
+  (ctx, { incident_id, text, client_request_id, recipient, evidence_id }) => {
+    insertMessage(ctx, incident_id, text, client_request_id, recipient, evidence_id, undefined);
+  }
+);
+
+/** A message in one issue's own discussion (the issue is a decision). */
+export const add_issue_message = spacetimedb.reducer(
+  {
+    decision_id: t.u64(),
+    text: t.string(),
+    client_request_id: t.option(t.string()),
+    recipient: t.option(t.identity()),
+  },
+  (ctx, { decision_id, text, client_request_id, recipient }) => {
+    const d = ctx.db.decision.id.find(decision_id);
+    if (!d) fail('Decision not found');
+    insertMessage(ctx, d.incident_id, text, client_request_id, recipient, undefined, decision_id);
   }
 );
 
@@ -1335,6 +1451,35 @@ export const resolve_decision = spacetimedb.reducer(
     if (d.state === 'closed') return;
     ctx.db.decision.id.update({ ...d, state: 'closed', version: d.version + 1 });
     logActivity(ctx, d.incident_id, 'decision_resolved', 'decision', d.id, `Decision ${d.id} resolved.`, 'DECISION_REVISED', { state: 'closed' });
+  }
+);
+
+/**
+ * Tier 2+: retire a decision and record its replacement in one transaction. The new plan
+ * starts as a draft, so a person still approves it explicitly; the old one is closed, and
+ * the audit chain records which replaced which.
+ */
+export const replace_decision = spacetimedb.reducer(
+  { decision_id: t.u64(), title: t.string(), assumption: t.string() },
+  (ctx, { decision_id, title, assumption }) => {
+    const old = ctx.db.decision.id.find(decision_id);
+    if (!old) fail('Decision not found');
+    requireTier(ctx, old.incident_id, 2);
+    if (old.state === 'closed') fail('This decision is already closed');
+    const row = ctx.db.decision.insert({
+      id: 0n,
+      incident_id: old.incident_id,
+      title: cleanText(title, 'Title', 1, MAX_TITLE),
+      assumption: cleanText(assumption, 'Assumption', 1, MAX_ASSUMPTION),
+      state: 'draft',
+      evidence_ids: [],
+      owner: ctx.sender,
+      approved_at: undefined,
+      version: 1,
+    });
+    ctx.db.decision.id.update({ ...old, state: 'closed', version: old.version + 1 });
+    logActivity(ctx, old.incident_id, 'decision_created', 'decision', row.id, row.title, 'DECISION_CREATED', { replaces: old.id.toString() });
+    logActivity(ctx, old.incident_id, 'decision_resolved', 'decision', old.id, `Decision ${old.id} replaced by decision ${row.id}.`, 'DECISION_REVISED', { state: 'closed', replaced_by: row.id.toString() });
   }
 );
 
@@ -1809,6 +1954,21 @@ export const accept_task = spacetimedb.reducer(
   }
 );
 
+/** Tier 2+: hand a verification task to another active member. It starts again as open (not yet acknowledged). */
+export const reassign_task = spacetimedb.reducer(
+  { task_id: t.u64(), assignee: t.identity() },
+  (ctx, { task_id, assignee }) => {
+    const tk = ctx.db.task.id.find(task_id);
+    if (!tk) fail('Task not found');
+    requireTier(ctx, tk.incident_id, 2);
+    if (tk.state === 'resolved') fail('This task is already resolved');
+    if (!activeMembership(ctx, tk.incident_id, assignee)) fail('Assignee must be an active member of this incident');
+    if (tk.assignee.isEqual(assignee)) return;
+    ctx.db.task.id.update({ ...tk, assignee, state: 'open', version: tk.version + 1 });
+    logActivity(ctx, tk.incident_id, 'task_assigned', 'task', tk.id, `${tk.title} -> ${assignee.toHexString().slice(0, 12)}`, 'TASK_ASSIGNED');
+  }
+);
+
 /**
  * The assignee submits what they found. In one step: the findings become evidence
  * (source type "verification", titled with the decision they verify) and the task is
@@ -2119,6 +2279,26 @@ export const incident_sms = spacetimedb.view(
 
 export const incident_evidence_reviews = spacetimedb.view(
   { name: 'incident_evidence_reviews', public: true }, t.array(evidence_review.rowType), ctx => perIncident(ctx, 'evidence_review'));
+/** The invite code, visible only to the incident's Tier 3 members. */
+export const incident_join_codes = spacetimedb.view(
+  { name: 'incident_join_codes', public: true },
+  t.array(join_code.rowType),
+  ctx => {
+    const out = [];
+    for (const id of myIncidentIds(ctx)) {
+      let top = 0;
+      for (const m of ctx.db.membership.user.filter(ctx.sender)) {
+        if (m.incident_id === id && m.active) top = Math.max(top, tierOf(m.roles));
+      }
+      if (top < 3) continue;
+      const row = ctx.db.join_code.incident_id.find(id);
+      if (row) out.push(row);
+    }
+    return out;
+  }
+);
+export const incident_message_decisions = spacetimedb.view(
+  { name: 'incident_message_decisions', public: true }, t.array(message_decision.rowType), ctx => perIncident(ctx, 'message_decision'));
 export const incident_suggestion_targets = spacetimedb.view(
   { name: 'incident_suggestion_targets', public: true }, t.array(suggestion_target.rowType), ctx => perIncident(ctx, 'suggestion_target'));
 

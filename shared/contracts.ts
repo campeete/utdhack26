@@ -47,7 +47,7 @@ export interface Task extends RecordBase {
   state: 'open' | 'accepted' | 'resolved';
 }
 export interface Activity extends RecordBase { text: string; actor: string; at: string }
-export interface Message extends RecordBase { evidenceId: string; recipientId: string; author: string; text: string; at: string }
+export interface Message extends RecordBase { evidenceId: string; /** Set when the message belongs to one issue's (decision's) discussion. */ decisionId?: string; recipientId: string; author: string; text: string; at: string }
 export interface ScopeItem extends RecordBase { system: string; data: string; extent: string; encryption: 'unknown' | 'suspected' | 'confirmed' | 'not_observed'; exfiltration: 'unknown' | 'suspected' | 'confirmed' | 'not_observed'; owner: string }
 export interface Member extends RecordBase { name: string; roles: Role[]; active: boolean }
 /** An affected employee or service account at the client company (not a responder). Never carries secrets. */
@@ -94,6 +94,8 @@ export interface Snapshot {
   audit?: AuditLog;
   /** Nora (Nemotron)'s evidence reviews (live mode). */
   evidenceReviews?: EvidenceReview[];
+  /** Live, Tier 3 only: the incident's current invite link code. */
+  invite?: { code: string; tier: Role };
 }
 export interface Impact { decisionIds: string[]; briefingIds: string[] }
 export type DataState = 'loading' | 'ready' | 'denied' | 'revoked' | 'disconnected' | 'error';
