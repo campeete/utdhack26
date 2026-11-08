@@ -67,7 +67,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   }
   return <>
     <div className="workspace-overview">
-      <div className="workspace-heading"><div><h1>Incident review</h1><p>When new evidence arrives, Nora flags the decisions it may affect. A person reviews each flag, then an owner independently verifies the facts.</p></div></div>
+      <div className="workspace-heading"><div><h1>Incident Review</h1><p>When new evidence arrives, Nora flags the decisions it may affect. A person reviews each flag, then an owner independently verifies the facts.</p></div></div>
       <ol className="stage-strip" aria-label="How a review moves from evidence to verification">
         {stages.map((stage, i) => <li key={stage.title} className={`stage ${i === activeStage ? 'current' : ''}`} aria-current={i === activeStage ? 'step' : undefined}>
           <span className="stage-number" aria-hidden="true">{i + 1}</span>
