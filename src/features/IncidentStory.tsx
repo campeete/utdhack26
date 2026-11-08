@@ -4,6 +4,7 @@ import {
   Check,
   ChevronDown,
   FileText,
+  GitBranch,
   History,
 } from "lucide-react";
 import type { Snapshot } from "../../shared/contracts";
@@ -14,6 +15,7 @@ import { ReviewComposer, type ReviewAction } from "./ReviewDetails";
 import { SupportingRecords, type RecordView } from "./SupportingRecords";
 import { proposalForEvidence } from "../../shared/reassessment";
 import { DismissalRecord, DismissDialog } from "./DismissDialog";
+import { DecisionTrail, TeamUpdates } from "./DecisionContext";
 
 type Step = 1 | 2 | 3;
 export function IncidentStory({
@@ -24,6 +26,7 @@ export function IncidentStory({
   headingRef,
   onOverview,
   onSelectProposal,
+  onDiscuss,
 }: {
   data: Snapshot;
   adapter: IncidentData;
@@ -33,6 +36,8 @@ export function IncidentStory({
   onOverview: () => void;
   /** Shows a specific suggestion, such as Nora's revision or the original it revises. */
   onSelectProposal: (proposalId: string) => void;
+  /** Hands a drafted message to the discussion below. */
+  onDiscuss: (text: string) => void;
 }) {
   const evidence = data.evidence.find((e) => e.id === selection.evidenceId);
   const source = data.sources.find((s) => s.id === evidence?.sourceId);
@@ -58,6 +63,7 @@ export function IncidentStory({
   const [composer, setComposer] = useState<ReviewAction | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [dismissOpen, setDismissOpen] = useState(false);
+  const [detail, setDetail] = useState<"trail" | "updates" | null>(null);
   const stepHeadings = useRef<(HTMLButtonElement | null)[]>([]);
   function showStep(next: Step) {
     setStep(next);
@@ -223,21 +229,35 @@ export function IncidentStory({
                               <dd>{decision.assumption}</dd>
                             </div>
                           </dl>
-                          {!!briefings.length && (
+                          <div className="context-toggles" role="group" aria-label="More about this decision">
                             <button
-                              className="procedure-related"
-                              onClick={() => setRecord("briefings")}
+                              aria-expanded={detail === "trail"}
+                              aria-controls="decision-trail"
+                              onClick={() => setDetail(detail === "trail" ? null : "trail")}
                             >
-                              <FileText size={16} />
-                              <span>
-                                {briefings.length} team update{briefings.length === 1 ? " uses" : "s use"} this decision
-                              </span>
-                              {briefings.some((b) => b.state === "outdated") ? (
-                                <Status value="outdated" />
-                              ) : (
-                                <ArrowRight size={15} />
-                              )}
+                              <GitBranch size={15} />
+                              Decision trail
+                              {source?.trust === "under_review" && <span className="toggle-flag">Weak link</span>}
+                              <ChevronDown size={14} />
                             </button>
+                            {!!briefings.length && (
+                              <button
+                                aria-expanded={detail === "updates"}
+                                aria-controls="team-updates"
+                                onClick={() => setDetail(detail === "updates" ? null : "updates")}
+                              >
+                                <FileText size={15} />
+                                {briefings.length === 1 ? "Team update" : `${briefings.length} team updates`}
+                                {briefings.some((b) => b.state === "outdated") && <span className="toggle-flag">Outdated</span>}
+                                <ChevronDown size={14} />
+                              </button>
+                            )}
+                          </div>
+                          {detail === "trail" && (
+                            <DecisionTrail data={data} source={source} evidence={evidence} decision={decision} proposal={proposal} briefings={briefings} onDiscuss={onDiscuss} />
+                          )}
+                          {detail === "updates" && (
+                            <TeamUpdates briefings={briefings} proposal={proposal} onDiscuss={onDiscuss} />
                           )}
                         </>
                       ) : (
@@ -314,14 +334,6 @@ export function IncidentStory({
                               : "No decision review is currently suggested."}
                         </p>
                       )}
-                      {decision && (
-                        <button
-                          className="text-button procedure-record-link"
-                          onClick={() => setRecord("decision")}
-                        >
-                          Decision record & suggestion details
-                        </button>
-                      )}
                     </>
                   ) : task ? (
                     <>
@@ -387,7 +399,6 @@ export function IncidentStory({
           decision={decision}
           proposal={proposal}
           briefings={briefings}
-          onChange={setRecord}
           onClose={() => setRecord(null)}
         />
       )}

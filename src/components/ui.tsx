@@ -16,6 +16,8 @@ const statuses = {
   needs_review: { text: 'Needs review', Icon: AlertTriangle, tone: 'review' },
   pending: { text: 'Review proposed', Icon: AlertTriangle, tone: 'review' },
   under_review: { text: 'Trust under review', Icon: AlertTriangle, tone: 'review' },
+  in_question: { text: 'In question', Icon: AlertTriangle, tone: 'review' },
+  established: { text: 'Trusted source', Icon: Check, tone: 'approved' },
   disputed: { text: 'Disputed', Icon: AlertTriangle, tone: 'disputed' },
   corroborated: { text: 'Corroborated', Icon: CheckCheck, tone: 'corroborated' },
   unknown: { text: 'Unknown', Icon: CircleHelp, tone: 'unknown' },

@@ -3,7 +3,7 @@ import { ArrowRight, Check, ChevronDown } from 'lucide-react';
 import type { Snapshot } from '../../shared/contracts';
 import type { IncidentData } from '../data/interface';
 import { focusContext, Status } from '../components/ui';
-import { IncidentConversation } from './IncidentPages';
+import { IncidentConversation, type Draft } from './IncidentPages';
 import { proposalForEvidence } from '../../shared/reassessment';
 import { IncidentStory } from './IncidentStory';
 
@@ -14,6 +14,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   selection: Selection; onSelect: (selection: Selection) => void;
 }) {
   const [filter, setFilter] = useState<'all' | 'review'>('all');
+  const [draft, setDraft] = useState<Draft | null>(null);
   const contextHeading = useRef<HTMLHeadingElement>(null);
   const changesHeading = useRef<HTMLHeadingElement>(null);
   const evidence = data.evidence.find(e => e.id === selection.evidenceId);
@@ -32,6 +33,12 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   function select(next: Selection) {
     onSelect(next);
     requestAnimationFrame(() => focusContext(contextHeading.current));
+  }
+  function openReference(id: string) {
+    const decision = data.decisions.find(d => d.id === id);
+    if (decision) return select({ evidenceId: decision.evidenceIds[0] ?? null, decisionId: decision.id });
+    const linked = data.decisions.find(d => d.evidenceIds.includes(id));
+    select({ evidenceId: id, decisionId: linked?.id ?? null });
   }
   return <>
     <div className="workspace-overview">
@@ -63,8 +70,8 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
         <details className="decision-register"><summary>All decisions<span>{data.decisions.length}<ChevronDown size={15} /></span></summary><div>{data.decisions.map(d => <button key={d.id} className={`register-item ${selection.decisionId === d.id ? 'selected' : ''}`} onClick={() => select({ evidenceId: d.evidenceIds[0] ?? null, decisionId: d.id })}><small>{d.id}</small><strong>{d.title}</strong><Status value={d.state} /></button>)}</div></details>
       </section>
       <div id="change-context" className="change-context story-host">
-        <IncidentStory key={`${selection.evidenceId}:${selection.decisionId}`} data={data} adapter={adapter} onUpdate={onUpdate} selection={selection} headingRef={contextHeading} onOverview={() => focusContext(changesHeading.current)} onSelectProposal={id => onSelect({ ...selection, proposalId: id })} />
-        {evidence && <IncidentConversation evidenceId={evidence.id} data={data} adapter={adapter} onUpdate={onUpdate} />}
+        <IncidentStory key={`${selection.evidenceId}:${selection.decisionId}`} data={data} adapter={adapter} onUpdate={onUpdate} selection={selection} headingRef={contextHeading} onOverview={() => focusContext(changesHeading.current)} onSelectProposal={id => onSelect({ ...selection, proposalId: id })} onDiscuss={text => setDraft({ text, nonce: Date.now() })} />
+        {evidence && <IncidentConversation evidenceId={evidence.id} data={data} adapter={adapter} onUpdate={onUpdate} draft={draft} onOpenReference={openReference} />}
       </div>
     </div>
     <details className="incident-details context-details"><summary><span>Incident details</span><span className="summary-meta">{data.incident.status}<ChevronDown size={17} /></span></summary><div className="detail-content"><dl className="metadata"><dt>Incident</dt><dd>{data.incident.title} · {data.incident.id}</dd><dt>Impact</dt><dd>{data.incident.summary}</dd><dt>Commander</dt><dd>{data.incident.commander}</dd><dt>Severity / status</dt><dd>{data.incident.severity} / {data.incident.status}</dd></dl><p className="small muted">Synthetic training scenario · updates are local to this tab.</p></div></details>
