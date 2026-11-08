@@ -9,7 +9,7 @@ export const MODULE = ident('00');
 
 export function makeDb() {
   const events: AuditEventRow[] = [];
-  const heads = new Map<bigint, AuditHeadRow>();
+  const heads = new Map<string, AuditHeadRow>();
   let nextId = 1n;
   return {
     events,
@@ -19,7 +19,7 @@ export function makeDb() {
       audit_head: {
         insert: (r: AuditHeadRow) => { if (heads.has(r.incident_id)) throw new Error('dup head'); heads.set(r.incident_id, r); return r; },
         incident_id: {
-          find: (id: bigint) => heads.get(id),
+          find: (id: string) => heads.get(id),
           update: (r: AuditHeadRow) => { if (!heads.has(r.incident_id)) throw new Error('no head'); heads.set(r.incident_id, r); return r; },
         },
       },
@@ -31,10 +31,10 @@ export function ctxFor(store: ReturnType<typeof makeDb>, sender: Identity, micro
   return { sender, identity: MODULE, timestamp: new Timestamp(micros), db: store.db };
 }
 
-export const eventsOf = (store: ReturnType<typeof makeDb>, incident: bigint) =>
+export const eventsOf = (store: ReturnType<typeof makeDb>, incident: string) =>
   store.events.filter((e) => e.incident_id === incident).map(rowToEvent);
 
-export const headOf = (store: ReturnType<typeof makeDb>, incident: bigint) => {
+export const headOf = (store: ReturnType<typeof makeDb>, incident: string) => {
   const h = store.heads.get(incident)!;
   return { seq: h.seq, hash: h.hash };
 };

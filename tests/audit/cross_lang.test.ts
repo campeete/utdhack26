@@ -18,11 +18,11 @@ const verify = (file: string, ...extra: string[]) => {
   return { exit: r.status, out: r.status === 2 ? null : JSON.parse(r.stdout) };
 };
 
-const demo = buildDemo(7n);
+const demo = buildDemo('northstar');
 const clean = join(dir, 'clean.json');
 writeFileSync(clean, exportChain(demo.incident, demo.events, demo.head));
 const other = join(dir, 'other.json');
-const b = buildDemo(8n);
+const b = buildDemo('westgate');
 writeFileSync(other, exportChain(b.incident, b.events, b.head));
 
 test('Python verifies the chain TypeScript wrote', () => {
@@ -36,16 +36,16 @@ test('Python agrees on non-ASCII and edge-case text', () => {
   const store = makeDb();
   const notes = ['café', 'emoji 🔒', 'line\nbreak', 'tab\tquote"back\\slash', '  ', 'ctrl\u0001\u001f', 'zh 中文'];
   notes.forEach((note, i) =>
-    appendEvent(ctxFor(store, ident('a1'), BigInt(i + 1)), { incidentId: 9n, action: 'EVIDENCE_ADDED', entityType: 'evidence', entityId: `E${i}`, metadata: { note } }));
+    appendEvent(ctxFor(store, ident('a1'), BigInt(i + 1)), { incidentId: 'inc-9', action: 'EVIDENCE_ADDED', entityType: 'evidence', entityId: `E${i}`, metadata: { note } }));
   const f = join(dir, 'unicode.json');
-  writeFileSync(f, exportChain(9n, eventsOf(store, 9n), headOf(store, 9n)));
+  writeFileSync(f, exportChain('inc-9', eventsOf(store, 'inc-9'), headOf(store, 'inc-9')));
   assert.equal(verify(f).exit, 0);
 });
 
 const attacks: [string, string[], string[]][] = [
-  ['edit', ['--seq', '13'], ['HASH_MISMATCH']],
-  ['edit-rehash', ['--seq', '13'], ['LINK_BROKEN']],
-  ['delete', ['--seq', '20'], ['SEQ_GAP', 'LINK_BROKEN']],
+  ['edit', ['--seq', '20'], ['HASH_MISMATCH']],
+  ['edit-rehash', ['--seq', '20'], ['LINK_BROKEN']],
+  ['delete', ['--seq', '18'], ['SEQ_GAP', 'LINK_BROKEN']],
   ['reorder', ['--seq', '6'], ['TIME_REVERSED']],
   ['splice', ['--seq', '5', '--other', other], ['WRONG_INCIDENT']],
 ];
