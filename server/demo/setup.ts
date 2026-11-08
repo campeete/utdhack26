@@ -12,12 +12,18 @@
 // module), read from ~/.config/spacetime/cli.toml or SPACETIME_ADMIN_TOKEN. The token
 // is used only to connect and is never printed.
 
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { Identity, Timestamp } from 'spacetimedb';
 import { buildScenario, STARTER_RULE, type Person } from './scenario.ts';
 import { arg, connectAdmin, step as runStep } from './connect.ts';
 
-const noraHex = arg('nora');
+// IDs from the last run are remembered (in .spacetime/, never committed), so the next
+// judge gets a fresh incident with one command: npm run demo:reset
+const SAVED = '.spacetime/demo-people.json';
+const saved = JSON.parse(await readFile(SAVED, 'utf8').catch(() => '{}')) as Record<string, string>;
+const people_ = { nora: arg('nora') ?? saved.nora, lead: arg('lead') ?? saved.lead, commander: arg('commander') ?? saved.commander, analyst: arg('analyst') ?? saved.analyst };
+const pick = (flag: 'lead' | 'commander' | 'analyst') => people_[flag];
+const noraHex = people_.nora;
 const gatewayHex = arg('gateway');
 const people = (JSON.parse(await readFile('demo-data/people.json', 'utf8')) as { people: Person[] }).people;
 const { accounts, logins } = buildScenario(people);
@@ -72,11 +78,14 @@ for (const d of PLAN) {
   for (const text of d.notes) if (row) await step('  Left a note in its discussion', () => conn.reducers.addIssueMessage({ decision_id: row.id, text, client_request_id: undefined, recipient: undefined }));
 }
 for (const [flag, tier] of [['lead', 'tier3'], ['commander', 'tier2'], ['analyst', 'tier1']] as const) {
-  const hex = arg(flag)?.replace(/^0x/, '');
+  const hex = pick(flag)?.replace(/^0x/, '');
   if (!hex) continue;
   if (!/^[0-9a-fA-F]{64}$/.test(hex)) { console.error(`--${flag} must be the 64-character ID the dashboard shows.`); continue; }
   await step(`Admitted the ${flag} as ${tier}`, () => conn.reducers.admitMember({ incident_id: incident, user: Identity.fromString(hex), roles: [tier] }));
 }
+
+await mkdir('.spacetime', { recursive: true });
+await writeFile(SAVED, JSON.stringify(Object.fromEntries(Object.entries(people_).filter(([, v]) => v)), null, 2));
 
 console.log(`\nDone. Incident ${incident} is ready.${noraHex ? ' Nora will start analysing it within seconds if she is running.' : ' Start Nora with "npm run nora".'}`);
 conn.disconnect();

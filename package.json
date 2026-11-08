@@ -28,7 +28,8 @@
     "module:publish": "spacetime publish -s local --module-path spacetimedb",
     "demo:admit": "tsx server/demo/admit.ts",
     "nora:try-evidence": "tsx server/nora/try-evidence.ts",
-    "share": "npx -y cloudflared tunnel --url http://localhost:5173"
+    "share": "npx -y cloudflared tunnel --url http://localhost:5173",
+    "demo:reset": "tsx server/demo/setup.ts"
   },
   "dependencies": {
     "react": "18.3.1",

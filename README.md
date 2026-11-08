@@ -124,7 +124,7 @@ npm run nora:try                        # one suspicious sign-in
 
 ## Demo story (two windows, one laptop, about three minutes)
 
-**Reset before each run:** `npm run module:publish -- clean-room --delete-data`, open the lead window and copy its ID, `npm run demo:setup -- --nora <Nora's ID> --lead <your ID>`, then `npm run nora`. In the lead window, Administration → Create invite link (Tier 1) → open it in the second window as the analyst.
+**First time:** `npm run demo:setup -- --nora <Nora's ID> --lead <lead window's ID> --analyst <analyst window's ID>` (IDs: Administration → Your ID). **Every judge after that:** `npm run demo:reset`, then reload both windows. It creates a fresh incident and admits the same two windows; nothing to copy.
 
 The synthetic incident opens as **Awaiting information · Unknown severity**, with the plan the night shift left: four confirmed decisions, each with the assumption it rests on and a note in its own discussion.
 
