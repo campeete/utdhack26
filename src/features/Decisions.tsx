@@ -71,7 +71,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
       if (group.decision?.state === 'closed') return false;
       return filter === 'review' ? group.shown.length > 0 : !!group.decision || group.items.length > 0;
     })
-    .sort((x, y) => Number(y.items.some(e => flagged(e.id))) - Number(x.items.some(e => flagged(e.id))));
+    .sort((x, y) => Number(y.items.some(e => flagged(e.id))) - Number(x.items.some(e => flagged(e.id))) || (x.decision && y.decision && x.decision.id === selection.decisionId ? -1 : y.decision && y.decision.id === selection.decisionId ? 1 : 0));
   function select(next: Selection) {
     onSelect(next);
     requestAnimationFrame(() => focusContext(contextHeading.current));
@@ -126,7 +126,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
         </div>
       </section>
       <div id="change-context" className="change-context story-host">
-        <IncidentStory key={`${selection.evidenceId}:${selection.decisionId}`} data={data} adapter={adapter} onUpdate={onUpdate} selection={selection} headingRef={contextHeading} onOverview={() => focusContext(changesHeading.current)} onSelectProposal={id => onSelect({ ...selection, proposalId: id })} onDiscuss={text => setDraft({ text, nonce: Date.now() })} />
+        <IncidentStory key={`${selection.evidenceId}:${selection.decisionId}`} data={data} adapter={adapter} onUpdate={onUpdate} selection={selection} headingRef={contextHeading} onOverview={() => focusContext(changesHeading.current)} onSelectProposal={id => onSelect({ ...selection, proposalId: id })} onDiscuss={text => setDraft({ text, nonce: Date.now() })} onOpenDecision={id => select({ evidenceId: null, decisionId: id })} />
         {selectedDecision
           ? <IncidentConversation key={selectedDecision.id} decisionId={selectedDecision.id} relatedEvidenceIds={evidenceFor(selectedDecision)} evidenceId={evidence?.id} data={data} adapter={adapter} onUpdate={onUpdate} draft={draft} onOpenReference={openReference} />
           : evidence && <IncidentConversation key={evidence.id} evidenceId={evidence.id} data={data} adapter={adapter} onUpdate={onUpdate} draft={draft} onOpenReference={openReference} />}

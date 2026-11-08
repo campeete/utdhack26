@@ -31,7 +31,10 @@ export function IncidentStory({
   onOverview,
   onSelectProposal,
   onDiscuss,
+  onOpenDecision,
 }: {
+  /** Opens another decision, e.g. the new plan after Replace the plan. */
+  onOpenDecision?: (decisionId: string) => void;
   data: Snapshot;
   adapter: IncidentData;
   onUpdate: (next: Snapshot) => void;
@@ -279,7 +282,7 @@ export function IncidentStory({
                           </dl>
                           <NoraAssessment review={noraReview} proposal={noraProposal} live={adapter.mode === "live"} hasEvidence={!!evidence} currentEvidenceId={evidence?.id} />
                           {decision.state !== "closed" && ["conflict", "urgent"].includes(verificationVerdict(data, decision.id)?.outcome ?? "")
-                            ? <ReplacePlan decision={decision} data={data} adapter={adapter} onUpdate={onUpdate} />
+                            ? <ReplacePlan decision={decision} data={data} adapter={adapter} onUpdate={onUpdate} onReplaced={onOpenDecision} />
                             : <DecisionActions decision={decision} data={data} adapter={adapter} onUpdate={onUpdate} />}
                           <div className="context-toggles" role="group" aria-label="More about this decision">
                             <button

@@ -320,7 +320,7 @@ export function ReplacePlan({ decision, data, adapter, onUpdate, onReplaced }: {
     if (!created) throw new Error('The new plan was recorded; approve it from its issue.');
     await adapter.approveDecision(created.id);
     next = await adapter.resolveDecision(decision.id);
-    onReplaced?.(created.id);
+    setTimeout(() => onReplaced?.(created!.id), 0);
     return next;
   }
   return <form className="assign-form replace-plan" onSubmit={e => { e.preventDefault(); void run(replace); }}>
