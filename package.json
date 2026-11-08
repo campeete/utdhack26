@@ -16,8 +16,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.audit.json",
     "typecheck:audit": "tsc --noEmit -p tsconfig.audit.json",
     "test:review": "node --experimental-strip-types --test shared/*.test.ts",
-    "test:nemotron": "tsx --test server/nemotron/*.test.ts",
-    "nemotron:try": "tsx server/nemotron/try-reassess.ts"
+    "test:nemotron": "tsx --test server/nemotron/*.test.ts server/intel/*.test.ts",
+    "nemotron:try": "tsx server/nemotron/try-reassess.ts",
+    "intel:fetch": "tsx server/intel/fetch-intel.ts"
   },
   "dependencies": {
     "react": "18.3.1",
