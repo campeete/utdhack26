@@ -1,4 +1,13 @@
-export type Role = 'admin' | 'commander' | 'analyst' | 'reviewer';
+/**
+ * Three tiers that stack: a higher tier can do everything a lower one can.
+ * Tier 1 triages (gathers data, defines problems and breaches), Tier 2 contains and
+ * mitigates, Tier 3 hunts hidden attackers, does forensics and manages the team.
+ */
+export type Role = 'tier1' | 'tier2' | 'tier3';
+export const ROLE_LABELS: Record<Role, string> = { tier1: 'Tier 1 · Triage', tier2: 'Tier 2 · Containment', tier3: 'Tier 3 · Forensics' };
+export const roleLabel = (role: string) => ROLE_LABELS[role as Role] ?? role;
+/** The highest tier in a role list (0 if none). */
+export const tierOf = (roles: readonly string[]) => Math.max(0, ...roles.map(r => ['tier1', 'tier2', 'tier3'].indexOf(r) + 1));
 export type Standing = 'reported' | 'corroborated' | 'disputed' | 'unknown' | 'withdrawn';
 export type Trust = 'established' | 'under_review';
 export type DecisionState = 'draft' | 'approved' | 'needs_review' | 'superseded' | 'closed';

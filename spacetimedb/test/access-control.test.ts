@@ -81,7 +81,7 @@ describe('writes: outsider and low-privilege roles are rejected', () => {
   it('outsider cannot chat, admit, update, or self-enroll', () => {
     const id = makeIncident();
     denied(() => run(outsider, c => mod.add_message(c, msg(id, 'hi'))), /Access denied/);
-    denied(() => run(outsider, c => mod.admit_member(c, { incident_id: id, user: outsiderId, roles: ['admin'] })), /Access denied/);
+    denied(() => run(outsider, c => mod.admit_member(c, { incident_id: id, user: outsiderId, roles: ['tier3'] })), /Access denied/);
     denied(() => run(outsider, c => mod.update_incident(c, upd(id, 1, 'closed'))), /Access denied/);
     expect([...h.db.message.iter()].length).toBe(0);
     expect([...h.db.membership.iter()].length).toBe(1); // only the creator
@@ -93,8 +93,8 @@ describe('writes: outsider and low-privilege roles are rejected', () => {
 
   it('analyst cannot admit members or change incident state', () => {
     const id = makeIncident();
-    admit(id, analystId, ['analyst']);
-    denied(() => run(analyst, c => mod.admit_member(c, { incident_id: id, user: outsiderId, roles: ['analyst'] })), /insufficient role/);
+    admit(id, analystId, ['tier1']);
+    denied(() => run(analyst, c => mod.admit_member(c, { incident_id: id, user: outsiderId, roles: ['tier1'] })), /insufficient role/);
     denied(() => run(analyst, c => mod.update_incident(c, upd(id, 1, 'containing'))), /insufficient role/);
     expect(view(outsider, mod.my_incidents)).toEqual([]);
   });
@@ -111,7 +111,7 @@ describe('admission and isolation', () => {
   it('admitted analyst reads only their incident; cross-incident access is denied', () => {
     const a = makeIncident('A');
     const b = makeIncident('B');
-    admit(a, analystId, ['analyst']);
+    admit(a, analystId, ['tier1']);
     expect(view(analyst, mod.my_incidents).map((r: any) => r.id)).toEqual([a]);
     run(owner, c => mod.add_message(c, msg(b, 'B only')));
     expect(view(analyst, mod.incident_messages)).toEqual([]);
@@ -120,7 +120,7 @@ describe('admission and isolation', () => {
 
   it('two authorized users exchange messages; duplicate request ids are idempotent', () => {
     const id = makeIncident();
-    admit(id, analystId, ['analyst']);
+    admit(id, analystId, ['tier1']);
     run(analyst, c => mod.add_message(c, msg(id, 'hello', 'r1')));
     run(analyst, c => mod.add_message(c, msg(id, 'hello', 'r1')));
     run(owner, c => mod.add_message(c, msg(id, 'ack')));
@@ -128,22 +128,23 @@ describe('admission and isolation', () => {
     expect(view(analyst, mod.incident_messages).length).toBe(2);
   });
 
-  it('admin alone cannot change operational state; a commander can; stale versions rejected', () => {
+  it('Tier 1 cannot change operational state; Tier 2 can; stale versions rejected', () => {
     const id = makeIncident();
-    denied(() => run(owner, c => mod.update_incident(c, upd(id, 1))), /insufficient role/);
-    admit(id, cmdId, ['commander']);
+    admit(id, analystId, ['tier1']);
+    denied(() => run(analyst, c => mod.update_incident(c, upd(id, 1, 'containing'))), /insufficient role/);
+    admit(id, cmdId, ['tier2']);
     run(cmd, c => mod.update_incident(c, upd(id, 1, 'containing')));
     denied(() => run(cmd, c => mod.update_incident(c, upd(id, 1, 'recovering'))), /changed since/);
     expect(view(cmd, mod.my_incidents)[0].status).toBe('containing');
     denied(() => run(cmd, c => mod.update_incident(c, upd(id, 2, 'bogus'))), /Invalid status/);
   });
 
-  it('commander can be assigned only from active members holding the commander role', () => {
+  it('the incident lead can be assigned only from active Tier 2 or Tier 3 members', () => {
     const id = makeIncident();
-    admit(id, analystId, ['analyst']);
-    denied(() => run(owner, c => mod.assign_commander(c, { incident_id: id, user: analystId })), /commander role/);
-    denied(() => run(owner, c => mod.assign_commander(c, { incident_id: id, user: outsiderId })), /commander role/);
-    admit(id, cmdId, ['commander']);
+    admit(id, analystId, ['tier1']);
+    denied(() => run(owner, c => mod.assign_commander(c, { incident_id: id, user: analystId })), /Tier 2 or Tier 3/);
+    denied(() => run(owner, c => mod.assign_commander(c, { incident_id: id, user: outsiderId })), /Tier 2 or Tier 3/);
+    admit(id, cmdId, ['tier2']);
     run(owner, c => mod.assign_commander(c, { incident_id: id, user: cmdId }));
     expect(view(owner, mod.my_incidents)[0].commander?.toHexString()).toBe(cmdId.toHexString());
   });
@@ -151,7 +152,7 @@ describe('admission and isolation', () => {
   it('visible_profiles only shows people who share an incident', () => {
     const id = makeIncident();
     for (const a of [owner, analyst, outsider]) run(a, c => mod.set_display_name(c, { display_name: 'n' + Math.random() }));
-    admit(id, analystId, ['analyst']);
+    admit(id, analystId, ['tier1']);
     const seenByAnalyst = view(analyst, mod.visible_profiles).map((p: any) => p.identity.toHexString());
     expect(seenByAnalyst).toContain(ownerId.toHexString());
     expect(seenByAnalyst).not.toContain(outsiderId.toHexString());
@@ -161,7 +162,7 @@ describe('admission and isolation', () => {
 describe('revocation', () => {
   it('revoked member loses reads and writes immediately', () => {
     const id = makeIncident();
-    admit(id, analystId, ['analyst']);
+    admit(id, analystId, ['tier1']);
     run(owner, c => mod.add_message(c, msg(id, 'before')));
     expect(view(analyst, mod.incident_messages).length).toBe(1);
     run(owner, c => mod.revoke_member(c, { incident_id: id, user: analystId }));
@@ -173,33 +174,33 @@ describe('revocation', () => {
 
   it('revoking the commander clears the incident commander pointer', () => {
     const id = makeIncident();
-    admit(id, cmdId, ['commander']);
+    admit(id, cmdId, ['tier2']);
     run(owner, c => mod.assign_commander(c, { incident_id: id, user: cmdId }));
     run(owner, c => mod.revoke_member(c, { incident_id: id, user: cmdId }));
     expect(view(owner, mod.my_incidents)[0].commander).toBeUndefined();
   });
 
-  it('cannot revoke or demote the last active admin', () => {
+  it('cannot revoke or demote the last active Tier 3', () => {
     const id = makeIncident();
-    denied(() => run(owner, c => mod.revoke_member(c, { incident_id: id, user: ownerId })), /last active admin/);
-    denied(() => run(owner, c => mod.set_member_roles(c, { incident_id: id, user: ownerId, roles: ['analyst'] })), /last active admin/);
+    denied(() => run(owner, c => mod.revoke_member(c, { incident_id: id, user: ownerId })), /last active Tier 3/);
+    denied(() => run(owner, c => mod.set_member_roles(c, { incident_id: id, user: ownerId, roles: ['tier1'] })), /last active Tier 3/);
   });
 
   it('a re-admitted user gets a fresh active membership; history is kept', () => {
     const id = makeIncident();
-    admit(id, analystId, ['analyst']);
+    admit(id, analystId, ['tier1']);
     run(owner, c => mod.revoke_member(c, { incident_id: id, user: analystId }));
-    admit(id, analystId, ['reviewer']);
+    admit(id, analystId, ['tier2']);
     const mine = view(analyst, mod.my_memberships);
     expect(mine.length).toBe(1);
-    expect(mine[0].roles).toEqual(['reviewer']);
+    expect(mine[0].roles).toEqual(['tier2']);
     expect([...h.db.membership.iter()].length).toBe(3);
   });
 
   it('admitting an already-active member is rejected (no duplicate memberships)', () => {
     const id = makeIncident();
-    admit(id, analystId, ['analyst']);
-    denied(() => admit(id, analystId, ['reviewer']), /already an active member/);
+    admit(id, analystId, ['tier1']);
+    denied(() => admit(id, analystId, ['tier2']), /already an active member/);
   });
 });
 
@@ -218,7 +219,7 @@ describe('input validation and audit trail', () => {
 
   it('membership changes are written to the activity log with the actor', () => {
     const id = makeIncident();
-    admit(id, analystId, ['analyst']);
+    admit(id, analystId, ['tier1']);
     run(owner, c => mod.revoke_member(c, { incident_id: id, user: analystId }));
     const events = view(owner, mod.incident_activity);
     expect(events.map((e: any) => e.action)).toEqual(['incident_created', 'member_admitted', 'member_revoked']);

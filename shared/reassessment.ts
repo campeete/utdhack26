@@ -5,7 +5,7 @@ import type { Activity, Proposal, Snapshot } from './contracts.ts';
 // same functions so the demo follows identical rules.
 
 /** Same roles that may confirm a review (see acceptReview). Dismissal adds no new permission. */
-export const REVIEW_ROLES = ['analyst', 'commander'] as const;
+export const REVIEW_ROLES = ['tier1', 'tier2', 'tier3'] as const;
 export const FEEDBACK_MAX = 2000;
 const EXPLANATION_MAX = 2000;
 const VERIFICATION_MAX = 500;

@@ -56,14 +56,15 @@ const acct = (ref: string) => rows('northstar_account').find(a => a.account_ref 
 
 beforeEach(() => {
   h = createModuleTestHarness(mod.default, mod as any);
-  for (const name of ['owner', 'cmd', 'analyst', 'reviewer', 'outsider', 'nora', 'gateway', 'phone2']) {
+  for (const name of ['owner', 'cmd', 'analyst', 'forensics', 'outsider', 'nora', 'gateway', 'phone2']) {
     auth[name] = who(name);
     run(auth[name], ctx => { id[name] = ctx.sender; });
   }
   as('owner', ctx => mod.init(ctx, {} as any));
   as('owner', ctx => mod.create_incident(ctx, { title: 'Northstar Retail', summary: 'Synthetic training incident', severity: 'high' }));
   inc = last('incident').id;
-  for (const [name, roles] of [['cmd', ['commander']], ['analyst', ['analyst']], ['reviewer', ['reviewer']]] as const) {
+  // analyst = Tier 1 (triage), cmd = Tier 2 (containment), forensics = Tier 3.
+  for (const [name, roles] of [['cmd', ['tier2']], ['analyst', ['tier1']], ['forensics', ['tier3']]] as const) {
     as('owner', ctx => mod.admit_member(ctx, { incident_id: inc, user: id[name], roles: [...roles] }));
   }
   as('owner', ctx => mod.set_service_account(ctx, { identity: id.nora, kind: 'nora', enabled: true }));
@@ -108,6 +109,18 @@ describe('pure rules', () => {
     expect(parseReassessmentResult('not json').kind).toBe('error');
     expect(parseReassessmentResult({ kind: 'revision', excerpt: 'x' }).kind).toBe('error');
     expect(parseReassessmentResult({ kind: 'no_further_review', note: 'fine' })).toEqual({ kind: 'no_further_review', note: 'fine' });
+  });
+});
+
+describe('tiers', () => {
+  it('one tier per person; tiers stack; Tier 3 manages people', () => {
+    denied(() => as('owner', c => mod.admit_member(c, { incident_id: inc, user: id.outsider, roles: ['tier1', 'tier2'] })), /Choose one tier/);
+    denied(() => as('owner', c => mod.admit_member(c, { incident_id: inc, user: id.outsider, roles: ['analyst'] })), /Unknown role/);
+    denied(() => as('cmd', c => mod.admit_member(c, { incident_id: inc, user: id.outsider, roles: ['tier1'] })), /needs Tier 3/);
+    as('forensics', c => mod.admit_member(c, { incident_id: inc, user: id.outsider, roles: ['tier1'] }));
+    // Tier 3 can do Tier 1 work too.
+    as('forensics', c => mod.add_source(c, { incident_id: inc, label: 'Firewall logs', trust: 'trusted', reason: 'Exported by IT' }));
+    denied(() => as('analyst', c => mod.update_incident(c, { incident_id: inc, expected_version: 1, status: 'containing', severity: undefined, summary: undefined, reason: 'x' })), /needs Tier 2/);
   });
 });
 
@@ -165,9 +178,9 @@ describe("Nora's findings", () => {
     const f = last('finding');
     expect(f.state).toBe('open');
     expect(acct('NSR-1008').status).toBe('active');
-    denied(() => as('reviewer', c => mod.approve_finding(c, { finding_id: f.id, expected_version: 1 })), /insufficient role/);
-    denied(() => as('analyst', c => mod.approve_finding(c, { finding_id: f.id, expected_version: 0 })), /changed since/);
-    as('analyst', c => mod.approve_finding(c, { finding_id: f.id, expected_version: 1 }));
+    denied(() => as('analyst', c => mod.approve_finding(c, { finding_id: f.id, expected_version: 1 })), /needs Tier 2/);
+    denied(() => as('cmd', c => mod.approve_finding(c, { finding_id: f.id, expected_version: 0 })), /changed since/);
+    as('cmd', c => mod.approve_finding(c, { finding_id: f.id, expected_version: 1 }));
     expect(last('finding').state).toBe('approved');
     expect(acct('NSR-1008').status).toBe('disabled');
     expect(last('nora_memory')).toMatchObject({ finding_id: f.id, decision: 'approved' });
@@ -221,11 +234,11 @@ describe("Nora's findings", () => {
     const fixed = last('finding').id;
     as('nora', c => mod.create_finding(c, finding({ account_ref: 'NSR-1015' })));
     const second = last('finding').id;
-    as('analyst', c => mod.approve_finding(c, { finding_id: second, expected_version: 1 }));
+    as('forensics', c => mod.approve_finding(c, { finding_id: second, expected_version: 1 })); // tiers stack
     denied(() => as('cmd', c => mod.undo_auto_fix(c, { finding_id: fixed })), /changed after the fix/);
   });
 
-  it('dismissal feedback goes to Nora’s memory, which only Nora can read and a commander can delete', () => {
+  it('dismissal feedback (Tier 1 triage) goes to Nora’s memory, which only Nora can read and Tier 3 can delete', () => {
     as('nora', c => mod.create_finding(c, finding()));
     const f = last('finding');
     as('analyst', c => mod.dismiss_finding(c, { finding_id: f.id, feedback: '  NSR-1008 is the CFO travelling; confirmed by phone.  ' }));
@@ -235,8 +248,9 @@ describe("Nora's findings", () => {
     expect(view('nora', mod.nora_memory_feed).length).toBe(1);
     expect(view('cmd', mod.nora_memory_feed)).toEqual([]);
     const memoryId = last('nora_memory').id;
-    denied(() => as('analyst', c => mod.delete_nora_memory(c, { memory_id: memoryId })), /insufficient role/);
-    as('cmd', c => mod.delete_nora_memory(c, { memory_id: memoryId }));
+    denied(() => as('analyst', c => mod.delete_nora_memory(c, { memory_id: memoryId })), /needs Tier 3/);
+    denied(() => as('cmd', c => mod.delete_nora_memory(c, { memory_id: memoryId })), /needs Tier 3/);
+    as('forensics', c => mod.delete_nora_memory(c, { memory_id: memoryId }));
     expect(rows('nora_memory')).toEqual([]);
   });
 
@@ -269,7 +283,7 @@ describe('suggested reviews (ported rules)', () => {
 
   it('a quote must appear word for word in the evidence', () => {
     denied(() => suggest('The backup is definitely infected.'), /exact quote/);
-    denied(() => as('reviewer', c => mod.add_suggestion(c, { incident_id: inc, evidence_id: evidenceId, excerpt: 'Logs before Sunday are missing.', explanation: 'e', verification: 'v' })), /insufficient role/);
+    denied(() => as('outsider', c => mod.add_suggestion(c, { incident_id: inc, evidence_id: evidenceId, excerpt: 'Logs before Sunday are missing.', explanation: 'e', verification: 'v' })), /Access denied/);
     suggest();
     expect(last('suggestion')).toMatchObject({ origin: 'nora', state: 'pending', decision_ids: [decisionId], team_update_ids: [updateId] });
   });
@@ -277,7 +291,7 @@ describe('suggested reviews (ported rules)', () => {
   it('confirming flags the decision, outdates the update and assigns a task to the decision owner', () => {
     suggest();
     const s = last('suggestion');
-    denied(() => as('reviewer', c => mod.confirm_suggestion(c, { suggestion_id: s.id, reason: 'Looks right to me' })), /insufficient role/);
+    denied(() => as('outsider', c => mod.confirm_suggestion(c, { suggestion_id: s.id, reason: 'Looks right to me' })), /Access denied/);
     denied(() => as('analyst', c => mod.confirm_suggestion(c, { suggestion_id: s.id, reason: 'short' })), /review reason/);
     as('analyst', c => mod.confirm_suggestion(c, { suggestion_id: s.id, reason: 'Vendor admits no test restore' }));
     expect(byId('decision', decisionId).state).toBe('needs_review');
@@ -295,7 +309,8 @@ describe('suggested reviews (ported rules)', () => {
 
   it('a suggestion based on an older version of the evidence is refused as stale', () => {
     suggest();
-    as('cmd', c => mod.set_evidence_standing(c, { evidence_id: evidenceId, expected_version: 1, standing: 'disputed' }));
+    denied(() => as('cmd', c => mod.set_evidence_standing(c, { evidence_id: evidenceId, expected_version: 1, standing: 'disputed' })), /needs Tier 3/);
+    as('forensics', c => mod.set_evidence_standing(c, { evidence_id: evidenceId, expected_version: 1, standing: 'disputed' }));
     const sid = last('suggestion').id;
     denied(() => as('analyst', c => mod.confirm_suggestion(c, { suggestion_id: sid, reason: 'Vendor admits no test restore' })), /stale/);
   });
@@ -354,10 +369,10 @@ describe('outside contacts and simulated SMS', () => {
     expect(view('cmd', mod.my_sms_threads)).toEqual([]);
   });
 
-  it('only that contact can reply, reviewers cannot text, and responders cannot double as contacts', () => {
+  it('only that contact can reply, outsiders cannot text, and responders cannot double as contacts', () => {
     const contact = last('outside_contact');
     denied(() => as('outsider', c => mod.reply_sms(c, { contact_id: contact.id, text: 'hi' })), /Access denied/);
-    denied(() => as('reviewer', c => mod.send_sms(c, { contact_id: contact.id, text: 'hi' })), /insufficient role/);
+    denied(() => as('outsider', c => mod.send_sms(c, { contact_id: contact.id, text: 'hi' })), /Access denied/);
     denied(() => as('analyst', c => mod.add_outside_contact(c, { incident_id: inc, account_ref: 'NSR-1015', display_name: 'X', demo_identity: id.cmd })), /responder cannot/);
     denied(() => as('analyst', c => mod.add_outside_contact(c, { incident_id: inc, account_ref: 'NSR-1015', display_name: 'X', demo_identity: id.phone2 })), /already a contact/);
   });
@@ -378,7 +393,7 @@ describe('Change 1: direct messages', () => {
     as('analyst', c => mod.add_message(c, { incident_id: inc, text: 'For everyone', client_request_id: undefined, recipient: undefined, evidence_id: undefined }));
     expect(view('cmd', mod.incident_messages).length).toBe(2);
     expect(view('analyst', mod.incident_messages).length).toBe(2);
-    expect(view('reviewer', mod.incident_messages).map((m: any) => m.text)).toEqual(['For everyone']);
+    expect(view('forensics', mod.incident_messages).map((m: any) => m.text)).toEqual(['For everyone']);
     denied(() => as('analyst', c => mod.add_message(c, { incident_id: inc, text: 'x', client_request_id: undefined, recipient: id.outsider, evidence_id: undefined })), /Recipient must be/);
     denied(() => as('analyst', c => mod.add_message(c, { incident_id: inc, text: 'x', client_request_id: undefined, recipient: undefined, evidence_id: 999n })), /Evidence not found/);
   });
@@ -391,7 +406,7 @@ describe('audit chain', () => {
   it('every change lands in a chain that verifies, for the incident and the platform', () => {
     as('nora', c => mod.create_finding(c, finding()));
     const fid = last('finding').id;
-    as('analyst', c => mod.approve_finding(c, { finding_id: fid, expected_version: 1 }));
+    as('cmd', c => mod.approve_finding(c, { finding_id: fid, expected_version: 1 }));
     const key = inc.toString();
     const actions = eventsFor(key).map(e => e.action);
     for (const a of ['INCIDENT_CREATED', 'MEMBER_ADMITTED', 'DEMO_LOADED', 'FINDING_CREATED', 'ACCOUNT_STATUS_CHANGED', 'FINDING_APPROVED']) {
@@ -417,8 +432,8 @@ describe('audit chain', () => {
   });
 
   it('members read their incident’s audit feed; outsiders get nothing', () => {
-    expect(view('reviewer', mod.incident_audit).length).toBe(eventsFor(inc.toString()).length);
-    expect(view('reviewer', mod.incident_audit_heads).length).toBe(1);
+    expect(view('forensics', mod.incident_audit).length).toBe(eventsFor(inc.toString()).length);
+    expect(view('forensics', mod.incident_audit_heads).length).toBe(1);
     expect(view('outsider', mod.incident_audit)).toEqual([]);
   });
 });

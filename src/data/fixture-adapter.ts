@@ -1,4 +1,4 @@
-import type { Snapshot } from '../../shared/contracts';
+import { tierOf, type Snapshot } from '../../shared/contracts';
 import type { IncidentData } from './interface';
 import { createFixture } from './fixtures';
 import { confirmReview } from '../../shared/review';
@@ -29,12 +29,12 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
   const reassess = options.reassess ?? syntheticReassessor;
   const delayMs = options.delayMs ?? 1600;
   const actor = 'Morgan Patel (fixture)';
-  const identity = { name: 'Morgan Patel', roles: ['commander', 'analyst'], authenticated: false };
+  const identity = { name: 'Morgan Patel', roles: ['tier3'], authenticated: false };
   let data = createFixture();
   const listeners = new Set<(data: Snapshot) => void>();
   const copy = () => structuredClone(data);
   const publish = () => { const snapshot = copy(); listeners.forEach(l => l(snapshot)); };
-  const requireReviewer = () => { if (!identity.roles.some(r => (REVIEW_ROLES as readonly string[]).includes(r))) throw new Error('Only analysts and commanders can review suggestions.'); };
+  const requireReviewer = () => { if (!identity.roles.some(r => (REVIEW_ROLES as readonly string[]).includes(r))) throw new Error('Only incident members can review suggestions.'); };
   // Runs outside the request, the way a server-side worker would.
   function runPending(proposalId: string) {
     let request: ReassessmentRequest;
@@ -66,7 +66,7 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
     },
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     async approveFinding(id) {
-      requireReviewer();
+      if (tierOf(identity.roles) < 2) throw new Error('Only Tier 2 or Tier 3 can approve a fix.');
       data = { ...data, findings: (data.findings ?? []).map(f => f.id === id && f.state === 'open' ? { ...f, state: 'approved' as const, decidedBy: actor, decidedAt: new Date().toISOString(), version: f.version + 1 } : f) };
       return copy();
     },
@@ -77,7 +77,7 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
       return copy();
     },
     async undoFinding(id) {
-      if (!identity.roles.includes('commander')) throw new Error('Only a commander can undo an automatic fix.');
+      if (tierOf(identity.roles) < 2) throw new Error('Only Tier 2 or Tier 3 can undo an automatic fix.');
       data = { ...data, findings: (data.findings ?? []).map(f => f.id === id && f.state === 'auto_fixed' ? { ...f, state: 'undone' as const, decidedBy: actor, decidedAt: new Date().toISOString(), version: f.version + 1 } : f) };
       return copy();
     },

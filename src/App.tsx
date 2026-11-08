@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CircleDot, Layers2, Moon, Settings2, Sun, UserRound } from 'lucide-react';
-import type { Snapshot } from '../shared/contracts';
+import { roleLabel, type Snapshot } from '../shared/contracts';
 import type { IncidentData } from './data/interface';
-import { label, Modal } from './components/ui';
+import { Modal } from './components/ui';
 import { Decisions, type Selection } from './features/Decisions';
 import { Administration, Scope } from './features/IncidentPages';
 import { Monitor } from './features/Monitor';
@@ -59,9 +59,9 @@ export default function App({ adapter }: { adapter: IncidentData }) {
       <a className="brand" href="#main" onClick={() => switchView('workspace')} aria-label="Clean Room workspace"><Layers2 size={26} /><span>Clean Room</span></a>
       <div className="header-incident"><strong>{data?.incident.title ?? 'Incident workspace'}</strong><span><CircleDot size={12} />{data?.incident.status ?? 'Opening'}<span className="severity-dot" />{data?.incident.severity ?? '—'} severity</span></div>
       <nav aria-label="Incident views">{views.map(item => <button key={item.id} onClick={() => switchView(item.id)} aria-current={view === item.id ? 'page' : undefined}>{item.label}</button>)}</nav>
-      {adapter.identity ? <div className="session-indicator" aria-label={`${adapter.identity.authenticated ? 'Signed in' : 'Demo identity'}: ${adapter.identity.name}, ${adapter.identity.roles.map(label).join(', ')}`}>
+      {adapter.identity ? <div className="session-indicator" aria-label={`${adapter.identity.authenticated ? 'Signed in' : 'Demo identity'}: ${adapter.identity.name}, ${adapter.identity.roles.map(roleLabel).join(', ')}`}>
         <span className="session-avatar"><UserRound size={17} /></span>
-        <span className="session-copy"><strong>{adapter.identity.name}</strong><small>{adapter.identity.roles.map(label).join(' · ')}</small></span>
+        <span className="session-copy"><strong>{adapter.identity.name}</strong><small>{adapter.identity.roles.map(roleLabel).join(' · ')}</small></span>
       </div> : <div className="session-indicator"><span className="session-avatar"><UserRound size={17} /></span><span className="session-copy"><strong>No session</strong><small>Identity unavailable</small></span></div>}
       <button className="admin-button" aria-label="Administration" onClick={() => setAdminOpen(true)}><Settings2 size={17} /><span>Administration</span></button>
       <div className="theme-switch" role="group" aria-label="Color theme"><button type="button" aria-pressed={theme === 'light'} onClick={() => setTheme('light')}><Sun size={13} />Light</button><button type="button" aria-pressed={theme === 'dark'} onClick={() => setTheme('dark')}><Moon size={13} />Dark</button></div>
@@ -72,7 +72,7 @@ export default function App({ adapter }: { adapter: IncidentData }) {
       <section className="view" hidden={view !== 'workspace'} aria-label="Incident workspace"><Decisions data={data} adapter={adapter} onUpdate={update} selection={selection} onSelect={setSelection} /></section>
       <section className="view secondary-view" hidden={view !== 'monitor'} aria-label="Monitor"><Monitor data={data} adapter={adapter} onUpdate={update} /></section>
       <section className="view secondary-view" hidden={view !== 'scope'} aria-label="Incident scope"><div className="view-heading"><h1>Scope of the incident</h1><p>What is affected, and what remains uncertain.</p></div><Scope data={data} /></section>
-      <footer><span>{data.incident.summary} <span className="footer-dot">·</span> Commander: {data.incident.commander}</span><span>{adapter.mode === 'live' ? 'Live · SpacetimeDB · Nora on NVIDIA Nemotron' : 'Demo data · Sign-in, live sync and Nora’s analysis are not connected'}</span></footer>
+      <footer><span>{data.incident.summary} <span className="footer-dot">·</span> Lead: {data.incident.commander}</span><span>{adapter.mode === 'live' ? 'Live · SpacetimeDB · Nora on NVIDIA Nemotron' : 'Demo data · Sign-in, live sync and Nora’s analysis are not connected'}</span></footer>
     </main> : <main id="main" className="loading" aria-live="polite">{error ? <><h1>Couldn’t open the workspace.</h1><p role="alert">{error}</p><button className="primary" onClick={() => setRetry(v => v + 1)}>Try again</button></> : <><h1>Opening the workspace…</h1><p>Loading incident records.</p></>}</main>}
     {adminOpen && <Modal title="Access & administration" onClose={() => setAdminOpen(false)}>{data ? <Administration data={data} /> : <p>Incident membership is unavailable while the workspace loads.</p>}</Modal>}
   </div>;

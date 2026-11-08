@@ -21,10 +21,10 @@ export interface IncidentData {
   /** Pushes snapshots that change without a local action, such as a finished reassessment. */
   subscribe(listener: (data: Snapshot) => void): () => void;
   sendMessage(evidenceId: string, recipientId: string, text: string): Promise<Snapshot>;
-  /** Runs the finding's proposed action. Analysts and commanders only. */
+  /** Runs the finding's proposed action. Tier 2 and up. */
   approveFinding(findingId: string): Promise<Snapshot>;
-  /** Optional feedback is saved to Nora's memory. */
+  /** Marks a false alarm (Tier 1 and up). Optional feedback is saved to Nora's memory. */
   dismissFinding(findingId: string, feedback: string): Promise<Snapshot>;
-  /** Reverses one of Nora's automatic fixes. Commanders only. */
+  /** Reverses one of Nora's automatic fixes. Tier 2 and up. */
   undoFinding(findingId: string): Promise<Snapshot>;
 }

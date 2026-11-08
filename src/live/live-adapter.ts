@@ -112,7 +112,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     const wanted = config.incidentId ? incidents.find(i => i.id.toString() === config.incidentId) : incidents.sort((a, b) => (a.id < b.id ? 1 : -1))[0];
     if (!wanted) {
       const hex = me?.toHexString() ?? 'unknown';
-      throw new Error(`This browser is not a member of ${config.incidentId ? `incident ${config.incidentId}` : 'any incident'} yet. Ask the platform admin to run: npm run demo:admit -- --user ${hex} --roles commander,analyst   Then press Try again.`);
+      throw new Error(`This browser is not a member of ${config.incidentId ? `incident ${config.incidentId}` : 'any incident'} yet. Ask the platform admin to run: npm run demo:admit -- --user ${hex} --tier tier3   Then press Try again.`);
     }
     return wanted;
   }

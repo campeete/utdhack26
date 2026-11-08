@@ -21,14 +21,22 @@ import {
   ACTION_EFFECTS, autoFixRefusal, cleanClues, DECISION_STATES, EXPLANATION_MAX, FEEDBACK_MAX,
   FINDING_QUEUES, FINDING_SEVERITIES, isAttackTechniqueId, isIpAddress, LOGIN_METHODS, LOGIN_ORIGINS,
   LOGIN_OUTCOMES, normalizeFeedback, parseReassessmentResult, PROPOSED_ACTIONS, REASON_MAX, REASON_MIN,
-  requestIdFor, REVIEW_ROLES, SERVICE_KINDS, SMS_MAX, STANDING, TRUST, VERIFICATION_MAX,
+  requestIdFor, SERVICE_KINDS, SMS_MAX, STANDING, TRUST, VERIFICATION_MAX,
   type ProposedAction, type ServiceKind,
 } from './rules';
 
 // ---------- constants ----------
 
-const ROLES = ['admin', 'commander', 'analyst', 'reviewer'] as const;
+// Three tiers, and they stack: a higher tier can do everything a lower one can.
+//   tier1  Triage: gathers data and defines problems and breaches.
+//   tier2  Containment: contains and mitigates (approves Nora's fixes, decisions, status).
+//   tier3  Forensics: hunts hidden attackers, reverse engineers, validates evidence,
+//          and manages who is in the incident.
+const ROLES = ['tier1', 'tier2', 'tier3'] as const;
 type Role = (typeof ROLES)[number];
+type Tier = 1 | 2 | 3;
+/** The highest tier in a membership's roles (0 if none is a tier). */
+const tierOf = (roles: readonly string[]): number => Math.max(0, ...roles.map(r => ROLES.indexOf(r as Role) + 1));
 
 const STATUSES = ['investigating', 'containing', 'recovering', 'monitoring', 'closed'] as const;
 const SEVERITIES = ['critical', 'high', 'medium', 'low'] as const;
@@ -85,7 +93,7 @@ const incident = table(
 );
 
 // One row per admission. Revocation flips `active`; rows are kept as history.
-// A person may hold several roles (modelled explicitly). Admin does NOT imply commander.
+// One tier per person; tiers stack (tier3 can do everything tier2 and tier1 can).
 const membership = table(
   {},
   {
@@ -484,6 +492,7 @@ function validateRoles(input: string[]): Role[] {
   for (const r of set) {
     if (!(ROLES as readonly string[]).includes(r)) fail(`Unknown role: ${r}`);
   }
+  if (set.size > 1) fail('Choose one tier: tiers already include the ones below them');
   return [...set] as Role[];
 }
 
@@ -495,13 +504,11 @@ function activeMembership(ctx: Ctx, incidentId: bigint, who: Identity) {
   return undefined;
 }
 
-/** Default deny: caller must be an active member holding at least one of `allowed` roles. */
-function requireRole(ctx: Ctx, incidentId: bigint, allowed: readonly Role[]) {
+/** Default deny: caller must be an active member at `min` tier or higher. */
+function requireTier(ctx: Ctx, incidentId: bigint, min: Tier) {
   const m = activeMembership(ctx, incidentId, ctx.sender);
   if (!m) fail('Access denied');
-  if (!m.roles.some(r => (allowed as readonly string[]).includes(r))) {
-    fail('Access denied: insufficient role');
-  }
+  if (tierOf(m.roles) < min) fail(`Access denied: insufficient role (needs Tier ${min} or higher)`);
   return m;
 }
 
@@ -511,10 +518,11 @@ function requireIncident(ctx: Ctx, incidentId: bigint) {
   return inc;
 }
 
-function countActiveAdmins(ctx: Ctx, incidentId: bigint): number {
+/** Tier 3 manages people, so an incident must always keep one. */
+function countActiveTier3(ctx: Ctx, incidentId: bigint): number {
   let n = 0;
   for (const m of ctx.db.membership.incident_id.filter(incidentId)) {
-    if (m.active && m.roles.includes('admin')) n++;
+    if (m.active && tierOf(m.roles) === 3) n++;
   }
   return n;
 }
@@ -642,12 +650,12 @@ export const create_incident = spacetimedb.reducer(
       updated_at: ctx.timestamp,
       version: 1,
     });
-    // Creator becomes the incident's admin (membership management only).
+    // The creator starts as Tier 3, so someone can admit the rest of the team.
     ctx.db.membership.insert({
       id: 0n,
       incident_id: row.id,
       user: ctx.sender,
-      roles: ['admin'],
+      roles: ['tier3'],
       active: true,
       admitted_by: ctx.sender,
       admitted_at: ctx.timestamp,
@@ -661,7 +669,7 @@ export const create_incident = spacetimedb.reducer(
 export const admit_member = spacetimedb.reducer(
   { incident_id: t.u64(), user: t.identity(), roles: t.array(t.string()) },
   (ctx, { incident_id, user, roles }) => {
-    requireRole(ctx, incident_id, ['admin']);
+    requireTier(ctx, incident_id, 3);
     requireIncident(ctx, incident_id);
     const validated = validateRoles(roles);
     if (activeMembership(ctx, incident_id, user)) fail('User is already an active member');
@@ -684,14 +692,14 @@ export const admit_member = spacetimedb.reducer(
 export const set_member_roles = spacetimedb.reducer(
   { incident_id: t.u64(), user: t.identity(), roles: t.array(t.string()) },
   (ctx, { incident_id, user, roles }) => {
-    requireRole(ctx, incident_id, ['admin']);
+    requireTier(ctx, incident_id, 3);
     const validated = validateRoles(roles);
     const target = activeMembership(ctx, incident_id, user);
     if (!target) fail('User is not an active member');
     // Never remove the last active admin.
-    if (target.roles.includes('admin') && !validated.includes('admin')
-        && countActiveAdmins(ctx, incident_id) <= 1) {
-      fail('Cannot remove the last active admin');
+    if (tierOf(target.roles) === 3 && tierOf(validated) < 3
+        && countActiveTier3(ctx, incident_id) <= 1) {
+      fail('Cannot remove the last active Tier 3');
     }
     ctx.db.membership.id.update({ ...target, roles: validated });
     logActivity(ctx, incident_id, 'member_roles_changed', 'membership', target.id,
@@ -702,11 +710,11 @@ export const set_member_roles = spacetimedb.reducer(
 export const revoke_member = spacetimedb.reducer(
   { incident_id: t.u64(), user: t.identity() },
   (ctx, { incident_id, user }) => {
-    requireRole(ctx, incident_id, ['admin']);
+    requireTier(ctx, incident_id, 3);
     const target = activeMembership(ctx, incident_id, user);
     if (!target) fail('User is not an active member');
-    if (target.roles.includes('admin') && countActiveAdmins(ctx, incident_id) <= 1) {
-      fail('Cannot revoke the last active admin');
+    if (tierOf(target.roles) === 3 && countActiveTier3(ctx, incident_id) <= 1) {
+      fail('Cannot revoke the last active Tier 3');
     }
     ctx.db.membership.id.update({
       ...target,
@@ -727,11 +735,11 @@ export const revoke_member = spacetimedb.reducer(
 export const assign_commander = spacetimedb.reducer(
   { incident_id: t.u64(), user: t.identity() },
   (ctx, { incident_id, user }) => {
-    requireRole(ctx, incident_id, ['admin']);
+    requireTier(ctx, incident_id, 3);
     const inc = requireIncident(ctx, incident_id);
     const target = activeMembership(ctx, incident_id, user);
-    if (!target || !target.roles.includes('commander')) {
-      fail('Target must be an active member with the commander role');
+    if (!target || tierOf(target.roles) < 2) {
+      fail('The incident lead must be an active Tier 2 or Tier 3 member');
     }
     ctx.db.incident.id.update({ ...inc, commander: user, updated_at: ctx.timestamp, version: inc.version + 1 });
     logActivity(ctx, incident_id, 'commander_assigned', 'incident', incident_id,
@@ -749,7 +757,7 @@ export const update_incident = spacetimedb.reducer(
     reason: t.string(),
   },
   (ctx, { incident_id, expected_version, status, severity, summary, reason }) => {
-    requireRole(ctx, incident_id, ['commander']); // admin alone cannot change operational state
+    requireTier(ctx, incident_id, 2); // containment changes operational state
     const inc = requireIncident(ctx, incident_id);
     if (inc.version !== expected_version) fail('Incident changed since you loaded it; refresh and retry');
     const why = cleanText(reason, 'Reason', 1, MAX_REASON);
@@ -784,7 +792,7 @@ export const add_scope_item = spacetimedb.reducer(
     business_impact: t.string(),
   },
   (ctx, { incident_id, system_name, data_category, affected_extent, encryption_status, exfiltration_status, business_impact }) => {
-    requireRole(ctx, incident_id, ['admin', 'commander', 'analyst']); // Reviewers are read-only
+    requireTier(ctx, incident_id, 1)
     requireIncident(ctx, incident_id);
     
     if (!(ENCRYPTION_STATES as readonly string[]).includes(encryption_status)) fail('Invalid encryption status');
@@ -820,7 +828,7 @@ export const add_evidence = spacetimedb.reducer(
     source_id: t.option(t.u64()),
   },
   (ctx, { incident_id, title, source_label, source_type, content_text, event_time, source_id }) => {
-    requireRole(ctx, incident_id, ['admin', 'commander', 'analyst']);
+    requireTier(ctx, incident_id, 1);
     requireIncident(ctx, incident_id);
     if (source_id !== undefined) {
       const src = ctx.db.source.id.find(source_id);
@@ -855,7 +863,7 @@ export const add_message = spacetimedb.reducer(
     evidence_id: t.option(t.u64()),
   },
   (ctx, { incident_id, text, client_request_id, recipient, evidence_id }) => {
-    requireRole(ctx, incident_id, ROLES); // every active role may chat
+    requireTier(ctx, incident_id, 1); // every tier may chat
     const body = cleanText(text, 'Message', 1, MAX_MESSAGE);
     if (recipient !== undefined && !activeMembership(ctx, incident_id, recipient)) {
       fail('Recipient must be an active member of this incident');
@@ -1018,7 +1026,6 @@ export const incident_evidence = spacetimedb.view(
 // Clean Room Data Spec additions
 // =====================================================================================
 
-const EDIT_ROLES = ['admin', 'commander', 'analyst'] as const; // Reviewers are read-only
 const MAX_LABEL = 120;
 const MAX_ASSUMPTION = 1000;
 const MAX_DEVICE_FIELD = 64;
@@ -1207,7 +1214,7 @@ export const record_login = spacetimedb.reducer(
 export const add_source = spacetimedb.reducer(
   { incident_id: t.u64(), label: t.string(), trust: t.string(), reason: t.string() },
   (ctx, { incident_id, label, trust, reason }) => {
-    requireRole(ctx, incident_id, EDIT_ROLES);
+    requireTier(ctx, incident_id, 1);
     requireIncident(ctx, incident_id);
     const row = ctx.db.source.insert({
       id: 0n,
@@ -1228,7 +1235,7 @@ export const set_source_trust = spacetimedb.reducer(
   (ctx, { source_id, expected_version, trust, reason }) => {
     const src = ctx.db.source.id.find(source_id);
     if (!src) fail('Source not found');
-    requireRole(ctx, src.incident_id, ['commander']);
+    requireTier(ctx, src.incident_id, 2);
     if (src.version !== expected_version) fail('Source changed since you loaded it; refresh and retry');
     const next = oneOf(trust, TRUST, 'trust');
     const why = cleanText(reason, 'Reason', 1, MAX_REASON);
@@ -1242,7 +1249,7 @@ export const set_evidence_standing = spacetimedb.reducer(
   (ctx, { evidence_id, expected_version, standing }) => {
     const ev = ctx.db.evidence.id.find(evidence_id);
     if (!ev) fail('Evidence not found');
-    requireRole(ctx, ev.incident_id, ['commander']);
+    requireTier(ctx, ev.incident_id, 3); // forensic validation;
     if (ev.version !== expected_version) fail('Evidence changed since you loaded it; refresh and retry');
     const next = oneOf(standing, STANDING, 'standing');
     ctx.db.evidence.id.update({ ...ev, standing: next, version: ev.version + 1 });
@@ -1253,7 +1260,7 @@ export const set_evidence_standing = spacetimedb.reducer(
 export const draft_decision = spacetimedb.reducer(
   { incident_id: t.u64(), title: t.string(), assumption: t.string(), evidence_ids: t.array(t.u64()) },
   (ctx, { incident_id, title, assumption, evidence_ids }) => {
-    requireRole(ctx, incident_id, EDIT_ROLES);
+    requireTier(ctx, incident_id, 1);
     requireIncident(ctx, incident_id);
     for (const id of evidence_ids) {
       const ev = ctx.db.evidence.id.find(id);
@@ -1279,7 +1286,7 @@ export const approve_decision = spacetimedb.reducer(
   (ctx, { decision_id, expected_version }) => {
     const d = ctx.db.decision.id.find(decision_id);
     if (!d) fail('Decision not found');
-    requireRole(ctx, d.incident_id, ['commander']);
+    requireTier(ctx, d.incident_id, 2);
     if (d.version !== expected_version) fail('Decision changed since you loaded it; refresh and retry');
     if (d.state !== 'draft' && d.state !== 'needs_review') fail('Only a draft or a decision needing review can be approved');
     ctx.db.decision.id.update({ ...d, state: 'approved', approved_at: ctx.timestamp, version: d.version + 1 });
@@ -1290,7 +1297,7 @@ export const approve_decision = spacetimedb.reducer(
 export const create_team_update = spacetimedb.reducer(
   { incident_id: t.u64(), title: t.string(), body: t.string(), decision_ids: t.array(t.u64()) },
   (ctx, { incident_id, title, body, decision_ids }) => {
-    requireRole(ctx, incident_id, ['commander']);
+    requireTier(ctx, incident_id, 2);
     requireIncident(ctx, incident_id);
     for (const id of decision_ids) {
       const d = ctx.db.decision.id.find(id);
@@ -1316,7 +1323,7 @@ export const review_team_update = spacetimedb.reducer(
   (ctx, { team_update_id, expected_version }) => {
     const u = ctx.db.team_update.id.find(team_update_id);
     if (!u) fail('Team update not found');
-    requireRole(ctx, u.incident_id, ['commander']);
+    requireTier(ctx, u.incident_id, 2);
     if (u.version !== expected_version) fail('Team update changed since you loaded it; refresh and retry');
     ctx.db.team_update.id.update({ ...u, state: 'reviewed', updated_by: ctx.sender, updated_at: ctx.timestamp, version: u.version + 1 });
     logActivity(ctx, u.incident_id, 'team_update_reviewed', 'team_update', u.id, u.title, 'TEAM_UPDATE_REVIEWED');
@@ -1428,7 +1435,7 @@ export const add_suggestion = spacetimedb.reducer(
   { incident_id: t.u64(), evidence_id: t.u64(), excerpt: t.string(), explanation: t.string(), verification: t.string() },
   (ctx, { incident_id, evidence_id, excerpt, explanation, verification }) => {
     const isNora = serviceKind(ctx) === 'nora';
-    if (!isNora) requireRole(ctx, incident_id, EDIT_ROLES);
+    if (!isNora) requireTier(ctx, incident_id, 1);
     requireIncident(ctx, incident_id);
     const row = insertSuggestion(ctx, {
       incident_id,
@@ -1447,7 +1454,7 @@ export const confirm_suggestion = spacetimedb.reducer(
   { suggestion_id: t.u64(), reason: t.string() },
   (ctx, { suggestion_id, reason }) => {
     const s = requireSuggestion(ctx, suggestion_id);
-    requireRole(ctx, s.incident_id, REVIEW_ROLES);
+    requireTier(ctx, s.incident_id, 1);
     if (s.state === 'accepted') return;
     if (s.state !== 'pending') fail('This suggestion is no longer pending.');
     const why = reason.trim();
@@ -1491,7 +1498,7 @@ export const dismiss_suggestion = spacetimedb.reducer(
   { suggestion_id: t.u64(), feedback: t.string() },
   (ctx, { suggestion_id, feedback }) => {
     const s = requireSuggestion(ctx, suggestion_id);
-    requireRole(ctx, s.incident_id, REVIEW_ROLES);
+    requireTier(ctx, s.incident_id, 1);
     if (s.state === 'dismissed') return; // a double submit is a no-op
     if (s.state !== 'pending') fail('This suggestion is no longer pending.');
     if (feedback.length > FEEDBACK_MAX) fail(`Keep feedback under ${FEEDBACK_MAX} characters.`);
@@ -1520,7 +1527,7 @@ export const retry_reassessment = spacetimedb.reducer(
   { suggestion_id: t.u64() },
   (ctx, { suggestion_id }) => {
     const s = requireSuggestion(ctx, suggestion_id);
-    requireRole(ctx, s.incident_id, REVIEW_ROLES);
+    requireTier(ctx, s.incident_id, 1);
     if (s.reassess_state !== 'failed') return;
     const attempt = s.attempt + 1;
     const key = queueReassessment(ctx, s, attempt);
@@ -1579,7 +1586,7 @@ export const complete_reassessment = spacetimedb.reducer(
 function requireAssignee(ctx: Ctx, taskId: bigint) {
   const tk = ctx.db.task.id.find(taskId);
   if (!tk) fail('Task not found');
-  requireRole(ctx, tk.incident_id, ROLES);
+  requireTier(ctx, tk.incident_id, 1);
   if (!tk.assignee.isEqual(ctx.sender)) fail('Only the assignee can change this task');
   return tk;
 }
@@ -1727,7 +1734,7 @@ export const approve_finding = spacetimedb.reducer(
   { finding_id: t.u64(), expected_version: t.u32() },
   (ctx, { finding_id, expected_version }) => {
     const f = requireFinding(ctx, finding_id);
-    requireRole(ctx, f.incident_id, REVIEW_ROLES);
+    requireTier(ctx, f.incident_id, 2); // containment: runs the action;
     if (f.state === 'approved') return;
     if (f.state !== 'open') fail('This finding is no longer open');
     if (f.version !== expected_version) fail('Finding changed since you loaded it; refresh and retry');
@@ -1745,7 +1752,7 @@ export const dismiss_finding = spacetimedb.reducer(
   { finding_id: t.u64(), feedback: t.string() },
   (ctx, { finding_id, feedback }) => {
     const f = requireFinding(ctx, finding_id);
-    requireRole(ctx, f.incident_id, REVIEW_ROLES);
+    requireTier(ctx, f.incident_id, 1); // triage: a false alarm changes nothing;
     if (f.state === 'dismissed') return;
     if (f.state !== 'open') fail('This finding is no longer open');
     if (feedback.length > FEEDBACK_MAX) fail(`Keep feedback under ${FEEDBACK_MAX} characters.`);
@@ -1764,7 +1771,7 @@ export const undo_auto_fix = spacetimedb.reducer(
   { finding_id: t.u64() },
   (ctx, { finding_id }) => {
     const f = requireFinding(ctx, finding_id);
-    requireRole(ctx, f.incident_id, ['commander']);
+    requireTier(ctx, f.incident_id, 2);
     if (f.state === 'undone') return;
     if (f.state !== 'auto_fixed') fail('Only an automatic fix can be undone');
     const effect = ACTION_EFFECTS[f.proposed_action as ProposedAction];
@@ -1787,7 +1794,7 @@ export const delete_nora_memory = spacetimedb.reducer(
   (ctx, { memory_id }) => {
     const m = ctx.db.nora_memory.id.find(memory_id);
     if (!m) fail('Memory not found');
-    requireRole(ctx, m.incident_id, ['commander']);
+    requireTier(ctx, m.incident_id, 3);
     ctx.db.nora_memory.id.delete(memory_id);
     logActivity(ctx, m.incident_id, 'memory_deleted', 'nora_memory', m.id, `Deleted Nora's memory of finding ${m.finding_id}`, 'MEMORY_DELETED');
   }
@@ -1798,7 +1805,7 @@ export const delete_nora_memory = spacetimedb.reducer(
 export const add_outside_contact = spacetimedb.reducer(
   { incident_id: t.u64(), account_ref: t.string(), display_name: t.string(), demo_identity: t.identity() },
   (ctx, { incident_id, account_ref, display_name, demo_identity }) => {
-    requireRole(ctx, incident_id, EDIT_ROLES);
+    requireTier(ctx, incident_id, 1);
     requireIncident(ctx, incident_id);
     const acct = accountByRef(ctx, incident_id, account_ref);
     if (!acct) fail('Unknown account');
@@ -1833,7 +1840,7 @@ export const send_sms = spacetimedb.reducer(
   (ctx, { contact_id, text }) => {
     const c = ctx.db.outside_contact.id.find(contact_id);
     if (!c) fail('Contact not found');
-    requireRole(ctx, c.incident_id, EDIT_ROLES);
+    requireTier(ctx, c.incident_id, 1);
     insertSms(ctx, c, 'to_contact', text);
   }
 );

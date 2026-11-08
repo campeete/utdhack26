@@ -18,8 +18,6 @@ export const SUGGESTION_ORIGINS = ['synthetic', 'human', 'nora'] as const;
 export const REASSESS_STATES = ['requested', 'revised', 'no_further_review', 'failed'] as const;
 export const TASK_STATES = ['open', 'accepted', 'resolved'] as const;
 
-/** Same roles that may confirm a review; dismissal adds no new permission. */
-export const REVIEW_ROLES = ['analyst', 'commander'] as const;
 export const FEEDBACK_MAX = 2000;
 export const REASON_MIN = 8;
 export const REASON_MAX = 2000;

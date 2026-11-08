@@ -11,7 +11,7 @@ export function createFixture(): Snapshot {
     incident: { id: incidentId, title: 'Northstar Retail', summary: 'Customer portal disruption', status: 'Investigating', severity: 'High', commander: 'Morgan Patel' },
     sources: [
       { ...base('source-backup'), label: 'Recovery operations log', trust: 'under_review', reason: 'The reporting account may have been accessed during the incident. Independently verify the report and backup timeline.' },
-      { ...base('source-command'), label: 'Commander’s response notes', trust: 'established', reason: 'Recorded directly in the synthetic response room.' },
+      { ...base('source-command'), label: 'Incident lead’s response notes', trust: 'established', reason: 'Recorded directly in the synthetic response room.' },
       { ...base('source-printer'), label: 'Facilities desk', trust: 'established', reason: 'Unrelated facilities report.' },
       { ...base('source-credentials'), label: 'Credential dump analysis', trust: 'established', reason: 'Synthetic attacker credential dump compared against the account directory by the response team.' },
     ],
@@ -42,7 +42,7 @@ export function createFixture(): Snapshot {
       { ...base('S-3'), system: 'Recovery environment', data: 'Monday backup', extent: 'Isolated sandbox only', encryption: 'not_observed', exfiltration: 'not_observed', owner: 'Morgan Patel' },
       { ...base('S-4'), system: 'Employee and service accounts', data: `${accounts.length} accounts`, extent: `${leaked} credentials in attacker dump · ${attackerUsed.length} used by attacker`, encryption: 'not_observed', exfiltration: 'confirmed', owner: 'Morgan Patel' },
     ],
-    members: [{ ...base('U-2'), name: 'Morgan Patel', roles: ['commander', 'analyst'], active: true }, { ...base('U-3'), name: 'Sam Rivera', roles: ['reviewer'], active: true }],
+    members: [{ ...base('U-2'), name: 'Morgan Patel', roles: ['tier3'], active: true }, { ...base('U-3'), name: 'Sam Rivera', roles: ['tier1'], active: true }],
     accounts,
     findings: [
       { ...base('F-1'), accountRef: 'NSR-SVC-01', severity: 'critical', queue: 'needs_human', title: 'Backup service account signed in from an unknown Linux desktop with a leaked password', reason: 'NSR-SVC-01 is privileged and in the credential leak. This password-only sign-in came from a device and network it has never used.', clues: { breached_password: true, new_device: true, new_network: true }, attackTechnique: 'T1078', proposedFix: 'Disable NSR-SVC-01 and rotate its credentials before the next backup run.', proposedAction: 'disable_account', state: 'open', dismissalFeedback: '', model: 'sample (fixture)', createdAt: '2026-11-07T09:05:00Z', signIn: 'Desktop / Linux / Firefox from 203.0.113.66, password only' },
