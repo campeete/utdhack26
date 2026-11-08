@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Identity, Timestamp } from 'spacetimedb';
 import { createEnricher, isPublicIp } from './enrich.ts';
-import { attentionReasons, computeClues, fallbackFinding, parseFinding, severityFloor, type AccountFacts, type LoginFacts, type TriageInput } from './triage.ts';
+import { attentionReasons, computeClues, fallbackFinding, parseFinding, severityCeiling, severityFloor, type AccountFacts, type LoginFacts, type TriageInput } from './triage.ts';
 import { buildReassessmentRequest, NoraWatcher, type CreateFindingCall, type NoraBrain, type NoraStore } from './watcher.ts';
 import type { LoginEvent, NorthstarAccount, ReassessmentRequestRecord } from './bindings.ts';
 
@@ -70,6 +70,24 @@ test('the model cannot invent actions, techniques or rules', () => {
   assert.equal(weird.proposedAction, 'monitor_only');
   assert.equal(weird.attackTechnique, '');
   assert.throws(() => parseFinding({ severity: 'high' }, i, ATTACK, 'm'), /left out/);
+});
+
+test('the model cannot overrate: failed attempts top out at medium, routine sign-ins at low', () => {
+  const base = { title: 't', reason: 'r', proposed_fix: 'f', proposed_action: 'force_password_reset' };
+  const spray = input({ ...attackerLogin, outcome: 'failed_password', passwordBreached: undefined }, { ...sysadmin, inCredentialLeak: false });
+  assert.equal(severityCeiling(spray.login, spray.account, spray.clues), 'medium');
+  assert.equal(parseFinding({ ...base, severity: 'high', queue: 'needs_human' }, spray, ATTACK, 'm').severity, 'medium');
+
+  const rules = [{ id: 1n, situation: 'Password found in a breach, usual device and network', allowedAction: 'force_password_reset', enabled: true }];
+  const routineLeak = input({ ...ordinaryLogin, method: 'password_only', passwordBreached: true }, sysadmin, rules);
+  assert.deepEqual(routineLeak.reasons, ['password appears in a breach']);
+  assert.equal(severityCeiling(routineLeak.login, routineLeak.account, routineLeak.clues), 'low');
+  const d = parseFinding({ ...base, severity: 'high', queue: 'low_severity', rule_id: 1 }, routineLeak, ATTACK, 'm');
+  assert.equal(d.severity, 'low');
+  assert.equal(d.queue, 'low_severity');
+  assert.equal(d.ruleId, 1n);
+  // The attacker's break-in is still critical whatever the model says.
+  assert.equal(parseFinding({ ...base, severity: 'low', queue: 'needs_human' }, input(attackerLogin), ATTACK, 'm').severity, 'critical');
 });
 
 test('the rules-only fallback is labelled and proposes a containing action for serious cases', () => {
