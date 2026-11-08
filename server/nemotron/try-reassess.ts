@@ -17,11 +17,11 @@ const at = new Date().toISOString();
 const dismissed = dismissProposal(createFixture(), 'P-001', feedback, 'Demo reviewer', at);
 const request = buildReassessmentRequest(dismissed, 'P-001');
 
-console.log(`Model: ${config.model}\nFeedback: ${feedback}\nAsking Nemotron…\n`);
+console.log(`Model: ${config.model}\nFeedback: ${feedback}\nAsking Nora (Nemotron)…\n`);
 const started = Date.now();
 const raw = await reassess(config, request);
 const seconds = ((Date.now() - started) / 1000).toFixed(1);
-const after = recordReassessment(dismissed, 'P-001', request.requestId, raw, 'Nemotron', new Date().toISOString());
+const after = recordReassessment(dismissed, 'P-001', request.requestId, raw, 'Nora', new Date().toISOString());
 const outcome = after.proposals[0].reassessment!;
 
 console.log(`Raw answer (${seconds} s):\n${JSON.stringify(raw, null, 2)}\n`);

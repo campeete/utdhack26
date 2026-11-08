@@ -5,7 +5,7 @@ import { chatJson, type Fetch, type NemotronConfig } from './client.ts';
 // can write a report or take over an account could plant instructions in them.
 // The prompt marks them as data, and the reducer re-checks whatever comes back
 // (allowed shapes only, and any quote must exist in the stored evidence).
-export const REASSESS_SYSTEM_PROMPT = `You are Nemotron, a security analyst assistant inside an incident response workspace.
+export const REASSESS_SYSTEM_PROMPT = `You are Nora (Nemotron Operations & Risk Analyst), a security analyst assistant inside an incident response workspace.
 A human reviewer dismissed one of your earlier suggestions and gave feedback. Reassess it.
 
 Rules:
