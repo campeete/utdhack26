@@ -105,7 +105,15 @@ export function NextAction({ data, decisionId, pendingSuggestion }: { data: Snap
   const decision = data.decisions.find(d => d.id === decisionId);
   if (decision?.state === 'needs_review') {
     const done = data.tasks.some(t => t.decisionId === decisionId && t.state === 'resolved');
-    return <p className="next-action waiting" role="status"><strong>Next action</strong><span>{done ? 'Verification is done. A Tier 2 or Tier 3 re-approves the decision (Review the decision), or resolves the issue.' : 'A Tier 2 or Tier 3 assigns verification (Review the decision).'}</span></p>;
+    // What Nora (Nemotron) concluded about the newest verification findings for this decision.
+    const verifications = new Set(data.evidence.filter(e => e.title.startsWith(`Verification of ${decisionId}:`)).map(e => e.id));
+    const verdict = [...(data.evidenceReviews ?? [])].filter(r => verifications.has(r.evidenceId)).sort((x, y) => (x.at < y.at ? 1 : -1))[0];
+    const text = !done ? 'A Tier 2 or Tier 3 assigns verification (Review the decision).'
+      : !verdict ? 'Verification is done. Nora (Nemotron) is checking the findings against the decision…'
+      : verdict.outcome === 'supports' ? 'The findings support the decision. A Tier 2 or Tier 3 re-approves it (Review the decision).'
+      : verdict.outcome === 'conflict' || verdict.outcome === 'urgent' ? 'The findings contradict this decision. A Tier 2 or Tier 3 changes the plan: record a new decision, then resolve this one.'
+      : 'Verification is done. A Tier 2 or Tier 3 decides: re-approve the decision or resolve the issue.';
+    return <p className={`next-action ${verdict?.outcome === 'supports' ? 'ok' : 'waiting'}`} role="status"><strong>Next action</strong><span>{text}</span></p>;
   }
   if (pendingSuggestion) return <p className="next-action waiting" role="status"><strong>Next action</strong><span>A Tier 2 reviews Nora (Nemotron)'s suggestion: flag & assign, or dismiss.</span></p>;
   return null;
