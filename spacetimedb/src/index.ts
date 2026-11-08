@@ -1454,6 +1454,35 @@ export const resolve_decision = spacetimedb.reducer(
   }
 );
 
+/**
+ * Tier 2+: retire a decision and record its replacement in one transaction. The new plan
+ * starts as a draft, so a person still approves it explicitly; the old one is closed, and
+ * the audit chain records which replaced which.
+ */
+export const replace_decision = spacetimedb.reducer(
+  { decision_id: t.u64(), title: t.string(), assumption: t.string() },
+  (ctx, { decision_id, title, assumption }) => {
+    const old = ctx.db.decision.id.find(decision_id);
+    if (!old) fail('Decision not found');
+    requireTier(ctx, old.incident_id, 2);
+    if (old.state === 'closed') fail('This decision is already closed');
+    const row = ctx.db.decision.insert({
+      id: 0n,
+      incident_id: old.incident_id,
+      title: cleanText(title, 'Title', 1, MAX_TITLE),
+      assumption: cleanText(assumption, 'Assumption', 1, MAX_ASSUMPTION),
+      state: 'draft',
+      evidence_ids: [],
+      owner: ctx.sender,
+      approved_at: undefined,
+      version: 1,
+    });
+    ctx.db.decision.id.update({ ...old, state: 'closed', version: old.version + 1 });
+    logActivity(ctx, old.incident_id, 'decision_created', 'decision', row.id, row.title, 'DECISION_CREATED', { replaces: old.id.toString() });
+    logActivity(ctx, old.incident_id, 'decision_resolved', 'decision', old.id, `Decision ${old.id} replaced by decision ${row.id}.`, 'DECISION_REVISED', { state: 'closed', replaced_by: row.id.toString() });
+  }
+);
+
 export const create_team_update = spacetimedb.reducer(
   { incident_id: t.u64(), title: t.string(), body: t.string(), decision_ids: t.array(t.u64()) },
   (ctx, { incident_id, title, body, decision_ids }) => {

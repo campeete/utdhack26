@@ -137,7 +137,7 @@ The synthetic incident opens as **Awaiting information · Unknown severity**, wi
 | 5. A person decides | Lead | Review the decision → Flag & assign → the analyst | D-001: Needs review. Next action: analyst, not acknowledged yet | Winstead |
 | 6. Acknowledged | Analyst | Independent verification → Acknowledge (reply pre-filled) | Lead sees "Acknowledged" and the reply, live | SpacetimeDB |
 | 7. The check | Analyst | Submits findings (type anything, or "Backup is compromised") | Nora judges them live: they contradict D-001 | NVIDIA |
-| 8. Change the plan | Lead | Record a decision: "Rebuild the portal from the clean Friday snapshot" → Approve; D-001 → Resolve | Old plan resolved, new plan confirmed | Winstead |
+| 8. Change the plan | Lead | Review the decision → Replace the plan (Nora drafts it from the findings; edit if needed) → the new plan opens as a draft → Approve decision | One transaction retires the old plan and records the new one; a person approves it | Winstead |
 | 9. The receipts | Lead | Monitor | Every step, Nora's included, in the hash-chained log: "Chain intact" | CTF |
 
 Optional: Add finding → "Files encrypting now" → Format with Nora (Nemotron) → Submit shows an urgent escalation and a direct message to the lead.

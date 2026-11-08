@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, ClipboardList, FilePlus2, Gavel, UserPlus } from 'lucide-react';
 import { roleLabel, tierOf, type Snapshot } from '../../shared/contracts';
 import type { IncidentData } from '../data/interface';
@@ -309,25 +309,46 @@ export function ReplacePlan({ decision, data, adapter, onUpdate, onReplaced }: {
   onUpdate: (next: Snapshot) => void; onReplaced?: (newDecisionId: string) => void;
 }) {
   const [run, busy, error] = useRun(onUpdate);
-  const [title, setTitle] = useState('Rebuild the customer portal from the clean Friday snapshot');
-  const [assumption, setAssumption] = useState("Friday's snapshot predates the 03:12 session");
-  if (tierOf(adapter.identity?.roles ?? []) < 2) return <p className="procedure-note">A Tier 2 or Tier 3 replaces the plan.</p>;
+  const [title, setTitle] = useState('');
+  const [assumption, setAssumption] = useState('');
+  const [drafting, setDrafting] = useState(false);
+  const [drafted, setDrafted] = useState(false);
+  const [draftError, setDraftError] = useState('');
+  const canReplace = tierOf(adapter.identity?.roles ?? []) >= 2;
+  // The contradicting verification findings Nora (Nemotron) reasons from.
+  const findings = data.evidence.filter(e => e.title.startsWith(`Verification of ${decision.id}:`)).map(e => e.text);
+  async function draftWithNora() {
+    setDrafting(true); setDraftError('');
+    try {
+      const res = await fetch('/api/nora/replacement', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: decision.title, assumption: decision.assumption, findings }) });
+      const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as { title?: string; assumption?: string; error?: string };
+      if (!res.ok || !body.title) throw new Error(body.error ?? 'Nora (Nemotron) could not draft a replacement.');
+      setTitle(body.title); setAssumption(body.assumption ?? ''); setDrafted(true);
+    } catch (e) { setDraftError((e as Error).message); }
+    finally { setDrafting(false); }
+  }
+  // Ask Nora for a first draft as soon as the box appears; the person edits or ignores it.
+  useEffect(() => { if (canReplace) void draftWithNora(); /* once per decision */ }, [decision.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!canReplace) return <p className="procedure-note">A Tier 2 or Tier 3 replaces the plan.</p>;
   async function replace() {
     const before = new Set(data.decisions.map(d => d.id));
-    let next = await adapter.recordDecision({ title: title.trim(), assumption: assumption.trim(), evidenceIds: [] });
+    let next = await adapter.replaceDecision(decision.id, title.trim(), assumption.trim());
     let created = next.decisions.find(d => !before.has(d.id));
     for (let i = 0; i < 20 && !created; i++) { await new Promise(r => setTimeout(r, 100)); next = await adapter.load(); created = next.decisions.find(d => !before.has(d.id)); }
-    if (!created) throw new Error('The new plan was recorded; approve it from its issue.');
-    await adapter.approveDecision(created.id);
-    next = await adapter.resolveDecision(decision.id);
-    setTimeout(() => onReplaced?.(created!.id), 0);
+    if (created) setTimeout(() => onReplaced?.(created!.id), 0);
     return next;
   }
   return <form className="assign-form replace-plan" onSubmit={e => { e.preventDefault(); void run(replace); }}>
-    <p className="procedure-recommendation"><span>The findings contradict this plan</span>Replace it: the new plan is confirmed and this one is retired. Both stay in the record.</p>
-    <label>New plan <input value={title} onChange={e => setTitle(e.target.value)} maxLength={200} required disabled={busy} /></label>
-    <label>It rests on <input value={assumption} onChange={e => setAssumption(e.target.value)} maxLength={1000} required disabled={busy} /></label>
-    <button className="primary" disabled={busy || !title.trim() || !assumption.trim()}>{busy ? 'Replacing…' : 'Replace the plan'}<Check size={14} /></button>
+    <p className="procedure-recommendation"><span>The findings contradict this plan</span>Replace it: this plan is retired and the new one is recorded as a draft for a person to approve. Both stay in the record.</p>
+    {drafting && <p className="muted">Nora (Nemotron) is drafting a replacement from the findings…</p>}
+    {drafted && <p className="muted"><span className="kind-tag ai">AI draft</span> Edit anything before you replace the plan.</p>}
+    {draftError && <p className="error" role="alert">{draftError}</p>}
+    <label>New plan <input value={title} onChange={e => setTitle(e.target.value)} maxLength={200} required disabled={busy} placeholder="What the team will do instead" /></label>
+    <label>It rests on <input value={assumption} onChange={e => setAssumption(e.target.value)} maxLength={1000} required disabled={busy} placeholder="The fact this plan depends on" /></label>
+    <div className="action-row compact">
+      <button className="primary" disabled={busy || !title.trim() || !assumption.trim()}>{busy ? 'Replacing…' : 'Replace the plan'}<Check size={14} /></button>
+      <button type="button" className="secondary" disabled={busy || drafting} onClick={() => void draftWithNora()}>Ask Nora (Nemotron) again</button>
+    </div>
     {error && <p role="alert" className="error">{error}</p>}
   </form>;
 }

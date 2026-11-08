@@ -18,3 +18,10 @@ test('a malformed answer is rejected', () => {
   assert.throws(() => checkFormatted(notes, { title: '', source: 'x', text: 'y' }), /no title/);
   assert.throws(() => checkFormatted(notes, 'nonsense'), /no title/);
 });
+
+import { checkReplacement } from './format.ts';
+test('a replacement draft may not invent numbers', () => {
+  const inputs = "Restore from Monday's backup\nMonday's backup predates the intrusion\nThe backup started at 04:05, after the 03:12 session.";
+  assert.equal(checkReplacement(inputs, { title: 'Pause the restore', assumption: 'A restore point before 03:12 exists' }).title, 'Pause the restore');
+  assert.throws(() => checkReplacement(inputs, { title: 'Restore the 22:00 snapshot', assumption: 'x' }), /not in the record/);
+});

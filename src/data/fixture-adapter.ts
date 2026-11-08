@@ -50,6 +50,15 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
     mode: 'fixture',
     identity,
     async load() { return copy(); },
+    async replaceDecision(id, title, assumption) {
+      requireTier(2);
+      const old = data.decisions.find(d => d.id === id);
+      if (!old || old.state === 'closed') throw new Error('That decision is already closed.');
+      if (!title.trim() || !assumption.trim()) throw new Error('Add the new plan and the assumption it rests on.');
+      const newId = `D-${String(data.decisions.length + 100).padStart(3, '0')}`;
+      data = { ...data, decisions: [...data.decisions.map(d => d.id === id ? { ...d, state: 'closed' as const, version: d.version + 1 } : d), { id: newId, incidentId: data.incident.id, version: 1, title: title.trim(), rationale: '', assumption: assumption.trim(), evidenceIds: [], owner: actor, state: 'draft' }] };
+      return copy();
+    },
     async resolveDecision(id) { requireReviewer(); data = resolveDecision(data, id, actor, new Date().toISOString()); return copy(); },
     async confirm(id, reason) { requireReviewer(); data = confirmReview(data, id, reason, actor, new Date().toISOString()); return copy(); },
     async flagAndAssign(id, reason, memberId) {

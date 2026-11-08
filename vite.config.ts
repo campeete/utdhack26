@@ -2,7 +2,7 @@ import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { configFromEnv } from './server/nemotron/client.ts';
-import { formatFinding } from './server/nora/format.ts';
+import { draftReplacement, formatFinding } from './server/nora/format.ts';
 
 // The dashboard reaches SpacetimeDB through this server (/v1 -> the local database on
 // port 3000), so a browser or phone only ever talks to the address it loaded the page
@@ -15,6 +15,18 @@ const spacetime = { '/v1': { target: process.env.SPACETIME_HTTP ?? 'http://127.0
  * .env and is never sent to the browser. Nothing is saved here.
  */
 function noraFormat(env: Record<string, string>): Plugin {
+  const json = (run: (body: Record<string, unknown>) => Promise<unknown>) => async (req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => {
+    const send = (status: number, body: unknown) => { res.statusCode = status; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(body)); };
+    if (req.method !== 'POST') return send(405, { error: 'POST only' });
+    let raw = '';
+    for await (const chunk of req) { raw += chunk; if (raw.length > 40_000) return send(413, { error: 'Too long.' }); }
+    try { send(200, await run(JSON.parse(raw || '{}') as Record<string, unknown>)); }
+    catch (e) { send(502, { error: (e as Error).message }); }
+  };
+  const replacement = json(body => draftReplacement(configFromEnv(env), {
+    title: String(body.title ?? ''), assumption: String(body.assumption ?? ''),
+    findings: Array.isArray(body.findings) ? body.findings.map(String) : [],
+  }));
   const handler = async (req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => {
     const send = (status: number, body: unknown) => { res.statusCode = status; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(body)); };
     if (req.method !== 'POST') return send(405, { error: 'POST only' });
@@ -30,8 +42,14 @@ function noraFormat(env: Record<string, string>): Plugin {
   };
   return {
     name: 'nora-format',
-    configureServer(server) { server.middlewares.use('/api/nora/format', (req, res) => void handler(req, res)); },
-    configurePreviewServer(server) { server.middlewares.use('/api/nora/format', (req, res) => void handler(req, res)); },
+    configureServer(server) {
+      server.middlewares.use('/api/nora/format', (req, res) => void handler(req, res));
+      server.middlewares.use('/api/nora/replacement', (req, res) => void replacement(req, res));
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use('/api/nora/format', (req, res) => void handler(req, res));
+      server.middlewares.use('/api/nora/replacement', (req, res) => void replacement(req, res));
+    },
   };
 }
 

@@ -10,6 +10,8 @@ export interface IncidentData {
   } | null;
   load(): Promise<Snapshot>;
   resolveDecision(decisionId: string): Promise<Snapshot>;
+  /** Tier 2+: retire a decision and record its replacement as a draft, in one transaction. */
+  replaceDecision(decisionId: string, title: string, assumption: string): Promise<Snapshot>;
   confirm(proposalId: string, reason: string): Promise<Snapshot>;
   /** Tier 2+: confirm Nora (Nemotron)'s suggestion and hand its verification to one teammate. */
   flagAndAssign(proposalId: string, reason: string, memberId: string): Promise<Snapshot>;

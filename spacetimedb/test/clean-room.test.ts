@@ -536,6 +536,18 @@ describe('Change 1: direct messages', () => {
   });
 });
 
+describe('replacing a plan', () => {
+  it('retires the old decision and records the new one as a draft, in one step', () => {
+    as('cmd', c => mod.draft_decision(c, { incident_id: inc, title: 'Restore from Monday backup', assumption: 'The backup predates the intrusion', evidence_ids: [] }));
+    const old = last('decision');
+    denied(() => as('analyst', c => mod.replace_decision(c, { decision_id: old.id, title: 'Rebuild', assumption: 'Clean image' })), /Access denied|Tier/i);
+    as('cmd', c => mod.replace_decision(c, { decision_id: old.id, title: 'Pause the restore', assumption: 'No clean restore point is confirmed yet' }));
+    expect(byId('decision', old.id).state).toBe('closed');
+    expect(last('decision')).toMatchObject({ title: 'Pause the restore', state: 'draft' });
+    denied(() => as('cmd', c => mod.replace_decision(c, { decision_id: old.id, title: 'x', assumption: 'y' })), /already closed/);
+  });
+});
+
 describe('new incidents', () => {
   it('start as awaiting information with unknown severity', () => {
     as('owner', c => mod.create_incident(c, { title: 'Fresh', summary: '', severity: 'unknown' }));

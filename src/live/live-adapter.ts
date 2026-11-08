@@ -278,6 +278,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       }
       return build();
     },
+    replaceDecision: (decisionId, title, assumption) => act(() => conn!.reducers.replaceDecision({ decision_id: parseId(decisionId, 'D'), title, assumption })),
     flagAndAssign: (proposalId, reason, memberId) => act(async () => {
       const sid = parseId(proposalId, 'P');
       const assignee = identityOf(memberId);
