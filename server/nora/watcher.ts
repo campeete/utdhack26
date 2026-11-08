@@ -3,10 +3,12 @@
 // through the NoraStore interface (spacetime.ts implements it), so this file can be
 // tested without a database or a network.
 
+import type { Identity } from 'spacetimedb';
 import type {
-  Decision, Evidence, Finding, LoginEvent, LowSeverityRule, NoraMemory, NorthstarAccount,
-  ReassessmentRequestRecord, Source, Suggestion, TeamUpdate,
+  Decision, Evidence, EvidenceReview, Finding, IncidentRecord, LoginEvent, LowSeverityRule, Membership, MessageRecord,
+  NoraMemory, NorthstarAccount, ReassessmentRequestRecord, Source, Suggestion, TaskRecord, TeamUpdate,
 } from './bindings.ts';
+import { discussionNote, escalationNote, investigate, supportsNote, type CaseFile } from './investigate.ts';
 import type { Enricher } from './enrich.ts';
 import {
   attentionReasons, computeClues, fallbackFinding, FINDING_SYSTEM_PROMPT, findingPrompt, parseFinding,
@@ -43,10 +45,21 @@ export interface NoraStore {
   sources(): Source[];
   decisions(): Decision[];
   teamUpdates(): TeamUpdate[];
+  incidents(): IncidentRecord[];
+  members(): Membership[];
+  messages(): MessageRecord[];
+  tasks(): TaskRecord[];
+  evidenceReviews(): EvidenceReview[];
+  /** Nora's own identity, so her posts are told apart from responders'. */
+  readonly self: Identity;
   onLogin(cb: (row: LoginEvent) => void): void;
+  onEvidence(cb: (row: Evidence) => void): void;
   onRequest(cb: (row: ReassessmentRequestRecord) => void): void;
   createFinding(call: CreateFindingCall): Promise<void>;
   completeReassessment(requestId: bigint, resultJson: string): Promise<void>;
+  recordEvidenceReview(call: { evidenceId: bigint; outcome: 'no_impact' | 'supports' | 'failed'; summary: string; model: string }): Promise<void>;
+  flagDecision(call: { evidenceId: bigint; decisionId: bigint; excerpt: string; explanation: string; verification: string; urgent: boolean; model: string }): Promise<void>;
+  post(call: { incidentId: bigint; text: string; recipient: Identity | undefined; evidenceId: bigint | undefined }): Promise<void>;
 }
 
 export interface NoraBrain {
@@ -98,6 +111,7 @@ export class NoraWatcher {
   private chain: Promise<void> = Promise.resolve();
   private readonly loginsSeen = new Set<bigint>();
   private readonly requestsSeen = new Set<bigint>();
+  private readonly evidenceSeen = new Set<bigint>();
 
   constructor(private readonly deps: WatcherDeps) {}
 
@@ -118,6 +132,12 @@ export class NoraWatcher {
       }
     });
     for (const req of store.requests()) this.queueRequest(req);
+    // Evidence nobody has reviewed yet, newest first, capped like the sign-in backlog.
+    const reviewed = new Set(store.evidenceReviews().map(r => r.evidenceId));
+    const unreviewed = store.evidence().filter(e => !reviewed.has(e.id))
+      .sort((a, b) => Number(b.recordedAt.microsSinceUnixEpoch - a.recordedAt.microsSinceUnixEpoch)).slice(0, Math.max(backlogMax, 0));
+    for (const ev of unreviewed) this.queueEvidence(ev);
+    store.onEvidence(row => this.queueEvidence(row));
     store.onLogin(row => this.enqueue(() => this.analyseLogin(row).then(() => undefined)));
     store.onRequest(row => this.queueRequest(row));
   }
@@ -135,6 +155,77 @@ export class NoraWatcher {
     if (req.state !== 'requested' || this.requestsSeen.has(req.id)) return;
     this.requestsSeen.add(req.id);
     this.enqueue(() => this.reassess(req));
+  }
+
+  private queueEvidence(ev: Evidence) {
+    if (this.evidenceSeen.has(ev.id)) return;
+    this.evidenceSeen.add(ev.id);
+    this.enqueue(() => this.investigateEvidence(ev));
+  }
+
+  /** Builds what Nora may look at for this evidence's incident. */
+  private caseFile(ev: Evidence): CaseFile {
+    const { store } = this.deps;
+    const inc = ev.incidentId;
+    const sourceOf = (e: Evidence) => store.sources().find(s => s.id === e.sourceId)?.label ?? e.sourceLabel;
+    // Findings from submit_findings are titled "Verification of D-003: …".
+    const verifies = (e: Evidence) => { const m = e.sourceType === 'verification' ? /^Verification of D-(\d+)/.exec(e.title) : null; return m ? BigInt(m[1]) : undefined; };
+    const item = (e: Evidence) => ({ id: e.id, title: e.title, text: e.contentText, source: sourceOf(e), verifies: verifies(e) });
+    return {
+      evidence: item(ev),
+      otherEvidence: store.evidence().filter(e => e.incidentId === inc && e.id !== ev.id).map(item),
+      decisions: store.decisions().filter(d => d.incidentId === inc).map(d => ({ id: d.id, title: d.title, assumption: d.assumption, state: d.state, evidenceIds: d.evidenceIds })),
+      updates: store.teamUpdates().filter(u => u.incidentId === inc).map(u => ({ id: u.id, title: u.title, decisionIds: u.decisionIds, state: u.state })),
+      discussion: store.messages().filter(m => m.incidentId === inc && !m.recipient)
+        .sort((a, b) => Number(a.recordedAt.microsSinceUnixEpoch - b.recordedAt.microsSinceUnixEpoch))
+        .map(m => ({ fromNora: m.author.isEqual(store.self), text: m.text, at: m.recordedAt.toDate().toISOString() })),
+      tasks: store.tasks().filter(t => t.incidentId === inc).map(t => ({ decisionId: t.decisionId, title: t.title, state: t.state })),
+    };
+  }
+
+  /** Reads new evidence and acts on the verdict: quiet record, suggestion + note, or escalation. */
+  private async investigateEvidence(ev: Evidence): Promise<void> {
+    const { store, brain, log } = this.deps;
+    if (store.evidenceReviews().some(r => r.evidenceId === ev.id)) return;
+    const label = `E-${ev.id.toString().padStart(3, '0')}`;
+    const file = this.caseFile(ev);
+    let verdict;
+    try {
+      const result = await investigate(file, (system, user) => brain.finding(system, user));
+      verdict = result.verdict;
+      log(`Investigated ${label} in ${result.rounds} round(s)${result.toolsUsed.length ? ` using ${result.toolsUsed.join(', ')}` : ''}: ${verdict.kind}.`);
+    } catch (e) {
+      log(`Could not investigate ${label}: ${(e as Error).message}`);
+      await store.recordEvidenceReview({ evidenceId: ev.id, outcome: 'failed', summary: (e as Error).message.slice(0, 400), model: brain.model })
+        .catch(err => log(`The module refused the review record for ${label}: ${(err as Error).message}`));
+      return;
+    }
+    try {
+      if (verdict.kind === 'no_impact') {
+        await store.recordEvidenceReview({ evidenceId: ev.id, outcome: 'no_impact', summary: verdict.summary, model: brain.model });
+        return;
+      }
+      if (verdict.kind === 'supports') {
+        const supported = file.decisions.find(d => d.id === verdict.decisionId)!;
+        await store.recordEvidenceReview({ evidenceId: ev.id, outcome: 'supports', summary: verdict.summary, model: brain.model });
+        await store.post({ incidentId: ev.incidentId, text: supportsNote(verdict, file.evidence, supported), recipient: undefined, evidenceId: ev.id });
+        return;
+      }
+      const decision = file.decisions.find(d => d.id === verdict.decisionId)!;
+      await store.flagDecision({
+        evidenceId: ev.id, decisionId: decision.id, excerpt: verdict.excerpt, explanation: verdict.explanation,
+        verification: verdict.verification, urgent: verdict.kind === 'urgent', model: brain.model,
+      });
+      await store.post({ incidentId: ev.incidentId, text: discussionNote(verdict, file.evidence, decision), recipient: undefined, evidenceId: ev.id });
+      if (verdict.kind === 'urgent') {
+        const incident = store.incidents().find(i => i.id === ev.incidentId);
+        const lead = incident?.commander;
+        const leadActive = lead && store.members().some(m => m.incidentId === ev.incidentId && m.active && m.user.isEqual(lead));
+        await store.post({ incidentId: ev.incidentId, text: escalationNote(verdict, file.evidence, decision), recipient: leadActive ? lead : undefined, evidenceId: ev.id });
+      }
+    } catch (e) {
+      log(`The module refused Nora's verdict on ${label}: ${(e as Error).message}`);
+    }
   }
 
   private hasFinding(loginId: bigint) {

@@ -104,7 +104,7 @@ export function DecisionTrail({
         </div>
         {proposal && (
           <div>
-            <dt>Why a review was suggested</dt>
+            <dt>{proposal.urgent ? <><span className="nora-verdict urgent">URGENT</span> </> : null}Why a review was suggested</dt>
             <dd>
               {proposal.explanation}
               <small>
@@ -113,8 +113,8 @@ export function DecisionTrail({
                   : proposal.origin === "human"
                     ? "Suggested by a responder"
                     : "Demo suggestion · Nora (Nemotron) not connected"}{" "}
-                · based on {proposal.evidenceId} v{proposal.evidenceVersion},
-                source v{proposal.sourceVersion}
+                · based on {proposal.evidenceId} v{proposal.evidenceVersion}
+                {proposal.sourceVersion > 0 ? `, source v${proposal.sourceVersion}` : ''}
               </small>
             </dd>
           </div>

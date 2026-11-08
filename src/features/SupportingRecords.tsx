@@ -113,11 +113,11 @@ export function SupportingRecords({
                   {proposal.origin === "synthetic"
                     ? "Pre-authored synthetic suggestion. Nemotron analysis is not connected in this browser checkout."
                     : proposal.origin === "nemotron"
-                      ? "Suggested by Nemotron. Requires human review."
+                      ? "Suggested by Nora (Nemotron) after investigating the evidence. Requires human review."
                       : "Suggested by a responder."}
                 </small>
                 <small>
-                  Source {proposal.sourceId} · v{proposal.sourceVersion} /
+                  {proposal.sourceVersion > 0 ? `Source ${proposal.sourceId} · v${proposal.sourceVersion} / ` : ''}
                   Evidence {proposal.evidenceId} · v{proposal.evidenceVersion}
                 </small>
               </div>

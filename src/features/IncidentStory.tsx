@@ -6,8 +6,9 @@ import {
   FileText,
   GitBranch,
   History,
+  Sparkles,
 } from "lucide-react";
-import type { Snapshot } from "../../shared/contracts";
+import type { EvidenceReview, Proposal, Snapshot } from "../../shared/contracts";
 import type { IncidentData } from "../data/interface";
 import type { Selection } from "./Decisions";
 import { focusContext, localTime, Modal, Status } from "../components/ui";
@@ -62,6 +63,19 @@ export function IncidentStory({
       ? Object.prototype.hasOwnProperty.call(proposal.briefingVersions, b.id)
       : decision && b.decisionIds.includes(decision.id),
   );
+  // Nora (Nemotron)'s verdict on this evidence, or the newest one she reached about this decision.
+  const reviews = data.evidenceReviews ?? [];
+  const noraReview =
+    reviews.find(
+      (r) => r.evidenceId === evidence?.id && (!decision || !r.decisionId || r.decisionId === decision.id),
+    ) ??
+    (decision
+      ? [...reviews].filter((r) => r.decisionId === decision.id).sort((a, b) => (a.at < b.at ? 1 : -1))[0]
+      : undefined);
+  const noraProposal =
+    proposal?.origin === "nemotron"
+      ? proposal
+      : data.proposals.find((p) => p.id === noraReview?.proposalId);
   const [step, setStep] = useState<Step>(task ? 3 : 1);
   const [record, setRecord] = useState<RecordView | null>(null);
   const [composer, setComposer] = useState<ReviewAction | null>(null);
@@ -251,6 +265,7 @@ export function IncidentStory({
                               <dd>{decision.assumption}</dd>
                             </div>
                           </dl>
+                          <NoraAssessment review={noraReview} proposal={noraProposal} live={adapter.mode === "live"} hasEvidence={!!evidence} currentEvidenceId={evidence?.id} />
                           <div className="context-toggles" role="group" aria-label="More about this decision">
                             <button
                               aria-expanded={detail === "trail"}
@@ -283,10 +298,13 @@ export function IncidentStory({
                           )}
                         </>
                       ) : (
+                        <>
+                          <NoraAssessment review={noraReview} proposal={noraProposal} live={adapter.mode === "live"} hasEvidence={!!evidence} currentEvidenceId={evidence?.id} />
                         <p className="procedure-summary">
                           No decision depends on this report. It does not
                           trigger a decision review.
                         </p>
+                        </>
                       )}
                       {task ? (
                         <>
@@ -504,5 +522,57 @@ export function IncidentStory({
         </Modal>
       )}
     </>
+  );
+}
+
+/** Nora (Nemotron)'s verdict, shown where the decision is reviewed. Advice only: a person decides. */
+function NoraAssessment({
+  review,
+  proposal,
+  live,
+  hasEvidence,
+  currentEvidenceId,
+}: {
+  currentEvidenceId?: string;
+  review?: EvidenceReview;
+  proposal?: Proposal;
+  live: boolean;
+  hasEvidence: boolean;
+}) {
+  if (!review && !proposal) {
+    if (!live || !hasEvidence) return null;
+    return (
+      <section className="nora-assessment pending" aria-label="Nora (Nemotron) assessment" aria-live="polite">
+        <header><Sparkles size={15} aria-hidden="true" /><strong>Nora (Nemotron)</strong><span className="nora-verdict pending">Reviewing…</span></header>
+        <p>Nora is reading this evidence against the open decisions. Her verdict appears here in a few seconds.</p>
+      </section>
+    );
+  }
+  const outcome = review?.outcome ?? (proposal?.urgent ? "urgent" : "conflict");
+  const verdict =
+    outcome === "urgent" ? { text: `URGENT · challenges ${review?.decisionId ?? "this decision"}`, tone: "urgent" }
+    : outcome === "conflict" ? { text: `Challenges ${review?.decisionId ?? "this decision"}`, tone: "conflict" }
+    : outcome === "supports" ? { text: `Supports ${review?.decisionId ?? "this decision"}`, tone: "ok" }
+    : outcome === "no_impact" ? { text: "No decision affected", tone: "quiet" }
+    : { text: "Could not finish", tone: "quiet" };
+  const why = proposal?.explanation || review?.summary;
+  return (
+    <section className={`nora-assessment ${verdict.tone}`} aria-label="Nora (Nemotron) assessment">
+      <header>
+        <Sparkles size={15} aria-hidden="true" />
+        <strong>Nora (Nemotron)</strong>
+        <span className={`nora-verdict ${verdict.tone}`}>{verdict.text}</span>
+        {review && review.evidenceId !== currentEvidenceId && <span className="nora-about">about {review.evidenceId}</span>}
+        {review && <time dateTime={review.at}>{localTime(review.at)}</time>}
+      </header>
+      {why && <p>{why}</p>}
+      {proposal?.excerpt && (outcome === "conflict" || outcome === "urgent") && (
+        <blockquote className="procedure-excerpt">“{proposal.excerpt}”</blockquote>
+      )}
+      {outcome === "urgent" && <p className="nora-escalate">Nora recommends escalating now and has messaged the incident lead. A person must confirm.</p>}
+      {outcome === "supports" && <p className="procedure-note">The findings back the decision. A Tier 2 can re-approve it.</p>}
+      {outcome === "failed" && <p className="procedure-note">Nemotron was unavailable or its answer failed the checks. Review this evidence by hand.</p>}
+      <p className="procedure-note">Advice only. Nora never changes the plan; a person decides below.</p>
+    </section>
   );
 }

@@ -27,7 +27,8 @@ export function spacetimeConfigFromEnv(env: Record<string, string | undefined> =
 const VIEWS = [
   'incident_logins', 'incident_accounts', 'incident_findings', 'low_severity_rules', 'nora_memory_feed',
   'nora_reassessment_queue', 'incident_suggestions', 'incident_evidence', 'incident_sources',
-  'incident_decisions', 'incident_team_updates',
+  'incident_decisions', 'incident_team_updates', 'my_incidents', 'incident_members', 'incident_messages',
+  'incident_tasks', 'incident_evidence_reviews',
 ];
 
 async function loadToken(path: string): Promise<string | undefined> {
@@ -83,10 +84,20 @@ export async function connectNora(config: SpacetimeConfig, log: (msg: string) =>
     sources: () => [...db.incidentSources.iter()],
     decisions: () => [...db.incidentDecisions.iter()],
     teamUpdates: () => [...db.incidentTeamUpdates.iter()],
+    incidents: () => [...db.myIncidents.iter()],
+    members: () => [...db.incidentMembers.iter()],
+    messages: () => [...db.incidentMessages.iter()],
+    tasks: () => [...db.incidentTasks.iter()],
+    evidenceReviews: () => [...db.incidentEvidenceReviews.iter()],
+    self: identity,
     onLogin: cb => db.incidentLogins.onInsert((_ctx, row) => cb(row)),
     onRequest: cb => db.noraReassessmentQueue.onInsert((_ctx, row) => cb(row)),
+    onEvidence: cb => db.incidentEvidence.onInsert((_ctx, row) => cb(row)),
     createFinding: call => conn.reducers.createFinding(call),
     completeReassessment: (requestId, resultJson) => conn.reducers.completeReassessment({ requestId, resultJson }),
+    recordEvidenceReview: call => conn.reducers.recordEvidenceReview(call),
+    flagDecision: call => conn.reducers.noraFlagDecision(call),
+    post: call => conn.reducers.noraPost(call),
   };
   return { store, identity, disconnect: () => conn.disconnect() };
 }

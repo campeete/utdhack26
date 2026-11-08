@@ -47,4 +47,6 @@ export interface IncidentData {
   /** The assignee only. */
   acceptTask(taskId: string): Promise<Snapshot>;
   resolveTask(taskId: string): Promise<Snapshot>;
+  /** The assignee submits findings: saved as evidence for Nora (Nemotron), and the task is resolved. */
+  submitFindings(taskId: string, findings: string): Promise<Snapshot>;
 }

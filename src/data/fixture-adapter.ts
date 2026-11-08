@@ -127,6 +127,19 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
       data = { ...data, tasks: data.tasks.map(t => t.id === taskId && t.owner === identity.name ? { ...t, state: 'accepted' as const, version: t.version + 1 } : t) };
       return copy();
     },
+    async submitFindings(taskId, findings) {
+      const task = data.tasks.find(t => t.id === taskId && t.owner === identity.name);
+      if (!task) throw new Error('Only the assignee can submit findings.');
+      if (!findings.trim()) throw new Error('Describe what you found.');
+      const now = new Date().toISOString();
+      const id = `E-${String(data.evidence.length + 100).padStart(3, '0')}`;
+      data = {
+        ...data,
+        evidence: [...data.evidence, { id, incidentId: data.incident.id, version: 1, title: `Verification of ${task.decisionId}: ${task.title}`, sourceId: '', text: findings.trim(), standing: 'reported', eventTime: now, recordedAt: now }],
+        tasks: data.tasks.map(t => t.id === taskId ? { ...t, state: 'resolved' as const, version: t.version + 1 } : t),
+      };
+      return copy();
+    },
     async resolveTask(taskId) {
       data = { ...data, tasks: data.tasks.map(t => t.id === taskId && t.owner === identity.name ? { ...t, state: 'resolved' as const, version: t.version + 1 } : t) };
       return copy();

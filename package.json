@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "dev:lan": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "check:server": "tsc --noEmit -p spacetimedb && tsc --noEmit -p spacetimedb/tsconfig.test.json",
@@ -25,7 +26,8 @@
     "nora:try": "tsx server/nora/try.ts",
     "demo:setup": "tsx server/demo/setup.ts",
     "module:publish": "spacetime publish -s local --module-path spacetimedb",
-    "demo:admit": "tsx server/demo/admit.ts"
+    "demo:admit": "tsx server/demo/admit.ts",
+    "nora:try-evidence": "tsx server/nora/try-evidence.ts"
   },
   "dependencies": {
     "react": "18.3.1",

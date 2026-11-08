@@ -18,8 +18,9 @@ export function Administration({ data }: { data: Snapshot }) {
   return <><div className="access-notice"><ShieldOff size={22} /><div><h3>Access controls are not connected.</h3><p>These are synthetic memberships. Sign-in, admission, and revocation are unavailable in fixture mode.</p></div></div><div className="member-list">{data.members.map(m => <div className="member" key={m.id}><span className="avatar">{m.name.split(' ').map(s => s[0]).join('')}</span><div><strong>{m.name}</strong><small>{m.roles.map(roleLabel).join(', ')}</small></div><span className="routine-text">{m.active ? 'Active fixture' : 'Inactive fixture'}</span></div>)}</div><details className="context-details"><summary><span>Integration boundary</span><ChevronDown size={16} /></summary><div className="detail-content"><p>Spacetime stores membership privately. Its live read gate remains closed until independent identity, authorized reads, and subscription revocation pass verification.</p><p>Tiers stack: Tier 1 triages, Tier 2 contains and approves Nora (Nemotron)’s fixes, Tier 3 does forensics and manages the team.</p></div></details></>;
 }
 export interface Draft { text: string; nonce: number }
-const displayName = (name: string) => name.replace(/\s*\(.*?\)\s*/g, ' ').trim();
-const initials = (name: string) => displayName(name).split(' ').map(part => part[0]).join('');
+const isNora = (name: string) => name.startsWith('Nora (Nemotron)');
+const displayName = (name: string) => isNora(name) ? 'Nora (Nemotron)' : name.replace(/\s*\(.*?\)\s*/g, ' ').trim();
+const initials = (name: string) => isNora(name) ? 'N' : displayName(name).split(' ').map(part => part[0]).join('');
 const firstSentence = (text: string) => text.split(/(?<=[.!?])\s/)[0];
 const REFERENCE = /\b([EDBP]-\d{3})\b/g;
 
@@ -49,9 +50,11 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
   const [busy, setBusy] = useState(false);
   // Any active teammate other than yourself (the module allows any active member).
   const administrators = data.members.filter(member => member.active && member.id !== adapter.identityHex && member.name !== adapter.identity?.name);
-  const [recipientId, setRecipientId] = useState<string | null>(administrators.length === 1 ? administrators[0].id : null);
+  // '' = everyone in the incident (the default); otherwise one teammate.
+  const [recipientId, setRecipientId] = useState<string>('');
   const [recipientPickerOpen, setRecipientPickerOpen] = useState(false);
   const selectedRecipient = administrators.find(member => member.id === recipientId);
+  const toLabel = selectedRecipient ? selectedRecipient.name : 'Everyone';
   const messages = data.messages.filter(message => message.evidenceId === evidenceId);
   const evidence = data.evidence.find(item => item.id === evidenceId);
   const source = data.sources.find(s => s.id === evidence?.sourceId);
@@ -61,9 +64,10 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
   const briefing = decision && data.briefings.find(b => b.decisionIds.includes(decision.id));
   const me = adapter.identity?.name;
   const participants = [...new Set([...messages.map(m => displayName(m.author)), ...messages.map(m => data.members.find(member => member.id === m.recipientId)?.name ?? ''), ...(selectedRecipient ? [selectedRecipient.name] : [])].filter(Boolean))];
+  const noraReview = (data.evidenceReviews ?? []).find(r => r.evidenceId === evidenceId);
 
   useEffect(() => {
-    setRecipientId(administrators.length === 1 ? administrators[0].id : null);
+    setRecipientId('');
     setRecipientPickerOpen(false);
     setError('');
     setText('');
@@ -92,9 +96,9 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
     ...(task?.state === 'open' ? [{ label: `Nudge ${task.owner.split(' ')[0]}`, text: `Reminder for ${task.owner}: “${task.title}” is still open (${decision?.id ?? evidenceId}).` }] : []),
   ];
   async function send() {
-    if (busy || !selectedRecipient || !text.trim()) return;
+    if (busy || !text.trim()) return;
     setBusy(true); setError('');
-    try { onUpdate(await adapter.sendMessage(evidenceId, selectedRecipient.id, text)); setText(''); }
+    try { onUpdate(await adapter.sendMessage(evidenceId, selectedRecipient?.id ?? '', text)); setText(''); }
     catch (err) { setError((err as Error).message); }
     finally { setBusy(false); }
   }
@@ -103,16 +107,18 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
     <header className="comms-header">
       <div>
         <h3 id={`${id}-heading`}>Discussion</h3>
-        <p className="conversation-note">Pinned to <span className="ref-chip static">{evidenceId}</span> {evidence?.title ?? ''}. Messages stay with this item.</p>
+        <p className="conversation-note">Pinned to <span className="ref-chip static">{evidenceId}</span> {evidence?.title ?? ''}. Messages stay with this item; Nora (Nemotron) posts here when it affects a decision.</p>
+        {noraReview && noraReview.outcome !== 'conflict' && noraReview.outcome !== 'urgent' && <p className="nora-inline"><Sparkles size={13} aria-hidden="true" />Nora (Nemotron) reviewed this: {noraReview.outcome === 'no_impact' ? 'no decision affected.' : noraReview.outcome === 'supports' ? `it supports ${noraReview.decisionId ?? 'the decision'}.` : 'could not finish.'} {noraReview.summary}</p>}
       </div>
       {!!participants.length && <div className="comms-people" aria-label={`Participants: ${participants.join(', ')}`}>{participants.slice(0, 4).map(name => <span key={name} className="avatar" title={name}>{initials(name)}</span>)}</div>}
     </header>
     <div className="messages comms-log" role="log" aria-live="polite" ref={log}>
       {messages.length ? messages.map(m => {
-        const recipient = data.members.find(member => member.id === m.recipientId)?.name ?? 'Administrator';
+        const recipient = m.recipientId ? data.members.find(member => member.id === m.recipientId)?.name ?? 'one teammate' : 'Everyone';
+        const fromNora = isNora(m.author);
         const mine = !!me && displayName(m.author) === me;
-        return <article key={m.id} className={`bubble ${mine ? 'mine' : ''} ${m.text.startsWith('Status ·') ? 'status-post' : ''}`}>
-          <span className="avatar" aria-hidden="true">{initials(m.author)}</span>
+        return <article key={m.id} className={`bubble ${mine ? 'mine' : ''} ${fromNora ? 'nora' : ''} ${m.text.startsWith('Status ·') ? 'status-post' : ''}`}>
+          <span className="avatar" aria-hidden="true">{fromNora ? <Sparkles size={15} /> : initials(m.author)}</span>
           <div className="bubble-body">
             <div className="bubble-meta"><strong>{mine ? 'You' : displayName(m.author)}</strong><span>→ {recipient}</span><time>{localTime(m.at)}</time></div>
             <MessageText text={m.text} data={data} onOpenReference={onOpenReference} />
@@ -132,20 +138,18 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
           placeholder={`Message about ${evidenceId}… Mention records like ${decision?.id ?? 'D-001'} to link them.`} />
         <div className="composer-bar">
           <div className="admin-recipient-picker">
-            {administrators.length > 1 || !selectedRecipient
-              ? <button type="button" className="recipient-chip" disabled={!administrators.length} aria-expanded={recipientPickerOpen} aria-controls={`${id}-admins`} onClick={() => setRecipientPickerOpen(open => !open)}>{selectedRecipient ? <>To: {selectedRecipient.name}</> : 'Choose recipient'}<ChevronDown size={14} /></button>
-              : <span className="recipient-chip static">To: {selectedRecipient.name} · {selectedRecipient.roles.map(roleLabel).join(', ')}</span>}
+            <button type="button" className="recipient-chip" aria-expanded={recipientPickerOpen} aria-controls={`${id}-admins`} onClick={() => setRecipientPickerOpen(open => !open)}>To: {toLabel}<ChevronDown size={14} /></button>
             {recipientPickerOpen && <div id={`${id}-admins`} className="admin-recipient-options" role="group" aria-label="Choose a recipient">
+              <button type="button" aria-pressed={recipientId === ''} onClick={() => { setRecipientId(''); setRecipientPickerOpen(false); setError(''); }}><span className="avatar">All</span><span><strong>Everyone</strong><small>The whole incident team</small></span></button>
               {administrators.map(admin => <button key={admin.id} type="button" aria-pressed={recipientId === admin.id} onClick={() => { setRecipientId(admin.id); setRecipientPickerOpen(false); setError(''); }}>
                 <span className="avatar">{initials(admin.name)}</span><span><strong>{admin.name}</strong><small>{admin.roles.map(roleLabel).join(', ')}</small></span>
               </button>)}
             </div>}
           </div>
           <small className="composer-hint">{text.length ? `${text.length}/2000 · ` : ''}⌘/Ctrl + Enter to send</small>
-          <button className="primary" disabled={busy || !text.trim() || !selectedRecipient}>{busy ? 'Sending…' : 'Send'}<Send size={15} /></button>
+          <button className="primary" disabled={busy || !text.trim()}>{busy ? 'Sending…' : 'Send'}<Send size={15} /></button>
         </div>
       </div>
-      {!administrators.length && <p className="recipient-selection" role="status">No other active teammates in this incident yet.</p>}
       {error && <p role="alert" className="error">{error}</p>}
       {adapter.mode === 'fixture' && <small className="muted comms-footnote">Local demo · messages last until reload</small>}
     </form>

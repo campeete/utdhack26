@@ -286,6 +286,25 @@ export const AuditHeadRow = __t.row({
   updatedAt: __t.timestamp().name('updated_at'),
 });
 
+export const SuggestionTargetRow = __t.row({
+  suggestionId: __t.u64().primaryKey().name('suggestion_id'),
+  incidentId: __t.u64().name('incident_id'),
+  decisionId: __t.u64().name('decision_id'),
+  decisionVersion: __t.u32().name('decision_version'),
+  urgent: __t.bool(),
+});
+
+export const EvidenceReviewRow = __t.row({
+  evidenceId: __t.u64().primaryKey().name('evidence_id'),
+  incidentId: __t.u64().name('incident_id'),
+  outcome: __t.string(),
+  decisionId: __t.option(__t.u64()).name('decision_id'),
+  suggestionId: __t.option(__t.u64()).name('suggestion_id'),
+  summary: __t.string(),
+  model: __t.string(),
+  reviewedAt: __t.timestamp().name('reviewed_at'),
+});
+
 /** Module table name -> row. spacetimedb/test/nora-bindings.test.ts checks each against the module. */
 export const MODULE_ROWS = {
   incident: IncidentRow,
@@ -308,6 +327,8 @@ export const MODULE_ROWS = {
   reassessment_request: ReassessmentRequestRow,
   audit_event: AuditEventRow,
   audit_head: AuditHeadRow,
+  suggestion_target: SuggestionTargetRow,
+  evidence_review: EvidenceReviewRow,
 } as const;
 
 export type IncidentRecord = __Infer<typeof IncidentRow>;
@@ -330,3 +351,5 @@ export type Evidence = __Infer<typeof EvidenceRow>;
 export type Source = __Infer<typeof SourceRow>;
 export type Decision = __Infer<typeof DecisionRow>;
 export type TeamUpdate = __Infer<typeof TeamUpdateRow>;
+export type SuggestionTarget = __Infer<typeof SuggestionTargetRow>;
+export type EvidenceReview = __Infer<typeof EvidenceReviewRow>;

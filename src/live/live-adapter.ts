@@ -131,7 +131,8 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     const profiles = new Map([...d.visibleProfiles.iter()].map(p => [p.identity.toHexString(), p.displayName]));
     const activity = mine(d.incidentActivity.iter());
     // Nora is not a member, so she has no visible profile; she is the actor of every finding.
-    const nora = new Set(activity.filter(a => a.action === 'finding_created').map(a => a.actor.toHexString()));
+    const nora = new Set(activity.filter(a => a.action === 'finding_created' || a.action === 'evidence_reviewed').map(a => a.actor.toHexString()));
+    const urgentTargets = new Set(mine(d.incidentSuggestionTargets.iter()).filter(x => x.urgent).map(x => x.suggestionId));
     const name = (who: Identity | undefined) => {
       if (!who) return '';
       const hex = who.toHexString();
@@ -160,6 +161,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
         ...(s.reassessNote ? { note: s.reassessNote } : {}), ...(s.reassessError ? { error: s.reassessError } : {}),
       } } : {}),
       ...(s.revisionOf !== undefined ? { revisionOf: ids.proposal(s.revisionOf) } : {}),
+      ...(urgentTargets.has(s.id) ? { urgent: true } : {}),
     }));
 
     const findings: Finding[] = mine(d.incidentFindings.iter()).sort((a, b) => (a.id < b.id ? 1 : -1)).map(f => {
@@ -182,7 +184,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       incident: { id: inc.toString(), title: incident.title, summary: incident.summary, status: incident.status, severity: incident.severity, commander: name(incident.commander) || 'Unassigned' },
       sources: mine(d.incidentSources.iter()).map(s => ({ id: ids.source(s.id), incidentId: inc.toString(), version: s.version, label: s.label, trust: TRUST[s.trust] ?? 'under_review', reason: s.reason })),
       evidence: evidence.map(e => ({ id: ids.evidence(e.id), incidentId: inc.toString(), version: e.version, title: e.title, sourceId: e.sourceId !== undefined ? ids.source(e.sourceId) : '', text: e.contentText, standing: STANDING[e.standing] ?? 'reported', eventTime: iso(e.eventTime), recordedAt: iso(e.recordedAt) })),
-      decisions: decisions.map(x => ({ id: ids.decision(x.id), incidentId: inc.toString(), version: x.version, title: x.title, rationale: '', assumption: x.assumption, evidenceIds: x.evidenceIds.map(ids.evidence), owner: name(x.owner), state: x.state as Snapshot['decisions'][number]['state'], ...(x.approvedAt ? { approvedAt: iso(x.approvedAt) } : {}) })),
+      decisions: decisions.map(x => ({ id: ids.decision(x.id), incidentId: inc.toString(), version: x.version, title: x.title, rationale: `Rests on: ${x.assumption}`, assumption: x.assumption, evidenceIds: x.evidenceIds.map(ids.evidence), owner: name(x.owner), state: x.state as Snapshot['decisions'][number]['state'], ...(x.approvedAt ? { approvedAt: iso(x.approvedAt) } : {}) })),
       briefings: mine(d.incidentTeamUpdates.iter()).map(u => ({ id: ids.briefing(u.id), incidentId: inc.toString(), version: u.version, title: u.title, text: u.body, decisionIds: u.decisionIds.map(ids.decision), state: BRIEFING[u.state] ?? 'draft' })),
       proposals,
       tasks: mine(d.incidentTasks.iter()).map(t => ({ id: `T-${t.id}`, incidentId: inc.toString(), version: t.version, proposalId: t.suggestionId === 0n ? '' : ids.proposal(t.suggestionId), decisionId: ids.decision(t.decisionId), title: t.title, owner: name(t.assignee), ownerId: t.assignee.toHexString(), state: (t.state === 'resolved' || t.state === 'accepted' ? t.state : 'open') as 'open' | 'accepted' | 'resolved' })),
@@ -196,6 +198,12 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       }),
       findings,
       audit: auditLog(inc.toString(), name),
+      evidenceReviews: mine(d.incidentEvidenceReviews.iter()).map(r => ({
+        evidenceId: ids.evidence(r.evidenceId), outcome: r.outcome as 'no_impact' | 'supports' | 'conflict' | 'urgent' | 'failed',
+        ...(r.decisionId !== undefined ? { decisionId: ids.decision(r.decisionId) } : {}),
+        ...(r.suggestionId !== undefined ? { proposalId: ids.proposal(r.suggestionId) } : {}),
+        summary: r.summary, at: iso(r.reviewedAt),
+      })),
     };
   }
 
@@ -286,6 +294,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     assignTask: (decisionId, memberId, title) => act(() => conn!.reducers.assignTask({ decision_id: parseId(decisionId, 'D'), assignee: identityOf(memberId), title })),
     acceptTask: taskId => act(() => conn!.reducers.acceptTask({ task_id: parseId(taskId, 'T') })),
     resolveTask: taskId => act(() => conn!.reducers.resolveTask({ task_id: parseId(taskId, 'T') })),
+    submitFindings: (taskId, findings) => act(() => conn!.reducers.submitFindings({ task_id: parseId(taskId, 'T'), findings })),
     resolveDecision: decisionId => act(() => conn!.reducers.resolveDecision({ decision_id: parseId(decisionId, 'D') })),
   };
 }
