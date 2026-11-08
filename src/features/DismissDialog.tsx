@@ -69,7 +69,7 @@ export function DismissalRecord({ proposal, data, adapter, onUpdate, onOpenRevis
     finally { inFlight.current = false; setRetrying(false); }
   }
   return <div className="dismissal-record">
-    <p className="next-summary">Suggestion dismissed. The decision and briefing remain unchanged.</p>
+    <p className="next-summary">Suggestion dismissed. The decision and team update remain unchanged.</p>
     {d && <dl className="metadata"><dt>Dismissed by</dt><dd>{d.reviewer}</dd><dt>When</dt><dd>{when(d.at)}</dd><dt>Reason</dt><dd>{d.feedback || <span className="muted">No feedback given · not sent to Nora</span>}</dd></dl>}
     {r && <div className="reassessment" aria-live="polite">
       {r.state === 'requested' && <div role="status" className="reassess-progress"><span>Nora is reassessing with your feedback{r.attempt > 1 ? ` (attempt ${r.attempt})` : ''}…</span><span className="progress-track" aria-hidden="true"><span /></span></div>}
