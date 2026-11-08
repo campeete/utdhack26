@@ -36,8 +36,8 @@ if (gatewayHex) await step('Registered the login gateway', () => conn.reducers.s
 
 const before = new Set([...conn.db.myIncidents.iter()].map(i => i.id));
 await step('Created the incident', () => conn.reducers.createIncident({
-  title: arg('title') ?? 'Northstar Retail: weekend account takeover',
-  summary: 'Synthetic training incident. Leaked staff passwords were used over the weekend; the backup service account was accessed.',
+  title: arg('title') ?? 'Northstar Retail',
+  summary: 'Weekend account takeover. Leaked staff passwords were used and the backup service account was accessed. Synthetic training incident.',
   severity: 'unknown',
 }));
 const incident = await new Promise<bigint>((resolve, reject) => {

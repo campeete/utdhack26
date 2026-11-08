@@ -1311,3 +1311,5 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 .format-notes { margin-bottom: 8px; }
 .format-step { margin: 6px 0; font-size: 12.5px; }
 .replace-plan { border-top: 0; padding-top: 0; margin: 12px 0; }
+.incident-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 0; color: var(--muted); }
+.state-pill { font-size: 12px; font-weight: 600; padding: 2px 8px; border: 1px solid var(--rule); border-radius: 999px; color: var(--text, inherit); }

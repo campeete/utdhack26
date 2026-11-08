@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { ArrowRight, Check, ChevronDown, FilePlus2, Gavel } from 'lucide-react';
 import type { Snapshot } from '../../shared/contracts';
 import type { IncidentData } from '../data/interface';
-import { focusContext, Modal, Status } from '../components/ui';
+import { focusContext, label, Modal, Status } from '../components/ui';
 import { AddEvidence, RecordDecision } from './TeamActions';
 import { IncidentConversation, type Draft } from './IncidentPages';
 import { proposalForEvidence } from '../../shared/reassessment';
@@ -84,7 +84,10 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   }
   return <>
     <div className="workspace-overview">
-      <div className="workspace-heading"><div><h1>Incident review</h1><p>When new evidence arrives, Nora (Nemotron) flags the decisions it may affect. A person reviews each flag, then an owner independently verifies the facts.</p></div></div>
+      <div className="workspace-heading"><div>
+        <h1>{data.incident.title}</h1>
+        <p className="incident-line"><span>{data.incident.summary.split(/(?<=[.!?])\s/)[0]}</span><span className="state-pill">{label(data.incident.status)}</span><span className="state-pill">{label(data.incident.severity)} severity</span></p>
+      </div></div>
       <ol className="stage-strip" aria-label="How a review moves from evidence to verification">
         {stages.map((stage, i) => <li key={stage.title} className={`stage ${i === activeStage ? 'current' : ''}`} aria-current={i === activeStage ? 'step' : undefined}>
           <span className="stage-number" aria-hidden="true">{i + 1}</span>

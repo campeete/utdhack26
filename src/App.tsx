@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { CircleDot, Layers2, Moon, Settings2, Sun, UserRound } from 'lucide-react';
+import { Layers2, Moon, Settings2, Sun, UserRound } from 'lucide-react';
 import { roleLabel, type Snapshot } from '../shared/contracts';
 import type { IncidentData } from './data/interface';
-import { label, Modal } from './components/ui';
+import { Modal } from './components/ui';
 import { Decisions, type Selection } from './features/Decisions';
 import { Scope } from './features/IncidentPages';
 import { Monitor } from './features/Monitor';
@@ -58,7 +58,6 @@ export default function App({ adapter }: { adapter: IncidentData }) {
     <div className="persistent-header">
     <header className="app-header">
       <a className="brand" href="#main" onClick={() => switchView('workspace')} aria-label="Clean Room workspace"><Layers2 size={26} /><span>Clean Room</span></a>
-      <div className="header-incident"><strong>{data?.incident.title ?? 'Incident workspace'}</strong><span><CircleDot size={12} />{data ? label(data.incident.status) : 'Opening'}<span className="severity-dot" />{data ? label(data.incident.severity) : '—'} severity</span></div>
       <nav aria-label="Incident views">{views.map(item => <button key={item.id} onClick={() => switchView(item.id)} aria-current={view === item.id ? 'page' : undefined}>{item.label}</button>)}</nav>
       {adapter.identity ? <div className="session-indicator" aria-label={`${adapter.identity.authenticated ? 'Signed in' : 'Demo identity'}: ${adapter.identity.name}, ${adapter.identity.roles.map(roleLabel).join(', ')}`}>
         <span className="session-avatar"><UserRound size={17} /></span>
