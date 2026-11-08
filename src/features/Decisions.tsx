@@ -29,7 +29,15 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
     { title: 'Verifications open', value: openTasks, purpose: 'A named owner independently checks the facts' },
   ];
   const activeStage = [1, 2, 3].find(i => stages[i].value > 0) ?? 0;
-  const visibleEvidence = data.evidence.filter(e => filter === 'all' || data.proposals.some(p => p.evidenceId === e.id && p.state === 'pending'));
+  // Evidence is grouped under the decision it supports, so related reports sit together.
+  const flagged = (evidenceId: string) => data.proposals.some(p => p.evidenceId === evidenceId && p.state === 'pending');
+  const groups = [
+    ...data.decisions.map(decision => ({ decision, items: decision.evidenceIds.map(id => data.evidence.find(e => e.id === id)).filter((e): e is Snapshot['evidence'][number] => !!e) })),
+    { decision: null, items: data.evidence.filter(e => !data.decisions.some(d => d.evidenceIds.includes(e.id))) },
+  ]
+    .map(group => ({ ...group, shown: group.items.filter(e => filter === 'all' || flagged(e.id)) }))
+    .filter(group => filter === 'all' ? (group.decision || group.items.length) : group.shown.length)
+    .sort((x, y) => Number(y.items.some(e => flagged(e.id))) - Number(x.items.some(e => flagged(e.id))));
   function select(next: Selection) {
     onSelect(next);
     requestAnimationFrame(() => focusContext(contextHeading.current));
@@ -52,22 +60,28 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
     </div>
     <div className="incident-workspace">
       <section className="change-stream" aria-labelledby="changes-heading">
-        <div className="section-heading"><h2 id="changes-heading" ref={changesHeading} tabIndex={-1}>Incoming evidence</h2><span className="quiet-count">{data.evidence.length}</span></div>
-        <p className="stream-intro">Select an item to see which decision it affects.</p>
+        <div className="section-heading"><h2 id="changes-heading" ref={changesHeading} tabIndex={-1}>Issues & evidence</h2><span className="quiet-count">{data.evidence.length} reports</span></div>
+        <p className="stream-intro">Reports are grouped under the decision they support. Pick a report or a decision.</p>
         <div className="change-filters" role="group" aria-label="Filter changes"><button className={filter === 'all' ? 'selected' : ''} aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>All evidence</button><button className={filter === 'review' ? 'selected' : ''} aria-pressed={filter === 'review'} onClick={() => setFilter('review')}>Flagged for review <span>{reviewCount}</span></button></div>
-        <div className="change-items">{visibleEvidence.length ? visibleEvidence.map(e => {
-          const p = proposalForEvidence(data, e.id);
-          const s = data.sources.find(s => s.id === e.sourceId);
-          const linked = data.decisions.find(d => d.evidenceIds.includes(e.id));
-          const reviewState = p?.state === 'accepted' ? 'needs_review' : p?.state;
-          return <button key={e.id} className={`change-item ${selection.evidenceId === e.id ? 'selected' : ''} ${p?.state === 'pending' ? 'attention' : ''}`} onClick={() => select({ evidenceId: e.id, decisionId: linked?.id ?? null })} aria-pressed={selection.evidenceId === e.id} aria-controls="change-context">
-            <span className="change-time">{e.id}<span>{s?.trust === 'under_review' ? 'Source update' : 'Evidence added'}</span></span>
-            <strong>{s?.trust === 'under_review' ? 'Recovery source under review' : e.title}</strong>
-            <span className="change-summary">{s?.label}</span>
-            <span className="change-bottom">{reviewState ? <Status value={reviewState} /> : <span className="routine-text">{linked ? 'Affects a decision' : 'No decision affected'}</span>}<ArrowRight size={16} /></span>
-          </button>;
-        }) : <div className="empty"><Check size={22} /><h3>Nothing flagged</h3><p>Your selected item stays open. Switch to All evidence to see every report.</p><button className="text-button" onClick={() => setFilter('all')}>Show all evidence</button></div>}</div>
-        <details className="decision-register"><summary>All decisions<span>{data.decisions.length}<ChevronDown size={15} /></span></summary><div>{data.decisions.map(d => <button key={d.id} className={`register-item ${selection.decisionId === d.id ? 'selected' : ''}`} onClick={() => select({ evidenceId: d.evidenceIds[0] ?? null, decisionId: d.id })}><small>{d.id}</small><strong>{d.title}</strong><Status value={d.state} /></button>)}</div></details>
+        <div className="issue-groups">{groups.length ? groups.map(({ decision, shown, items }) => <section key={decision?.id ?? 'unlinked'} className={`issue-group ${decision && selection.decisionId === decision.id ? 'active' : ''} ${decision ? '' : 'unlinked'}`} aria-label={decision ? `${decision.id} ${decision.title}` : 'Evidence not linked to a decision'}>
+          {decision ? <button className="issue-head" onClick={() => select({ evidenceId: items[0]?.id ?? null, decisionId: decision.id })} aria-controls="change-context" aria-pressed={selection.decisionId === decision.id && !items.some(e => e.id === selection.evidenceId)}>
+            <span className="issue-title"><small>Decision {decision.id}</small><strong>{decision.title}</strong></span>
+            <Status value={decision.state} />
+          </button> : <div className="issue-head static"><span className="issue-title"><small>Not linked yet</small><strong>Reports with no decision attached</strong></span></div>}
+          <div className="issue-items">{shown.length ? shown.map(e => {
+            const p = proposalForEvidence(data, e.id, decision?.id);
+            const s = data.sources.find(s => s.id === e.sourceId);
+            const reviewState = p?.state === 'accepted' ? 'needs_review' : p?.state;
+            const isSelected = selection.evidenceId === e.id && (selection.decisionId ?? null) === (decision?.id ?? null);
+            return <button key={e.id} className={`change-item ${isSelected ? 'selected' : ''} ${p?.state === 'pending' ? 'attention' : ''}`} onClick={() => select({ evidenceId: e.id, decisionId: decision?.id ?? null })} aria-pressed={isSelected} aria-controls="change-context">
+              <span className="change-time">{e.id}<span>{s?.trust === 'under_review' ? 'Source update' : 'Evidence added'}</span></span>
+              <strong>{s?.trust === 'under_review' ? 'Recovery source under review' : e.title}</strong>
+              <span className="change-summary">{s?.label}</span>
+              {reviewState && <span className="change-bottom"><Status value={reviewState} /><ArrowRight size={16} /></span>}
+            </button>;
+          }) : <p className="issue-empty">{decision ? 'No evidence linked to this decision yet.' : 'Every report is linked to a decision.'}</p>}</div>
+          {!decision && !!items.length && <p className="issue-note">Check whether any of these should be tied to a decision above.</p>}
+        </section>) : <div className="empty"><Check size={22} /><h3>Nothing flagged</h3><p>Your selected item stays open. Switch to All evidence to see every report.</p><button className="text-button" onClick={() => setFilter('all')}>Show all evidence</button></div>}</div>
       </section>
       <div id="change-context" className="change-context story-host">
         <IncidentStory key={`${selection.evidenceId}:${selection.decisionId}`} data={data} adapter={adapter} onUpdate={onUpdate} selection={selection} headingRef={contextHeading} onOverview={() => focusContext(changesHeading.current)} onSelectProposal={id => onSelect({ ...selection, proposalId: id })} onDiscuss={text => setDraft({ text, nonce: Date.now() })} />

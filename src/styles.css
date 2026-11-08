@@ -1096,3 +1096,31 @@ button.recipient-chip:hover { border-color: #3b8f7e; }
 :root[data-theme="light"] .composer-bar { border-top-color: #e1e8eb; }
 @media (prefers-reduced-motion: reduce) { .context-panel { animation: none; } .context-toggles > button > svg:last-child { transition: none; } }
 .comms-log article.bubble > .bubble-body { display: block; }
+
+/* Left column: evidence grouped under the decision (issue) it supports. */
+.issue-groups { display: grid; gap: 14px; }
+.issue-group { border: 1px solid #293943; border-radius: 8px; background: #0f181d; overflow: hidden; }
+.issue-group.active { border-color: #3a6a72; }
+.issue-group.unlinked { border-style: dashed; background: transparent; }
+.issue-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 11px 13px; text-align: left; border: 0; border-bottom: 1px solid #22343c; background: #14232a; color: #e0ebee; }
+button.issue-head:hover { background: #193039; }
+button.issue-head[aria-pressed="true"] { background: #17302d; }
+.issue-head.static { background: transparent; }
+.issue-title { display: grid; gap: 2px; min-width: 0; }
+.issue-title small { color: #8fa9b3; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.issue-title strong { font-size: 14px; font-weight: 650; line-height: 1.35; }
+.issue-head .status-tag { flex-shrink: 0; font-size: 10px; padding: 4px 6px; }
+.issue-items { display: grid; gap: 4px; padding: 6px; }
+.issue-items .change-item { padding: 12px 12px; }
+.issue-items .change-item strong { font-size: 14px; }
+.issue-empty, .issue-note { margin: 0; padding: 10px 12px 12px; color: #8fa9b3; font-size: 12px; line-height: 1.5; }
+.issue-note { padding-top: 0; }
+:root[data-theme="light"] .issue-group { border-color: #d7e0e4; background: #fbfcfc; }
+:root[data-theme="light"] .issue-group.active { border-color: #8dbeb1; }
+:root[data-theme="light"] .issue-group.unlinked { background: transparent; }
+:root[data-theme="light"] .issue-head { color: #19333b; background: #f1f6f6; border-bottom-color: #e1e8eb; }
+:root[data-theme="light"] button.issue-head:hover { background: #e7f0f0; }
+:root[data-theme="light"] button.issue-head[aria-pressed="true"] { background: #e6f2ef; }
+:root[data-theme="light"] .issue-head.static { background: transparent; }
+:root[data-theme="light"] .issue-title small, :root[data-theme="light"] .issue-empty, :root[data-theme="light"] .issue-note { color: #60737a; }
+.issue-items .change-item { width: 100%; min-width: 0; max-width: none; flex: none; }
