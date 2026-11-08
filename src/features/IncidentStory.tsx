@@ -127,6 +127,14 @@ export function IncidentStory({
     decision?.title ?? "No decision linked",
     task ? `Assigned to ${task.owner}` : "No task assigned",
   ];
+  if (!evidence && !decision) {
+    return (
+      <article className="review-panel workflow-workbench" aria-label="Getting started">
+        <header className="workbench-header"><div><h1 ref={headingRef} tabIndex={-1}>Nothing to review yet</h1></div></header>
+        <p className="procedure-summary">Every issue starts as a decision. Press <strong>Record a decision</strong> on the left (for example “Restore the portal from Monday’s backup”, resting on “Monday’s backup predates the intrusion”), or <strong>Add evidence</strong>. The issue opens here with its own discussion, and Nora (Nemotron) reviews new evidence against it.</p>
+      </article>
+    );
+  }
   return (
     <>
       <article

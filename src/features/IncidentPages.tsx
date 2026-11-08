@@ -146,7 +146,7 @@ export function IncidentConversation({ evidenceId, decisionId, relatedEvidenceId
       <label htmlFor={`${id}-message`} className="sr-only">Message</label>
       <div className="composer">
         <textarea ref={textarea} id={`${id}-message`} required maxLength={2000} rows={3} value={text} onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void send(); } }}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }}
           placeholder={`Message about ${threadId}… Mention records like ${evidenceId ?? 'E-001'} to link them.`} />
         <div className="composer-bar">
           <div className="admin-recipient-picker">
@@ -158,7 +158,7 @@ export function IncidentConversation({ evidenceId, decisionId, relatedEvidenceId
               </button>)}
             </div>}
           </div>
-          <small className="composer-hint">{text.length ? `${text.length}/2000 · ` : ''}⌘/Ctrl + Enter to send</small>
+          <small className="composer-hint">{text.length ? `${text.length}/2000 · ` : ''}Enter to send · Shift + Enter for a new line</small>
           <button className="primary" disabled={busy || !text.trim()}>{busy ? 'Sending…' : 'Send'}<Send size={15} /></button>
         </div>
       </div>
