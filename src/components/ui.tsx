@@ -2,7 +2,8 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { AlertTriangle, Check, CheckCheck, CircleHelp, Clock3, FileWarning, X } from 'lucide-react';
 
 export const label = (s: string) => s.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
-export const utc = (s: string) => new Date(s).toLocaleTimeString('en-GB', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' });
+export const localTime = (s: string) => new Date(s).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+export const localDateTime = (s: string) => new Date(s).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 export function focusContext(element: HTMLElement | null) {
   if (!element) return;
@@ -16,6 +17,8 @@ const statuses = {
   needs_review: { text: 'Needs review', Icon: AlertTriangle, tone: 'review' },
   pending: { text: 'Review proposed', Icon: AlertTriangle, tone: 'review' },
   under_review: { text: 'Trust under review', Icon: AlertTriangle, tone: 'review' },
+  in_question: { text: 'In question', Icon: AlertTriangle, tone: 'review' },
+  established: { text: 'Trusted source', Icon: Check, tone: 'approved' },
   disputed: { text: 'Disputed', Icon: AlertTriangle, tone: 'disputed' },
   corroborated: { text: 'Corroborated', Icon: CheckCheck, tone: 'corroborated' },
   unknown: { text: 'Unknown', Icon: CircleHelp, tone: 'unknown' },

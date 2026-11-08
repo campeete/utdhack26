@@ -24,7 +24,6 @@ export function SupportingRecords({
   decision,
   proposal,
   briefings,
-  onChange,
   onClose,
 }: {
   view: RecordView;
@@ -33,7 +32,6 @@ export function SupportingRecords({
   decision?: Decision;
   proposal?: Proposal;
   briefings: BriefingRecord[];
-  onChange: (view: RecordView) => void;
   onClose: () => void;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
@@ -44,12 +42,6 @@ export function SupportingRecords({
       if (trigger?.isConnected) trigger.focus({ preventScroll: true });
     };
   }, []);
-  const available: RecordView[] = [
-    ...(evidence ? ["evidence" as const] : []),
-    ...(decision ? ["decision" as const] : []),
-    ...(briefings.length ? ["briefings" as const] : []),
-    "activity",
-  ];
   return (
     <aside
       className="supporting-drawer"
@@ -78,17 +70,6 @@ export function SupportingRecords({
           <X size={19} />
         </button>
       </header>
-      <nav aria-label="Record views">
-        {available.map((item) => (
-          <button
-            key={item}
-            aria-current={view === item ? "page" : undefined}
-            onClick={() => onChange(item)}
-          >
-            {names[item]}
-          </button>
-        ))}
-      </nav>
       <div
         className="supporting-record-body"
         key={view}

@@ -11,3 +11,4 @@ __pycache__/
 # Downloaded threat intel (npm run intel:fetch); large and regenerable
 data/threat-intel/
 .spacetime/
+.DS_Store

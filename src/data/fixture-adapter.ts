@@ -65,10 +65,12 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
       return copy();
     },
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    async sendMessage(evidenceId, text) {
+    async sendMessage(evidenceId, recipientId, text) {
       if (!text.trim() || text.length > 2000) throw new Error('Use 1–2,000 characters.');
       if (!data.evidence.some(e => e.id === evidenceId)) throw new Error('Select an existing evidence item before sending a message.');
-      data = { ...data, messages: [...data.messages, { id: crypto.randomUUID(), incidentId: data.incident.id, evidenceId, version: 1, author: actor, text: text.trim(), at: new Date().toISOString() }] };
+      const recipient = data.members.find(m => m.id === recipientId && m.active && m.roles.includes('admin'));
+      if (!recipient) throw new Error('Choose an active incident administrator.');
+      data = { ...data, messages: [...data.messages, { id: crypto.randomUUID(), incidentId: data.incident.id, evidenceId, recipientId, version: 1, author: actor, text: text.trim(), at: new Date().toISOString() }] };
       return copy();
     },
   };

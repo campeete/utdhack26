@@ -3,7 +3,7 @@ import { Check } from "lucide-react";
 import type { Evidence, Proposal, Snapshot } from "../../shared/contracts";
 import type { IncidentData } from "../data/interface";
 import { previewImpact } from "../../shared/review";
-import { Status } from "../components/ui";
+import { localDateTime, Status } from "../components/ui";
 export type ReviewAction = "confirm" | "dismiss";
 
 export function EvidenceReport({
@@ -26,17 +26,11 @@ export function EvidenceReport({
         <dd>{source?.label ?? "Unknown source"}</dd>
         <dt>Event time</dt>
         <dd>
-          {new Date(evidence.eventTime)
-            .toISOString()
-            .replace("T", " ")
-            .replace(".000Z", " UTC")}
+          {localDateTime(evidence.eventTime)}
         </dd>
         <dt>Recorded</dt>
         <dd>
-          {new Date(evidence.recordedAt)
-            .toISOString()
-            .replace("T", " ")
-            .replace(".000Z", " UTC")}
+          {localDateTime(evidence.recordedAt)}
         </dd>
         <dt>Record</dt>
         <dd>

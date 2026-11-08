@@ -4,16 +4,19 @@ import {
   Check,
   ChevronDown,
   FileText,
+  GitBranch,
   History,
 } from "lucide-react";
 import type { Snapshot } from "../../shared/contracts";
 import type { IncidentData } from "../data/interface";
 import type { Selection } from "./Decisions";
-import { focusContext, Modal, Status, utc } from "../components/ui";
+import { focusContext, localTime, Modal, Status } from "../components/ui";
 import { ReviewComposer, type ReviewAction } from "./ReviewDetails";
 import { SupportingRecords, type RecordView } from "./SupportingRecords";
 import { proposalForEvidence } from "../../shared/reassessment";
 import { DismissalRecord, DismissDialog } from "./DismissDialog";
+import { DecisionTrail, TeamUpdates } from "./DecisionContext";
+import { AccountsNamed, accountsNamedIn } from "./AccountContext";
 
 type Step = 1 | 2 | 3;
 export function IncidentStory({
@@ -24,6 +27,7 @@ export function IncidentStory({
   headingRef,
   onOverview,
   onSelectProposal,
+  onDiscuss,
 }: {
   data: Snapshot;
   adapter: IncidentData;
@@ -33,6 +37,8 @@ export function IncidentStory({
   onOverview: () => void;
   /** Shows a specific suggestion, such as Nora's revision or the original it revises. */
   onSelectProposal: (proposalId: string) => void;
+  /** Hands a drafted message to the discussion below. */
+  onDiscuss: (text: string) => void;
 }) {
   const evidence = data.evidence.find((e) => e.id === selection.evidenceId);
   const source = data.sources.find((s) => s.id === evidence?.sourceId);
@@ -58,6 +64,7 @@ export function IncidentStory({
   const [composer, setComposer] = useState<ReviewAction | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [dismissOpen, setDismissOpen] = useState(false);
+  const [detail, setDetail] = useState<"trail" | "updates" | null>(null);
   const stepHeadings = useRef<(HTMLButtonElement | null)[]>([]);
   function showStep(next: Step) {
     setStep(next);
@@ -73,6 +80,11 @@ export function IncidentStory({
     "Read the update",
     "Review the decision",
     "Independent verification",
+  ];
+  const purposes = [
+    `What came in from ${source?.label ?? "the original source"}, and how far to trust it`,
+    "Does the recorded decision still hold, given this evidence?",
+    "A named person, not the analysis, confirms the facts",
   ];
   const summaries = [
     evidence?.title ?? "No report linked",
@@ -126,11 +138,7 @@ export function IncidentStory({
                     <strong>{titles[number - 1]}</strong>
                     <small>
                       {step === number
-                        ? number === 1
-                          ? (source?.label ?? "Original evidence")
-                          : number === 2
-                            ? "Check the reason behind the recorded decision"
-                            : "Human verification, assigned separately"
+                        ? purposes[number - 1]
                         : summaries[number - 1]}
                     </small>
                   </span>
@@ -156,7 +164,7 @@ export function IncidentStory({
                               <Status value="under_review" />
                             )}
                             <span className="procedure-report-time">
-                              {evidence.id} · {utc(evidence.recordedAt)} UTC
+                              {evidence.id} · {localTime(evidence.recordedAt)}
                             </span>
                           </div>
                           {source?.trust === "under_review" && (
@@ -167,6 +175,7 @@ export function IncidentStory({
                           <blockquote className="procedure-excerpt">
                             “{proposal?.excerpt ?? evidence.text}”
                           </blockquote>
+                          <AccountsNamed accounts={accountsNamedIn(evidence, data.accounts)} />
                           <p className="procedure-note">
                             {source?.trust === "under_review"
                               ? "Source trust is under review. The report has not been declared false."
@@ -222,24 +231,35 @@ export function IncidentStory({
                               <dd>{decision.assumption}</dd>
                             </div>
                           </dl>
-                          {!!briefings.length && (
+                          <div className="context-toggles" role="group" aria-label="More about this decision">
                             <button
-                              className="procedure-related"
-                              onClick={() => setRecord("briefings")}
+                              aria-expanded={detail === "trail"}
+                              aria-controls="decision-trail"
+                              onClick={() => setDetail(detail === "trail" ? null : "trail")}
                             >
-                              <FileText size={16} />
-                              <span>
-                                {briefings.length} team update
-                                {briefings.length === 1 ? "" : "s"} use
-                                {briefings.length === 1 ? "s" : ""} this
-                                decision
-                              </span>
-                              {briefings.some((b) => b.state === "outdated") ? (
-                                <Status value="outdated" />
-                              ) : (
-                                <ArrowRight size={15} />
-                              )}
+                              <GitBranch size={15} />
+                              Decision trail
+                              {source?.trust === "under_review" && <span className="toggle-flag">Weak link</span>}
+                              <ChevronDown size={14} />
                             </button>
+                            {!!briefings.length && (
+                              <button
+                                aria-expanded={detail === "updates"}
+                                aria-controls="team-updates"
+                                onClick={() => setDetail(detail === "updates" ? null : "updates")}
+                              >
+                                <FileText size={15} />
+                                {briefings.length === 1 ? "Team update" : `${briefings.length} team updates`}
+                                {briefings.some((b) => b.state === "outdated") && <span className="toggle-flag">Outdated</span>}
+                                <ChevronDown size={14} />
+                              </button>
+                            )}
+                          </div>
+                          {detail === "trail" && (
+                            <DecisionTrail data={data} source={source} evidence={evidence} decision={decision} proposal={proposal} briefings={briefings} onDiscuss={onDiscuss} />
+                          )}
+                          {detail === "updates" && (
+                            <TeamUpdates briefings={briefings} proposal={proposal} onDiscuss={onDiscuss} />
                           )}
                         </>
                       ) : (
@@ -316,14 +336,6 @@ export function IncidentStory({
                               : "No decision review is currently suggested."}
                         </p>
                       )}
-                      {decision && (
-                        <button
-                          className="text-button procedure-record-link"
-                          onClick={() => setRecord("decision")}
-                        >
-                          Decision record & suggestion details
-                        </button>
-                      )}
                     </>
                   ) : task ? (
                     <>
@@ -389,7 +401,6 @@ export function IncidentStory({
           decision={decision}
           proposal={proposal}
           briefings={briefings}
-          onChange={setRecord}
           onClose={() => setRecord(null)}
         />
       )}
