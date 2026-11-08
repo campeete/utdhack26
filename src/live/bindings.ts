@@ -62,6 +62,7 @@ export const DASHBOARD_REDUCERS = {
   assign_task: { decision_id: __t.u64(), assignee: __t.identity(), title: __t.string() },
   accept_task: { task_id: __t.u64() },
   resolve_task: { task_id: __t.u64() },
+  resolve_decision: { decision_id: __t.u64() },
 } as const;
 
 const view = (name: string) => ({ name, indexes: [], constraints: [] });
@@ -104,6 +105,7 @@ const reducersSchema = __reducers(
   __reducerSchema('assign_task', DASHBOARD_REDUCERS.assign_task),
   __reducerSchema('accept_task', DASHBOARD_REDUCERS.accept_task),
   __reducerSchema('resolve_task', DASHBOARD_REDUCERS.resolve_task),
+  __reducerSchema('resolve_decision', DASHBOARD_REDUCERS.resolve_decision),
 );
 const proceduresSchema = __procedures();
 

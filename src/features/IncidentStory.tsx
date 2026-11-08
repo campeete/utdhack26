@@ -45,12 +45,15 @@ export function IncidentStory({
   const decision = data.decisions.find((d) => d.id === selection.decisionId);
   // An explicitly opened suggestion wins; otherwise an open one, then the newest
   // (so Nora (Nemotron)'s revision shows after a dismissal with feedback).
-  const proposal =
+  const selectedProposal =
     (selection.proposalId
       ? data.proposals.find(
           (p) => p.id === selection.proposalId && p.evidenceId === evidence?.id,
         )
       : undefined) ?? proposalForEvidence(data, evidence?.id, decision?.id);
+  const proposal = decision?.state === "closed" && selectedProposal?.state === "pending"
+    ? undefined
+    : selectedProposal;
   const task = data.tasks.find(
     (t) => t.proposalId === proposal?.id && t.decisionId === decision?.id,
   );
@@ -64,6 +67,9 @@ export function IncidentStory({
   const [composer, setComposer] = useState<ReviewAction | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [dismissOpen, setDismissOpen] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [resolveError, setResolveError] = useState("");
+  const [resolveConfirmOpen, setResolveConfirmOpen] = useState(false);
   const [detail, setDetail] = useState<"trail" | "updates" | null>(null);
   const stepHeadings = useRef<(HTMLButtonElement | null)[]>([]);
   function showStep(next: Step) {
@@ -75,6 +81,20 @@ export function IncidentStory({
     setReviewBusy(false);
     setComposer(null);
     showStep(next.tasks.some((t) => t.proposalId === proposal?.id) ? 3 : 2);
+  }
+  async function resolve(): Promise<boolean> {
+    if (!decision || decision.state === "closed" || resolving) return false;
+    setResolving(true);
+    setResolveError("");
+    try {
+      onUpdate(await adapter.resolveDecision(decision.id));
+      return true;
+    } catch (error) {
+      setResolveError((error as Error).message);
+      return false;
+    } finally {
+      setResolving(false);
+    }
   }
   const titles = [
     "Read the update",
@@ -160,14 +180,14 @@ export function IncidentStory({
                         <>
                           <div className="procedure-evidence-meta">
                             <Status value={evidence.standing} />
-                            {source?.trust === "under_review" && (
+                            {decision?.state !== "closed" && source?.trust === "under_review" && (
                               <Status value="under_review" />
                             )}
                             <span className="procedure-report-time">
                               {evidence.id} · {localTime(evidence.recordedAt)}
                             </span>
                           </div>
-                          {source?.trust === "under_review" && (
+                          {decision?.state !== "closed" && source?.trust === "under_review" && (
                             <p className="procedure-concern">
                               {source.reason.split(/(?<=[.!?])\s/)[0]}
                             </p>
@@ -177,7 +197,7 @@ export function IncidentStory({
                           </blockquote>
                           <AccountsNamed accounts={accountsNamedIn(evidence, data.accounts)} />
                           <p className="procedure-note">
-                            {source?.trust === "under_review"
+                            {decision?.state !== "closed" && source?.trust === "under_review"
                               ? "Source trust is under review. The report has not been declared false."
                               : "This is the original report, not a confirmed analysis finding."}
                           </p>
@@ -239,7 +259,7 @@ export function IncidentStory({
                             >
                               <GitBranch size={15} />
                               Decision trail
-                              {source?.trust === "under_review" && <span className="toggle-flag">Weak link</span>}
+                              {decision?.state !== "closed" && source?.trust === "under_review" && <span className="toggle-flag">Weak link</span>}
                               <ChevronDown size={14} />
                             </button>
                             {!!briefings.length && (
@@ -388,10 +408,26 @@ export function IncidentStory({
             <History size={14} />
             History
           </button>
-          {adapter.mode === "fixture" && (
-            <span>Synthetic incident · Local changes last until reload</span>
-          )}
+          {decision && (decision.state === "closed" ? (
+            <span className="resolve-complete" role="status">Resolved</span>
+          ) : (
+            <button
+              className="primary"
+              onClick={() => {
+                if (decision.state === "needs_review" || source?.trust === "under_review" || proposal?.state === "pending") {
+                  setResolveConfirmOpen(true);
+                } else {
+                  void resolve();
+                }
+              }}
+              disabled={resolving}
+            >
+              Resolve
+              <Check size={16} />
+            </button>
+          ))}
         </div>
+        {resolveError && <p className="error" role="alert">{resolveError}</p>}
       </article>
       {record && (
         <SupportingRecords
@@ -415,6 +451,33 @@ export function IncidentStory({
             onSelectProposal(proposal.id);
           }}
         />
+      )}
+      {resolveConfirmOpen && decision && (
+        <Modal
+          title="Resolve an issue under review?"
+          onClose={() => {
+            if (!resolving) setResolveConfirmOpen(false);
+          }}
+          closeDisabled={resolving}
+        >
+          <div className="dismiss-dialog">
+            <p>This issue is still under review. Resolving it will remove it from the active review list, but it does not verify the evidence or clear the source concerns. Are you sure you want to continue?</p>
+            {resolveError && <p className="error" role="alert">{resolveError}</p>}
+            <div className="action-row">
+              <button
+                className="primary"
+                onClick={async () => {
+                  if (await resolve()) setResolveConfirmOpen(false);
+                }}
+                disabled={resolving}
+              >
+                {resolving ? "Resolving…" : "Resolve anyway"}
+                <Check size={16} />
+              </button>
+              <button className="secondary" onClick={() => setResolveConfirmOpen(false)} disabled={resolving}>Cancel</button>
+            </div>
+          </div>
+        </Modal>
       )}
       {composer && proposal && (
         <Modal

@@ -1294,6 +1294,19 @@ export const approve_decision = spacetimedb.reducer(
   }
 );
 
+/** Tier 2+ marks a decision resolved (closed). Closing one decision does not close the incident. */
+export const resolve_decision = spacetimedb.reducer(
+  { decision_id: t.u64() },
+  (ctx, { decision_id }) => {
+    const d = ctx.db.decision.id.find(decision_id);
+    if (!d) fail('Decision not found');
+    requireTier(ctx, d.incident_id, 2);
+    if (d.state === 'closed') return;
+    ctx.db.decision.id.update({ ...d, state: 'closed', version: d.version + 1 });
+    logActivity(ctx, d.incident_id, 'decision_resolved', 'decision', d.id, `Decision ${d.id} resolved.`, 'DECISION_REVISED', { state: 'closed' });
+  }
+);
+
 export const create_team_update = spacetimedb.reducer(
   { incident_id: t.u64(), title: t.string(), body: t.string(), decision_ids: t.array(t.u64()) },
   (ctx, { incident_id, title, body, decision_ids }) => {

@@ -11,7 +11,7 @@
 
 export const TRUST = ['trusted', 'under_review', 'untrusted'] as const;
 export const STANDING = ['confirmed', 'under_review', 'disputed'] as const;
-export const DECISION_STATES = ['draft', 'approved', 'needs_review', 'superseded'] as const;
+export const DECISION_STATES = ['draft', 'approved', 'needs_review', 'superseded', 'closed'] as const;
 export const TEAM_UPDATE_STATES = ['current', 'outdated', 'reviewed'] as const;
 export const SUGGESTION_STATES = ['pending', 'accepted', 'dismissed', 'stale'] as const;
 export const SUGGESTION_ORIGINS = ['synthetic', 'human', 'nora'] as const;

@@ -319,6 +319,13 @@ describe('suggested reviews (ported rules)', () => {
     expect(last('task').state).toBe('resolved');
   });
 
+  it('Tier 2 resolves a decision; resolving twice is a no-op', () => {
+    denied(() => as('analyst', c => mod.resolve_decision(c, { decision_id: decisionId })), /needs Tier 2/);
+    as('cmd', c => mod.resolve_decision(c, { decision_id: decisionId }));
+    as('cmd', c => mod.resolve_decision(c, { decision_id: decisionId }));
+    expect(byId('decision', decisionId)).toMatchObject({ state: 'closed', version: 3 });
+  });
+
   it('a suggestion based on an older version of the evidence is refused as stale', () => {
     suggest();
     denied(() => as('cmd', c => mod.set_evidence_standing(c, { evidence_id: evidenceId, expected_version: 1, standing: 'disputed' })), /needs Tier 3/);

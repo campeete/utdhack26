@@ -286,5 +286,6 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     assignTask: (decisionId, memberId, title) => act(() => conn!.reducers.assignTask({ decision_id: parseId(decisionId, 'D'), assignee: identityOf(memberId), title })),
     acceptTask: taskId => act(() => conn!.reducers.acceptTask({ task_id: parseId(taskId, 'T') })),
     resolveTask: taskId => act(() => conn!.reducers.resolveTask({ task_id: parseId(taskId, 'T') })),
+    resolveDecision: decisionId => act(() => conn!.reducers.resolveDecision({ decision_id: parseId(decisionId, 'D') })),
   };
 }
