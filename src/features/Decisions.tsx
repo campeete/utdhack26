@@ -71,7 +71,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
       if (group.decision?.state === 'closed') return false;
       return filter === 'review' ? group.shown.length > 0 : !!group.decision || group.items.length > 0;
     })
-    .sort((x, y) => Number(y.items.some(e => flagged(e.id))) - Number(x.items.some(e => flagged(e.id))) || (x.decision && y.decision && x.decision.id === selection.decisionId ? -1 : y.decision && y.decision.id === selection.decisionId ? 1 : 0));
+    .sort((x, y) => Number(y.items.some(e => flagged(e.id))) - Number(x.items.some(e => flagged(e.id))));
   function select(next: Selection) {
     onSelect(next);
     requestAnimationFrame(() => focusContext(contextHeading.current));
