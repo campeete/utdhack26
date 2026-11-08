@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { CircleDot, Info, Layers2, Moon, Settings2, Sun, UserRound, WifiOff } from 'lucide-react';
+import { CircleDot, Layers2, Moon, Settings2, Sun, UserRound } from 'lucide-react';
 import type { Snapshot } from '../shared/contracts';
 import type { IncidentData } from './data/interface';
 import { label, Modal } from './components/ui';
@@ -65,7 +65,6 @@ export default function App({ adapter }: { adapter: IncidentData }) {
       <button className="admin-button" aria-label="Administration" onClick={() => setAdminOpen(true)}><Settings2 size={17} /><span>Administration</span></button>
       <div className="theme-switch" role="group" aria-label="Color theme"><button type="button" aria-pressed={theme === 'light'} onClick={() => setTheme('light')}><Sun size={13} />Light</button><button type="button" aria-pressed={theme === 'dark'} onClick={() => setTheme('dark')}><Moon size={13} />Dark</button></div>
     </header>
-    <div className="environment-bar"><div><Info size={15} /><span>{adapter.mode === 'fixture' ? 'Synthetic training incident' : 'Incident workspace'}</span><span className="environment-divider" /><span className="connection"><WifiOff size={14} />{adapter.mode === 'fixture' ? 'No live connection' : 'Connection status unavailable'}</span></div><span>{adapter.identity?.authenticated ? 'Authenticated session' : 'Not authenticated · Demo data only'}</span></div>
     </div>
     {data ? <main id="main" tabIndex={-1}>
       <p className="sr-only" role="status">{message}</p>
