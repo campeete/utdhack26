@@ -36,6 +36,17 @@ export type Fetch = typeof fetch;
  * Error messages never include the key or the request body.
  */
 export async function chatJson(config: NemotronConfig, system: string, user: string, fetchImpl: Fetch = fetch): Promise<unknown> {
+  // The free endpoint rate-limits bursts (HTTP 429): wait and try again a few times.
+  for (let attempt = 0; ; attempt++) {
+    try { return await chatJsonOnce(config, system, user, fetchImpl); }
+    catch (e) {
+      if (!/HTTP 429/.test((e as Error).message) || attempt >= 3) throw e;
+      await new Promise(r => setTimeout(r, 1500 * 2 ** attempt));
+    }
+  }
+}
+
+async function chatJsonOnce(config: NemotronConfig, system: string, user: string, fetchImpl: Fetch): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);
   let response: Response;

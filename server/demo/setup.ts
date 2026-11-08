@@ -47,7 +47,9 @@ const incident = await new Promise<bigint>((resolve, reject) => {
   conn.db.myIncidents.onInsert((_ctx, row) => { if (!before.has(row.id)) { clearTimeout(timer); resolve(row.id); } });
 });
 
-await step(`Loaded ${accounts.length} accounts and ${logins.length} weekend sign-ins into incident ${incident}`, () => conn.reducers.loadDemoScenario({
+// Sign-ins cost one Nemotron call each, which can hit the free API's rate limit; the story
+// demo does not need them. Add --signins to load the weekend of sign-ins for the Monitor.
+if (process.argv.includes('--signins')) await step(`Loaded ${accounts.length} accounts and ${logins.length} weekend sign-ins into incident ${incident}`, () => conn.reducers.loadDemoScenario({
   incident_id: incident,
   accounts,
   logins: logins.map(l => ({ ...l, occurred_at: Timestamp.fromDate(l.occurred_at) })),
