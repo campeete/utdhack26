@@ -4,9 +4,9 @@ import { roleLabel, type Snapshot } from '../shared/contracts';
 import type { IncidentData } from './data/interface';
 import { Modal } from './components/ui';
 import { Decisions, type Selection } from './features/Decisions';
-import { Scope } from './features/IncidentPages';
+import { Administration, Scope } from './features/IncidentPages';
 import { Monitor } from './features/Monitor';
-import { TeamAccess, TeamRoom } from './features/TeamRoom';
+import { TeamRoom } from './features/TeamRoom';
 
 type View = 'team' | 'workspace' | 'monitor' | 'scope';
 const views: { id: View; label: string }[] = [
@@ -76,6 +76,6 @@ export default function App({ adapter }: { adapter: IncidentData }) {
       <section className="view secondary-view" hidden={view !== 'scope'} aria-label="Incident scope"><div className="view-heading"><h1>Scope of the incident</h1><p>What is affected, and what remains uncertain.</p></div><Scope data={data} /></section>
       <footer><span>{data.incident.summary} <span className="footer-dot">·</span> Lead: {data.incident.commander}</span><span>{adapter.mode === 'live' ? 'Live · SpacetimeDB · Nora (Nemotron) by NVIDIA' : 'Demo data · Sign-in, live sync and Nora (Nemotron)’s analysis are not connected'}</span></footer>
     </main> : <main id="main" className="loading" aria-live="polite">{error ? <><h1>Couldn’t open the workspace.</h1><p role="alert">{error}</p><button className="primary" onClick={() => setRetry(v => v + 1)}>Try again</button></> : <><h1>Opening the workspace…</h1><p>Loading incident records.</p></>}</main>}
-    {adminOpen && <Modal title="Access & administration" onClose={() => setAdminOpen(false)}>{data ? <TeamAccess data={data} adapter={adapter} onUpdate={update} /> : <p>Incident membership is unavailable while the workspace loads.</p>}</Modal>}
+    {adminOpen && <Modal title="Access & administration" onClose={() => setAdminOpen(false)}>{data ? <Administration data={data} /> : <p>Incident membership is unavailable while the workspace loads.</p>}</Modal>}
   </div>;
 }
