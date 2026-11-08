@@ -1313,3 +1313,12 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 .replace-plan { border-top: 0; padding-top: 0; margin: 12px 0; }
 .incident-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 0; color: var(--muted); }
 .state-pill { font-size: 12px; font-weight: 600; padding: 2px 8px; border: 1px solid var(--rule); border-radius: 999px; color: var(--text, inherit); }
+/* Overview counters: one number, one label. */
+.stage-copy.simple { display: flex; align-items: baseline; gap: 10px; }
+.stage-copy.simple .stage-value { font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; }
+.stage-copy.simple .stage-label { font-size: 14px; color: var(--muted); }
+.stage.current .stage-copy.simple .stage-value { color: #f2bf68; }
+/* The issue list scrolls on its own, beside the selected issue. */
+@media (min-width: 821px) {
+  .incident-workspace .change-stream { position: sticky; top: 96px; max-height: calc(100vh - 112px); overflow-y: auto; overscroll-behavior: contain; }
+}

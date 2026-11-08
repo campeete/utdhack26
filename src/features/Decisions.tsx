@@ -38,10 +38,10 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   const openTasks = data.tasks.filter(t => t.state === 'open').length;
   // The product's story in four stages; each count is a live number from the incident record.
   const stages = [
-    { title: 'Evidence Received', value: data.evidence.length, purpose: 'New reports, kept exactly as reported' },
-    { title: 'Reviews suggested', value: reviewCount, purpose: 'Nora (Nemotron) flags decisions the evidence may affect' },
-    { title: 'Decisions under review', value: needsReviewCount, purpose: 'A person confirms or dismisses each flag' },
-    { title: 'Verifications open', value: openTasks, purpose: 'A named owner independently checks the facts' },
+    { title: 'Reports', value: data.evidence.length, purpose: 'New reports, kept exactly as reported' },
+    { title: 'Nora (Nemotron) flags', value: reviewCount, purpose: 'Nora (Nemotron) flags decisions the evidence may affect' },
+    { title: 'Under review', value: needsReviewCount, purpose: 'A person confirms or dismisses each flag' },
+    { title: 'Open checks', value: openTasks, purpose: 'A named owner independently checks the facts' },
   ];
   const activeStage = [1, 2, 3].find(i => stages[i].value > 0) ?? 0;
   // Evidence is grouped under the decision it supports, so related reports sit together.
@@ -90,8 +90,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
       </div></div>
       <ol className="stage-strip" aria-label="How a review moves from evidence to verification">
         {stages.map((stage, i) => <li key={stage.title} className={`stage ${i === activeStage ? 'current' : ''}`} aria-current={i === activeStage ? 'step' : undefined}>
-          <span className="stage-number" aria-hidden="true">{i + 1}</span>
-          <span className="stage-copy"><strong>{stage.value}<span> {stage.title}</span></strong><small>{stage.purpose}</small></span>
+          <span className="stage-copy simple"><strong className="stage-value">{stage.value}</strong><span className="stage-label" title={stage.purpose}>{stage.title}</span></span>
         </li>)}
       </ol>
     </div>
