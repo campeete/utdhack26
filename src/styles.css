@@ -1262,3 +1262,15 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 .nora-inline svg { color: var(--accent); flex: none; }
 :root[data-theme="light"] .nora-verdict.conflict { color: #a6561a; }
 :root[data-theme="light"] .nora-verdict.urgent { color: #a3302c; }
+.nora-assessment { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 6px; background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.nora-assessment header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.nora-assessment header svg { color: var(--accent); }
+.nora-assessment header .nora-verdict { margin-top: 0; }
+.nora-assessment header time { margin-left: auto; font-size: 12px; color: var(--muted); }
+.nora-assessment > p { margin: 8px 0 0; }
+.nora-assessment.conflict { border-color: #e8893a; }
+.nora-assessment.urgent { border-color: #d9534f; }
+.nora-assessment.pending { border-style: dashed; }
+.nora-assessment .nora-escalate { font-weight: 600; color: #f08a87; }
+:root[data-theme="light"] .nora-assessment .nora-escalate { color: #a3302c; }
+.nora-assessment .nora-about { font-size: 12px; color: var(--muted); }
