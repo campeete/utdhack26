@@ -13,14 +13,18 @@
     "test:audit": "tsx --test tests/audit/*.test.ts",
     "demo:chain": "tsx tools/make_demo_chain.ts demo-data/audit_demo_export.json",
     "verify:demo": "python3 tools/verify_audit.py demo-data/audit_demo_export.json",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.audit.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.audit.json && tsc --noEmit -p tsconfig.server.json",
     "typecheck:audit": "tsc --noEmit -p tsconfig.audit.json",
     "test:review": "node --experimental-strip-types --test shared/*.test.ts",
     "data:accounts": "python3 tools/export_people_fixture.py demo-data/people.json src/data/northstar-accounts.ts",
-    "test:nemotron": "tsx --test server/nemotron/*.test.ts server/intel/*.test.ts",
+    "test:nemotron": "tsx --test server/nemotron/*.test.ts server/intel/*.test.ts server/nora/*.test.ts",
     "nemotron:try": "tsx server/nemotron/try-reassess.ts",
     "intel:fetch": "tsx server/intel/fetch-intel.ts",
-    "test:module": "npm --workspace spacetimedb test"
+    "test:module": "npm --workspace spacetimedb test",
+    "nora": "tsx server/nora/run.ts",
+    "nora:try": "tsx server/nora/try.ts",
+    "demo:setup": "tsx server/demo/setup.ts",
+    "module:publish": "spacetime publish -s local --module-path spacetimedb"
   },
   "dependencies": {
     "react": "18.3.1",

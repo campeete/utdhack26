@@ -1024,7 +1024,7 @@ const MAX_ASSUMPTION = 1000;
 const MAX_DEVICE_FIELD = 64;
 const MAX_SEED_ACCOUNTS = 500;
 const MAX_SEED_LOGINS = 5000;
-const ACCOUNT_REF = /^[A-Z]{2,5}-\d{1,6}$/;
+const ACCOUNT_REF = /^[A-Z]{2,5}(-[A-Z0-9]{1,6}){1,2}$/; // NSR-1008, NSR-SVC-01
 
 // ---------- services and platform rules (platform admin) ----------
 

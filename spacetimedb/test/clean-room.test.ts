@@ -70,7 +70,7 @@ beforeEach(() => {
   as('owner', ctx => mod.set_service_account(ctx, { identity: id.gateway, kind: 'login_gateway', enabled: true }));
   as('owner', ctx => mod.load_demo_scenario(ctx, {
     incident_id: inc,
-    accounts: [account('NSR-1008', { privileged: true, mfa: 'none', in_credential_leak: true }), account('NSR-1015')],
+    accounts: [account('NSR-1008', { privileged: true, mfa: 'none', in_credential_leak: true }), account('NSR-1015'), account('NSR-SVC-01')],
     logins: [seedLogin('NSR-1008'), seedLogin('NSR-1015', { outcome: 'failed_password' })],
   }));
 });
@@ -121,7 +121,7 @@ describe('services and the demo scenario', () => {
   });
 
   it('the scenario loads once, with no secrets on any account row', () => {
-    expect(rows('northstar_account').length).toBe(2);
+    expect(rows('northstar_account').length).toBe(3);
     expect(rows('login_event').every(l => l.origin === 'seeded')).toBe(true);
     for (const a of rows('northstar_account')) {
       for (const key of Object.keys(a)) expect(key).not.toMatch(/password|hash|salt|totp|email|username/);
@@ -234,7 +234,7 @@ describe("Nora's findings", () => {
   });
 
   it('Nora reads incident views without a membership; outsiders and a disabled Nora see nothing', () => {
-    expect(view('nora', mod.incident_accounts).length).toBe(2);
+    expect(view('nora', mod.incident_accounts).length).toBe(3);
     expect(view('nora', mod.incident_logins).length).toBe(2);
     expect(view('outsider', mod.incident_accounts)).toEqual([]);
     expect(view('outsider', mod.low_severity_rules)).toEqual([]);
