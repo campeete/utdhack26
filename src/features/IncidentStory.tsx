@@ -278,7 +278,7 @@ export function IncidentStory({
                             </div>
                           </dl>
                           <NoraAssessment review={noraReview} proposal={noraProposal} live={adapter.mode === "live"} hasEvidence={!!evidence} currentEvidenceId={evidence?.id} />
-                          {decision.state === "needs_review" && ["conflict", "urgent"].includes(verificationVerdict(data, decision.id)?.outcome ?? "")
+                          {decision.state !== "closed" && ["conflict", "urgent"].includes(verificationVerdict(data, decision.id)?.outcome ?? "")
                             ? <ReplacePlan decision={decision} data={data} adapter={adapter} onUpdate={onUpdate} />
                             : <DecisionActions decision={decision} data={data} adapter={adapter} onUpdate={onUpdate} />}
                           <div className="context-toggles" role="group" aria-label="More about this decision">

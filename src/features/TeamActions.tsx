@@ -103,6 +103,10 @@ export function NextAction({ data, decisionId, pendingSuggestion }: { data: Snap
     <span className="ack">{task.state === 'accepted' ? 'Acknowledged' : 'Not acknowledged yet'}</span>
   </p>;
   const decision = data.decisions.find(d => d.id === decisionId);
+  const contradicted = !!decisionId && ['conflict', 'urgent'].includes(verificationVerdict(data, decisionId)?.outcome ?? '');
+  if (decision && decision.state !== 'closed' && contradicted) {
+    return <p className="next-action waiting" role="status"><strong>Next action</strong><span>The verification findings contradict this plan. A Tier 2 or Tier 3 replaces it (Review the decision → Replace the plan).</span></p>;
+  }
   if (decision?.state === 'needs_review') {
     const done = data.tasks.some(t => t.decisionId === decisionId && t.state === 'resolved');
     // What Nora (Nemotron) concluded about the newest verification findings for this decision.
