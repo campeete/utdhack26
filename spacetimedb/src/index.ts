@@ -1516,7 +1516,7 @@ export const dismiss_suggestion = spacetimedb.reducer(
       version: s.version + 1,
     });
     logActivity(ctx, s.incident_id, 'suggestion_dismissed', 'suggestion', s.id,
-      text ? `Dismissed with feedback; Nora reassessment requested. ${text}` : 'Dismissed without feedback.',
+      text ? `Dismissed with feedback; Nora (Nemotron) reassessment requested. ${text}` : 'Dismissed without feedback.',
       'PROPOSAL_DISMISSED', { feedback: text.length > 0 });
     if (text) logActivity(ctx, s.incident_id, 'reassessment_requested', 'suggestion', s.id, `Request ${key}`, 'ANALYSIS_REQUESTED');
   }
@@ -1554,19 +1554,19 @@ export const complete_reassessment = spacetimedb.reducer(
     let result = parseReassessmentResult(result_json);
     const ev = ctx.db.evidence.id.find(s.evidence_id);
     if (result.kind === 'revision' && !ev?.content_text.includes(result.excerpt)) {
-      result = { kind: 'error', message: 'Nora quoted text that is not in the evidence, so the revision was rejected.' };
+      result = { kind: 'error', message: 'Nora (Nemotron) quoted text that is not in the evidence, so the revision was rejected.' };
     }
     const done = { completed_at: ctx.timestamp };
     if (result.kind === 'error') {
       ctx.db.reassessment_request.id.update({ ...req, ...done, state: 'failed', error: result.message });
       ctx.db.suggestion.id.update({ ...s, reassess_state: 'failed', reassess_error: result.message, version: s.version + 1 });
-      logActivity(ctx, s.incident_id, 'reassessment_failed', 'suggestion', s.id, 'Nora reassessment failed. The dismissal stands.', 'ANALYSIS_FINISHED', { outcome: 'failed' });
+      logActivity(ctx, s.incident_id, 'reassessment_failed', 'suggestion', s.id, 'Nora (Nemotron) reassessment failed. The dismissal stands.', 'ANALYSIS_FINISHED', { outcome: 'failed' });
       return;
     }
     if (result.kind === 'no_further_review') {
       ctx.db.reassessment_request.id.update({ ...req, ...done, state: 'no_further_review' });
       ctx.db.suggestion.id.update({ ...s, reassess_state: 'no_further_review', reassess_note: result.note, version: s.version + 1 });
-      logActivity(ctx, s.incident_id, 'reassessment_finished', 'suggestion', s.id, 'Nora reassessed: no further review suggested.', 'ANALYSIS_FINISHED', { outcome: 'no_further_review' });
+      logActivity(ctx, s.incident_id, 'reassessment_finished', 'suggestion', s.id, 'Nora (Nemotron) reassessed: no further review suggested.', 'ANALYSIS_FINISHED', { outcome: 'no_further_review' });
       return;
     }
     const revision = insertSuggestion(ctx, {
@@ -1576,7 +1576,7 @@ export const complete_reassessment = spacetimedb.reducer(
     });
     ctx.db.reassessment_request.id.update({ ...req, ...done, state: 'revised' });
     ctx.db.suggestion.id.update({ ...s, reassess_state: 'revised', revision_id: revision.id, version: s.version + 1 });
-    logActivity(ctx, s.incident_id, 'reassessment_finished', 'suggestion', s.id, `Nora proposed revised suggestion ${revision.id} for human review.`, 'ANALYSIS_FINISHED', { outcome: 'revised' });
+    logActivity(ctx, s.incident_id, 'reassessment_finished', 'suggestion', s.id, `Nora (Nemotron) proposed revised suggestion ${revision.id} for human review.`, 'ANALYSIS_FINISHED', { outcome: 'revised' });
     logActivity(ctx, s.incident_id, 'suggestion_stored', 'suggestion', revision.id, `Revision of suggestion ${s.id}`, 'PROPOSAL_STORED', { origin: 'nora' });
   }
 );
@@ -1796,7 +1796,7 @@ export const delete_nora_memory = spacetimedb.reducer(
     if (!m) fail('Memory not found');
     requireTier(ctx, m.incident_id, 3);
     ctx.db.nora_memory.id.delete(memory_id);
-    logActivity(ctx, m.incident_id, 'memory_deleted', 'nora_memory', m.id, `Deleted Nora's memory of finding ${m.finding_id}`, 'MEMORY_DELETED');
+    logActivity(ctx, m.incident_id, 'memory_deleted', 'nora_memory', m.id, `Deleted Nora (Nemotron)'s memory of finding ${m.finding_id}`, 'MEMORY_DELETED');
   }
 );
 

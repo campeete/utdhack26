@@ -42,7 +42,7 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
     setTimeout(() => {
       reassess(request)
         .then(raw => raw, (e: Error) => ({ kind: 'error', message: e.message }))
-        .then(raw => { data = recordReassessment(data, proposalId, request.requestId, raw, 'Nora (synthetic)', new Date().toISOString(), 'synthetic'); publish(); });
+        .then(raw => { data = recordReassessment(data, proposalId, request.requestId, raw, 'Nora (Nemotron, synthetic stand-in)', new Date().toISOString(), 'synthetic'); publish(); });
     }, delayMs);
   }
   return {

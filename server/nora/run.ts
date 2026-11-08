@@ -12,7 +12,7 @@ import { NoraWatcher } from './watcher.ts';
 
 try { process.loadEnvFile('.env'); } catch { /* no .env file: use the shell environment */ }
 
-const log = (msg: string) => console.log(`${new Date().toLocaleTimeString()}  Nora  ${msg}`);
+const log = (msg: string) => console.log(`${new Date().toLocaleTimeString()}  Nora (Nemotron)  ${msg}`);
 
 const brain = createBrain();
 const enrich = enrichConfigFromEnv();
@@ -24,7 +24,7 @@ log(`Connecting to ${spacetime.uri}, database ${spacetime.dbName}...`);
 
 const { store, identity, disconnect } = await connectNora(spacetime, log);
 const hex = identity.toHexString();
-log(`Signed in as Nora: ${hex}`);
+log(`Signed in as Nora (Nemotron): ${hex}`);
 
 if (store.accounts().length === 0) {
   log('Nora sees no accounts yet. Either the demo is not loaded, or this identity is not registered as Nora.');

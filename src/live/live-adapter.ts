@@ -130,7 +130,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     const name = (who: Identity | undefined) => {
       if (!who) return '';
       const hex = who.toHexString();
-      if (nora.has(hex)) return 'Nora';
+      if (nora.has(hex)) return 'Nora (Nemotron)';
       return profiles.get(hex) ?? `Responder ${hex.slice(0, 6)}`;
     };
 
@@ -212,7 +212,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
         detail = typeof meta.detail === 'string' ? meta.detail : Object.entries(meta).map(([k, v]) => `${k}: ${v}`).join(', ');
       } catch { /* leave empty */ }
       return {
-        seq: Number(r.seq), at: iso(r.serverTs), actor: r.actorKind === 'service' ? 'Nora' : name(r.actor), actorKind: r.actorKind as AuditEntry['actorKind'],
+        seq: Number(r.seq), at: iso(r.serverTs), actor: r.actorKind === 'service' ? 'Nora (Nemotron)' : name(r.actor), actorKind: r.actorKind as AuditEntry['actorKind'],
         action: r.action, entityType: r.entityType, entityId: r.entityId, detail, hash: r.hash, prevHash: r.prevHash,
       };
     }).reverse();

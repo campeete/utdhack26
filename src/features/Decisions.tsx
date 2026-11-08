@@ -24,7 +24,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   // The product's story in four stages; each count is a live number from the incident record.
   const stages = [
     { title: 'Evidence received', value: data.evidence.length, purpose: 'New reports, kept exactly as reported' },
-    { title: 'Reviews suggested', value: reviewCount, purpose: 'Nora flags decisions the evidence may affect' },
+    { title: 'Reviews suggested', value: reviewCount, purpose: 'Nora (Nemotron) flags decisions the evidence may affect' },
     { title: 'Decisions under review', value: needsReviewCount, purpose: 'A person confirms or dismisses each flag' },
     { title: 'Verifications open', value: openTasks, purpose: 'A named owner independently checks the facts' },
   ];
@@ -50,7 +50,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   }
   return <>
     <div className="workspace-overview">
-      <div className="workspace-heading"><div><h1>Incident review</h1><p>When new evidence arrives, Nora flags the decisions it may affect. A person reviews each flag, then an owner independently verifies the facts.</p></div></div>
+      <div className="workspace-heading"><div><h1>Incident review</h1><p>When new evidence arrives, Nora (Nemotron) flags the decisions it may affect. A person reviews each flag, then an owner independently verifies the facts.</p></div></div>
       <ol className="stage-strip" aria-label="How a review moves from evidence to verification">
         {stages.map((stage, i) => <li key={stage.title} className={`stage ${i === activeStage ? 'current' : ''}`} aria-current={i === activeStage ? 'step' : undefined}>
           <span className="stage-number" aria-hidden="true">{i + 1}</span>

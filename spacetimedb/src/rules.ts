@@ -40,9 +40,9 @@ const text = (value: unknown, max: number) =>
 export function parseReassessmentResult(raw: unknown): ReassessmentResult {
   let value: unknown = raw;
   if (typeof raw === 'string') {
-    try { value = JSON.parse(raw); } catch { return { kind: 'error', message: 'Nora returned an unreadable result.' }; }
+    try { value = JSON.parse(raw); } catch { return { kind: 'error', message: 'Nora (Nemotron) returned an unreadable result.' }; }
   }
-  if (!value || typeof value !== 'object') return { kind: 'error', message: 'Nora returned an unreadable result.' };
+  if (!value || typeof value !== 'object') return { kind: 'error', message: 'Nora (Nemotron) returned an unreadable result.' };
   const r = value as Record<string, unknown>;
   if (r.kind === 'no_further_review') return { kind: 'no_further_review', note: text(r.note, EXPLANATION_MAX) ?? '' };
   if (r.kind === 'error') return { kind: 'error', message: text(r.message, 300) ?? 'Reassessment failed.' };
@@ -52,7 +52,7 @@ export function parseReassessmentResult(raw: unknown): ReassessmentResult {
     const verification = text(r.verification, VERIFICATION_MAX);
     if (excerpt && explanation && verification) return { kind: 'revision', excerpt, explanation, verification };
   }
-  return { kind: 'error', message: 'Nora returned a result in an unexpected format.' };
+  return { kind: 'error', message: 'Nora (Nemotron) returned a result in an unexpected format.' };
 }
 
 // ---------- Northstar side ----------
