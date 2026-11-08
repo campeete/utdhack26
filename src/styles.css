@@ -1308,3 +1308,5 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 .prepared { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
 .save-finding { font-size: 12px; margin-top: 4px; }
 .flag-assign { border-top: 0; padding-top: 0; margin: 10px 0; }
+.format-notes { margin-bottom: 8px; }
+.format-step { margin: 6px 0; font-size: 12.5px; }

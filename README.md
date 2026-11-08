@@ -129,7 +129,7 @@ Setup, once: open two windows, `?data=live&as=commander&name=Morgan` and `?data=
 
 | # | Live action | What judges see |
 |---|---|---|
-| 1 | **Analyst**: Add finding → Prepared report "Sunday admin access" → Submit & analyze | The human report appears in both windows |
+| 1 | **Analyst**: Add finding → prepared notes "Sunday admin access" → Format with Nora (Nemotron) → review → Submit & analyze | Nora tidies the rough notes (adding nothing that is not in them); the human report appears in both windows |
 | 2 | Nora (Nemotron) investigates in the background (a few seconds) | An AI suggestion on "Restore the customer portal from Monday's backup", quoting the report, and her note in that issue's discussion |
 | 3 | **Commander**: Review the decision → Flag & assign → Sam | The decision becomes Needs review; Next action: Sam, not acknowledged yet |
 | 4 | **Analyst**: Acknowledge, replying "Checking the backup against the revised timeline." | The commander sees "Acknowledged" and the reply live |

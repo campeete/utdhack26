@@ -102,6 +102,11 @@ export function NextAction({ data, decisionId, pendingSuggestion }: { data: Snap
     <strong>Next action</strong><span>{task.owner}: {task.title}</span>
     <span className="ack">{task.state === 'accepted' ? 'Acknowledged' : 'Not acknowledged yet'}</span>
   </p>;
+  const decision = data.decisions.find(d => d.id === decisionId);
+  if (decision?.state === 'needs_review') {
+    const done = data.tasks.some(t => t.decisionId === decisionId && t.state === 'resolved');
+    return <p className="next-action waiting" role="status"><strong>Next action</strong><span>{done ? 'Verification is done. A Tier 2 or Tier 3 re-approves the decision (Review the decision), or resolves the issue.' : 'A Tier 2 or Tier 3 assigns verification (Review the decision).'}</span></p>;
+  }
   if (pendingSuggestion) return <p className="next-action waiting" role="status"><strong>Next action</strong><span>A Tier 2 reviews Nora (Nemotron)'s suggestion: flag & assign, or dismiss.</span></p>;
   return null;
 }
@@ -125,9 +130,16 @@ export function FlagAndAssign({ proposalId, data, adapter, onUpdate }: { proposa
 }
 
 /** The assignee's findings: saved as evidence that Nora (Nemotron) checks against the decision. */
+const SUGGESTED_FINDINGS = [
+  { label: 'Backup is clean', text: 'Backup job logs show the Monday backup finished at 01:40, before the 03:12 session, and a test restore came up clean.' },
+  { label: 'Backup is compromised', text: 'Backup job logs show the Monday backup started at 04:05, after the 03:12 session, and it contains the attacker\'s new admin account.' },
+];
 function FindingsForm({ onSubmit, busy }: { onSubmit: (findings: string) => Promise<boolean>; busy: boolean }) {
   const [findings, setFindings] = useState('');
   return <form className="assign-form" onSubmit={async e => { e.preventDefault(); if (await onSubmit(findings.trim())) setFindings(''); }}>
+    <div className="prepared" role="group" aria-label="Suggested findings"><span className="muted">Example findings:</span>
+      {SUGGESTED_FINDINGS.map(f => <button key={f.label} type="button" className="secondary" disabled={busy} onClick={() => setFindings(f.text)}>{f.label}</button>)}
+    </div>
     <label>What you found <textarea rows={3} maxLength={50000} value={findings} onChange={e => setFindings(e.target.value)} disabled={busy}
       placeholder="Backup job logs show the Monday backup finished at 01:40, before the 03:12 session." /></label>
     <button className="primary" disabled={busy || !findings.trim()}>{busy ? 'Submitting…' : 'Submit findings'}<Check size={14} /></button>
@@ -137,9 +149,9 @@ function FindingsForm({ onSubmit, busy }: { onSubmit: (findings: string) => Prom
 
 /** Synthetic reports for the demo: one that conflicts with the plan, one urgent, one unrelated. */
 export const PREPARED_REPORTS = [
-  { label: 'Sunday admin access', title: 'Admin session from unknown host on Sunday', source: 'Firewall logs', text: 'Firewall logs show an admin session from an unknown host at 03:12 on Sunday. The Monday backup ran after that session.' },
-  { label: 'Files encrypting now', title: 'Ransom note on the file server', source: 'Helpdesk call', text: 'A ransom note was found on file server FS-02 at 06:40 Monday. Files on the finance share are being renamed with .lock right now, so encryption appears to be ongoing.' },
-  { label: 'Printer outage', title: 'Printer outage on floor 3', source: 'Facilities ticket', text: 'The floor 3 printer has been offline since Saturday because of a failed toner sensor. Facilities replaced it this morning.' },
+  { label: 'Sunday admin access', notes: 'firewall logs - admin session from unknown host at 03:12 sunday. monday backup ran AFTER that session' },
+  { label: 'Files encrypting now', notes: 'helpdesk call: ransom note on file server FS-02 at 06:40 monday, finance share files getting renamed .lock right now, encryption looks ongoing' },
+  { label: 'Printer outage', notes: 'facilities ticket - floor 3 printer offline since saturday, bad toner sensor, replaced this morning' },
 ];
 
 export function AddEvidence({ adapter, onUpdate, onDone }: { adapter: IncidentData; onUpdate: (next: Snapshot) => void; onDone?: () => void }) {
@@ -147,10 +159,32 @@ export function AddEvidence({ adapter, onUpdate, onDone }: { adapter: IncidentDa
   const [source, setSource] = useState('');
   const [text, setText] = useState('');
   const [run, busy, error] = useRun(onUpdate);
+  const [notes, setNotes] = useState('');
+  const [formatting, setFormatting] = useState(false);
+  const [formatError, setFormatError] = useState('');
+  const [formatted, setFormatted] = useState(false);
+  async function formatWithNora() {
+    setFormatting(true); setFormatError(''); setFormatted(false);
+    try {
+      const res = await fetch('/api/nora/format', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notes }) });
+      const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as { title?: string; source?: string; text?: string; error?: string };
+      if (!res.ok || !body.title) throw new Error(body.error ?? 'Nora (Nemotron) could not format these notes.');
+      setTitle(body.title); setSource(body.source ?? ''); setText(body.text ?? ''); setFormatted(true);
+    } catch (e) { setFormatError((e as Error).message); }
+    finally { setFormatting(false); }
+  }
   return <Panel icon={<FilePlus2 size={18} aria-hidden="true" />} title="Add finding" hint="A human report. Nora (Nemotron) analyzes it against every open decision as soon as you submit.">
     <div className="prepared" role="group" aria-label="Prepared reports"><span className="muted">Prepared reports:</span>
-      {PREPARED_REPORTS.map(r => <button key={r.label} type="button" className="secondary" onClick={() => { setTitle(r.title); setSource(r.source); setText(r.text); }}>{r.label}</button>)}
+      {PREPARED_REPORTS.map(r => <button key={r.label} type="button" className="secondary" onClick={() => { setNotes(r.notes); setTitle(''); setSource(''); setText(''); setFormatted(false); }}>{r.label}</button>)}
     </div>
+    <div className="team-form format-notes">
+      <label>1. Your notes, as rough as you like <textarea rows={3} maxLength={8000} value={notes} onChange={e => setNotes(e.target.value)} disabled={formatting} placeholder="fw logs: admin login from unknown host 03:12 sunday, monday backup ran after" /></label>
+      <button type="button" className="secondary" disabled={formatting || notes.trim().length < 10} onClick={() => void formatWithNora()}>{formatting ? 'Nora (Nemotron) is formatting…' : 'Format with Nora (Nemotron)'}</button>
+      {formatted && <p className="muted"><span className="kind-tag ai">AI draft</span> Check it below and edit anything before you submit. Nora keeps only what your notes say.</p>}
+      {formatError && <><p role="alert" className="error">{formatError}</p>
+        <button type="button" className="text-button" onClick={() => { const n = notes.trim(); setTitle(n.length > 80 ? `${n.slice(0, 77)}…` : n); setSource('Responder notes'); setText(n); setFormatError(''); }}>Use my notes as they are</button></>}
+    </div>
+    <p className="muted format-step">2. Review and submit{formatted ? '' : ' (or fill these in yourself)'}</p>
     <form className="team-form" onSubmit={async e => { e.preventDefault(); if (await run(() => adapter.addEvidence({ title, source, text }))) { setTitle(''); setSource(''); setText(''); onDone?.(); } }}>
       <label>Title <input value={title} onChange={e => setTitle(e.target.value)} maxLength={200} required placeholder="Suspicious access on Sunday" /></label>
       <label>Source <input value={source} onChange={e => setSource(e.target.value)} maxLength={64} placeholder="Firewall logs" /></label>
