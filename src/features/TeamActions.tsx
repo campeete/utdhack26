@@ -130,6 +130,7 @@ export function TeamAccess({ data, adapter, onUpdate }: { data: Snapshot; adapte
   const canManage = tierOf(adapter.identity?.roles ?? []) >= 3;
   const myId = adapter.identityHex;
   return <div className="team-access">
+    {canManage && adapter.mode === 'live' && <InviteLink data={data} adapter={adapter} onUpdate={onUpdate} />}
     {myId && <div className="my-id"><span className="muted">Your ID (share it with a Tier 3 to be admitted elsewhere)</span>
       <code>{myId}</code>
       <button type="button" className="secondary" onClick={() => { void navigator.clipboard?.writeText(myId).then(() => setCopied(true), () => {}); }}>{copied ? 'Copied' : 'Copy'}</button>
@@ -155,4 +156,37 @@ export function TeamAccess({ data, adapter, onUpdate }: { data: Snapshot; adapte
       : <p className="muted">Only Tier 3 can add, re-tier or remove people.</p>}
     {error && <p role="alert" className="error">{error}</p>}
   </div>;
+}
+
+function newCode() {
+  const abc = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  return Array.from(crypto.getRandomValues(new Uint8Array(12)), b => abc[b % abc.length]).join('');
+}
+
+/** Tier 3: one link teammates open to join. No IDs to copy. */
+function InviteLink({ data, adapter, onUpdate }: { data: Snapshot; adapter: IncidentData; onUpdate: (next: Snapshot) => void }) {
+  const [run, busy, error] = useRun(onUpdate);
+  const [tier, setTier] = useState<'tier1' | 'tier2'>('tier1');
+  const [copied, setCopied] = useState(false);
+  const invite = data.invite;
+  const link = invite ? `${location.origin}/?data=live&join=${invite.code}` : '';
+  return <section className="invite-link" aria-label="Invite link">
+    <h3><UserPlus size={16} aria-hidden="true" />Invite link</h3>
+    {invite ? <>
+      <p className="muted">Anyone who opens this joins as {roleLabel(invite.tier)}. They only type their name.</p>
+      <div className="my-id"><code>{link}</code>
+        <button type="button" className="secondary" onClick={() => { void navigator.clipboard?.writeText(link).then(() => setCopied(true), () => {}); }}>{copied ? 'Copied' : 'Copy link'}</button>
+      </div>
+      <div className="action-row compact">
+        <button type="button" className="secondary" disabled={busy} onClick={() => { setCopied(false); void run(() => adapter.setInvite(newCode(), invite.tier as 'tier1' | 'tier2')); }}>New link</button>
+        <button type="button" className="secondary" disabled={busy} onClick={() => run(() => adapter.setInvite('', 'tier1'))}>Turn off</button>
+      </div>
+    </> : <div className="action-row compact">
+      <select aria-label="Tier for people who join" value={tier} onChange={e => setTier(e.target.value as 'tier1' | 'tier2')}>
+        <option value="tier1">Join as Tier 1 · Triage</option><option value="tier2">Join as Tier 2 · Containment</option>
+      </select>
+      <button type="button" className="primary" disabled={busy} onClick={() => run(() => adapter.setInvite(newCode(), tier))}>Create invite link</button>
+    </div>}
+    {error && <p role="alert" className="error">{error}</p>}
+  </section>;
 }

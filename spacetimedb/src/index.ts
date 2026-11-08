@@ -483,6 +483,19 @@ const message_decision = table(
   }
 );
 
+// An invite link for one incident: anyone with the code joins at the stated tier.
+// Only a Tier 3 can create, see or turn it off; removed people cannot rejoin with it.
+const join_code = table(
+  {},
+  {
+    incident_id: t.u64().primaryKey(),
+    code: t.string(),
+    tier: t.string(),
+    created_by: t.identity(),
+    created_at: t.timestamp(),
+  }
+);
+
 const spacetimedb = schema({
   platform_admin,
   user_profile,
@@ -509,6 +522,7 @@ const spacetimedb = schema({
   suggestion_target,
   evidence_review,
   message_decision,
+  join_code,
   audit_event: auditEvent,
   audit_head: auditHead,
 });
@@ -729,6 +743,64 @@ export const admit_member = spacetimedb.reducer(
     });
     logActivity(ctx, incident_id, 'member_admitted', 'membership', row.id,
       `${user.toHexString().slice(0, 12)} as ${validated.join(',')}`);
+  }
+);
+
+const JOIN_CODE = /^[A-Za-z0-9]{8,64}$/;
+
+/** Tier 3: create or replace the incident's invite code. An empty code turns invites off. */
+export const set_join_code = spacetimedb.reducer(
+  { incident_id: t.u64(), code: t.string(), tier: t.string() },
+  (ctx, { incident_id, code, tier }) => {
+    requireTier(ctx, incident_id, 3);
+    requireIncident(ctx, incident_id);
+    const existing = ctx.db.join_code.incident_id.find(incident_id);
+    if (code === '') {
+      if (existing) ctx.db.join_code.incident_id.delete(incident_id);
+      logActivity(ctx, incident_id, 'invite_disabled', 'incident', incident_id, 'Invite link turned off', 'INCIDENT_UPDATED');
+      return;
+    }
+    if (!JOIN_CODE.test(code)) fail('Invite code must be 8-64 letters or digits');
+    const [role] = validateRoles([tier]);
+    if (role === 'tier3') fail('Invite links admit Tier 1 or Tier 2; promote people to Tier 3 by hand');
+    for (const other of ctx.db.join_code.iter()) {
+      if (other.code === code && other.incident_id !== incident_id) fail('Choose a different invite code');
+    }
+    const row = { incident_id, code, tier: role, created_by: ctx.sender, created_at: ctx.timestamp };
+    if (existing) ctx.db.join_code.incident_id.update(row); else ctx.db.join_code.insert(row);
+    logActivity(ctx, incident_id, 'invite_created', 'incident', incident_id, `Invite link for ${role}`, 'INCIDENT_UPDATED');
+  }
+);
+
+/** Anyone with a valid invite code joins that incident at the invite's tier. */
+export const join_with_code = spacetimedb.reducer(
+  { code: t.string() },
+  (ctx, { code }) => {
+    if (!JOIN_CODE.test(code)) fail('That invite link is not valid');
+    let invite;
+    for (const row of ctx.db.join_code.iter()) if (row.code === code) invite = row;
+    if (!invite) fail('That invite link is not valid or was turned off');
+    const incident_id = invite.incident_id;
+    let wasRemoved = false;
+    for (const m of ctx.db.membership.user.filter(ctx.sender)) {
+      if (m.incident_id !== incident_id) continue;
+      if (m.active) return; // already in
+      wasRemoved = true;
+    }
+    if (wasRemoved) fail('You were removed from this incident. Ask a Tier 3 to admit you again.');
+    const row = ctx.db.membership.insert({
+      id: 0n,
+      incident_id,
+      user: ctx.sender,
+      roles: [invite.tier],
+      active: true,
+      admitted_by: invite.created_by,
+      admitted_at: ctx.timestamp,
+      revoked_by: undefined,
+      revoked_at: undefined,
+    });
+    logActivity(ctx, incident_id, 'member_admitted', 'membership', row.id,
+      `${ctx.sender.toHexString().slice(0, 12)} as ${invite.tier} via invite link`);
   }
 );
 
@@ -2162,6 +2234,24 @@ export const incident_sms = spacetimedb.view(
 
 export const incident_evidence_reviews = spacetimedb.view(
   { name: 'incident_evidence_reviews', public: true }, t.array(evidence_review.rowType), ctx => perIncident(ctx, 'evidence_review'));
+/** The invite code, visible only to the incident's Tier 3 members. */
+export const incident_join_codes = spacetimedb.view(
+  { name: 'incident_join_codes', public: true },
+  t.array(join_code.rowType),
+  ctx => {
+    const out = [];
+    for (const id of myIncidentIds(ctx)) {
+      let top = 0;
+      for (const m of ctx.db.membership.user.filter(ctx.sender)) {
+        if (m.incident_id === id && m.active) top = Math.max(top, tierOf(m.roles));
+      }
+      if (top < 3) continue;
+      const row = ctx.db.join_code.incident_id.find(id);
+      if (row) out.push(row);
+    }
+    return out;
+  }
+);
 export const incident_message_decisions = spacetimedb.view(
   { name: 'incident_message_decisions', public: true }, t.array(message_decision.rowType), ctx => perIncident(ctx, 'message_decision'));
 export const incident_suggestion_targets = spacetimedb.view(

@@ -94,6 +94,8 @@ export interface Snapshot {
   audit?: AuditLog;
   /** Nora (Nemotron)'s evidence reviews (live mode). */
   evidenceReviews?: EvidenceReview[];
+  /** Live, Tier 3 only: the incident's current invite link code. */
+  invite?: { code: string; tier: Role };
 }
 export interface Impact { decisionIds: string[]; briefingIds: string[] }
 export type DataState = 'loading' | 'ready' | 'denied' | 'revoked' | 'disconnected' | 'error';

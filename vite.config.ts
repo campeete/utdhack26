@@ -9,6 +9,7 @@ const spacetime = { '/v1': { target: process.env.SPACETIME_HTTP ?? 'http://127.0
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  server: { proxy: spacetime },
-  preview: { proxy: spacetime },
+  // allowedHosts: a tunnel (cloudflared, ngrok) can serve the dashboard to teammates on any network.
+  server: { proxy: spacetime, allowedHosts: true },
+  preview: { proxy: spacetime, allowedHosts: true },
 });

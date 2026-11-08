@@ -22,6 +22,8 @@ export interface IncidentData {
   /** Pushes snapshots that change without a local action, such as a finished reassessment. */
   subscribe(listener: (data: Snapshot) => void): () => void;
   /** Posts to one discussion: an issue (decisionId) or, for unlinked reports, an evidence item. */
+  /** Tier 3: create (or with '' turn off) the invite link code. */
+  setInvite(code: string, tier: 'tier1' | 'tier2'): Promise<Snapshot>;
   sendMessage(evidenceId: string, recipientId: string, text: string, decisionId?: string): Promise<Snapshot>;
   /** Runs the finding's proposed action. Tier 2 and up. */
   approveFinding(findingId: string): Promise<Snapshot>;

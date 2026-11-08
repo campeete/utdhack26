@@ -523,6 +523,27 @@ describe('Change 1: direct messages', () => {
   });
 });
 
+describe('invite links', () => {
+  it('a Tier 3 creates a code; anyone with it joins at its tier; removed people cannot rejoin', () => {
+    denied(() => as('cmd', c => mod.set_join_code(c, { incident_id: inc, code: 'Abc12345xyz', tier: 'tier1' })), /Access denied|Tier 3|tier/i);
+    denied(() => as('forensics', c => mod.set_join_code(c, { incident_id: inc, code: 'Abc12345xyz', tier: 'tier3' })), /Tier 1 or Tier 2/);
+    as('forensics', c => mod.set_join_code(c, { incident_id: inc, code: 'Abc12345xyz', tier: 'tier1' }));
+    expect(view('forensics', mod.incident_join_codes).length).toBe(1);
+    expect(view('analyst', mod.incident_join_codes).length).toBe(0);
+    denied(() => as('outsider', c => mod.join_with_code(c, { code: 'wrongcode1' })), /not valid/);
+    as('outsider', c => mod.join_with_code(c, { code: 'Abc12345xyz' }));
+    as('outsider', c => mod.join_with_code(c, { code: 'Abc12345xyz' }));
+    const mine = rows('membership').filter((m: any) => m.user.isEqual(id.outsider) && m.incident_id === inc);
+    expect(mine.length).toBe(1);
+    expect(mine[0].roles).toEqual(['tier1']);
+    as('outsider', c => mod.add_message(c, { incident_id: inc, text: 'Joined by link', client_request_id: undefined, recipient: undefined, evidence_id: undefined }));
+    as('forensics', c => mod.revoke_member(c, { incident_id: inc, user: id.outsider }));
+    denied(() => as('outsider', c => mod.join_with_code(c, { code: 'Abc12345xyz' })), /removed/);
+    as('forensics', c => mod.set_join_code(c, { incident_id: inc, code: '', tier: 'tier1' }));
+    expect(view('forensics', mod.incident_join_codes).length).toBe(0);
+  });
+});
+
 describe('each issue has its own discussion', () => {
   it('a message posted on a decision is linked to it, and only members can post', () => {
     as('cmd', c => mod.draft_decision(c, { incident_id: inc, title: 'Restore from Monday backup', assumption: "Monday's backup predates the intrusion", evidence_ids: [] }));

@@ -149,6 +149,7 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
       data = { ...data, findings: (data.findings ?? []).map(f => f.id === id && f.state === 'auto_fixed' ? { ...f, state: 'undone' as const, decidedBy: actor, decidedAt: new Date().toISOString(), version: f.version + 1 } : f) };
       return copy();
     },
+    async setInvite() { throw new Error('Invite links work in live mode (?data=live).'); },
     async sendMessage(evidenceId, recipientId, text, decisionId) {
       if (!text.trim() || text.length > 2000) throw new Error('Use 1–2,000 characters.');
       if (decisionId && !data.decisions.some(d => d.id === decisionId)) throw new Error('That decision no longer exists.');

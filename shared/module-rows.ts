@@ -300,6 +300,14 @@ export const MessageDecisionRow = __t.row({
   decisionId: __t.u64().name('decision_id'),
 });
 
+export const JoinCodeRow = __t.row({
+  incidentId: __t.u64().primaryKey().name('incident_id'),
+  code: __t.string(),
+  tier: __t.string(),
+  createdBy: __t.identity().name('created_by'),
+  createdAt: __t.timestamp().name('created_at'),
+});
+
 export const EvidenceReviewRow = __t.row({
   evidenceId: __t.u64().primaryKey().name('evidence_id'),
   incidentId: __t.u64().name('incident_id'),
@@ -336,6 +344,7 @@ export const MODULE_ROWS = {
   suggestion_target: SuggestionTargetRow,
   evidence_review: EvidenceReviewRow,
   message_decision: MessageDecisionRow,
+  join_code: JoinCodeRow,
 } as const;
 
 export type IncidentRecord = __Infer<typeof IncidentRow>;

@@ -20,6 +20,8 @@ export interface LiveConfig {
   /** Open this incident; otherwise the newest one this browser can see. */
   incidentId?: string;
   freshIdentity?: boolean;
+  /** Invite link code (?join=…): joins the incident it belongs to. */
+  joinCode?: string;
   /** Sets this browser's display name once connected (?name=Cameron). */
   displayName?: string;
   /**
@@ -117,7 +119,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     const wanted = config.incidentId ? incidents.find(i => i.id.toString() === config.incidentId) : incidents.sort((a, b) => (a.id < b.id ? 1 : -1))[0];
     if (!wanted) {
       const hex = me?.toHexString() ?? 'unknown';
-      throw new Error(`This browser is not a member of ${config.incidentId ? `incident ${config.incidentId}` : 'any incident'} yet. Ask the platform admin to run: npm run demo:admit -- --user ${hex} --tier tier3   Then press Try again.`);
+      throw new Error(`This browser is not a member of ${config.incidentId ? `incident ${config.incidentId}` : 'any incident'} yet. Open the invite link a Tier 3 shared (Administration → Invite link), or have them admit this ID: ${hex}`);
     }
     return wanted;
   }
@@ -199,6 +201,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       }),
       findings,
       audit: auditLog(inc.toString(), name),
+      ...(() => { const j = mine(d.incidentJoinCodes.iter())[0]; return j ? { invite: { code: j.code, tier: j.tier as 'tier1' | 'tier2' } } : {}; })(),
       evidenceReviews: mine(d.incidentEvidenceReviews.iter()).map(r => ({
         evidenceId: ids.evidence(r.evidenceId), outcome: r.outcome as 'no_impact' | 'supports' | 'conflict' | 'urgent' | 'failed',
         ...(r.decisionId !== undefined ? { decisionId: ids.decision(r.decisionId) } : {}),
@@ -266,7 +269,16 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       } catch { /* not a member yet */ }
       return { name: label, roles, authenticated: true };
     },
-    async load() { await connect(); return build(); },
+    async load() {
+      await connect();
+      // Invite link: join once, then wait for the membership to arrive through the views.
+      if (config.joinCode && ![...db().myIncidents.iter()].length) {
+        await conn!.reducers.joinWithCode({ code: config.joinCode });
+        for (let i = 0; i < 40 && ![...db().myIncidents.iter()].length; i++) await new Promise(r => setTimeout(r, 100));
+      }
+      return build();
+    },
+    setInvite: (code, tier) => act(() => conn!.reducers.setJoinCode({ incident_id: incidentId(), code, tier })),
     confirm: (proposalId, reason) => act(() => conn!.reducers.confirmSuggestion({ suggestion_id: parseId(proposalId, 'P'), reason })),
     dismiss: (proposalId, feedback) => act(() => conn!.reducers.dismissSuggestion({ suggestion_id: parseId(proposalId, 'P'), feedback })),
     retryReassessment: proposalId => act(() => conn!.reducers.retryReassessment({ suggestion_id: parseId(proposalId, 'P') })),

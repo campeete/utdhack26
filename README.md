@@ -108,7 +108,7 @@ Open `http://127.0.0.1:5173/?data=live&as=lead&name=Alex`. The page shows this b
 npm run demo:admit -- --user <the 64-character ID> --tier tier3
 ```
 
-After that, admit everyone else from **Administration** in the app. Each `?as=` name in the same browser is a separate person (for example `?as=analyst&name=Sam`), with its own saved login.
+After that, open **Administration → Create invite link** and send teammates the link: they type their name and they are in. Teammates on another network: run `npm run share` and replace the start of the link with the `https://….trycloudflare.com` address it prints. Each `?as=` name in the same browser is a separate person (for example `?as=analyst&name=Sam`), with its own saved login.
 
 Without a backend, `npm run dev` and `http://127.0.0.1:5173/` show the same screens with sample data.
 

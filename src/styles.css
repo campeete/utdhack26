@@ -1279,3 +1279,8 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 .decision-actions { margin: 12px 0; }
 .decision-actions .assign-form { margin-top: 10px; }
 .decision-tasks .team-list { margin: 0; }
+.invite-link { border: 1px solid var(--accent); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; display: grid; gap: 8px; }
+.invite-link h3 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.invite-link code { word-break: break-all; }
+.join-gate form { display: grid; gap: 8px; max-width: 320px; margin-top: 12px; }
+.join-gate input { padding: 8px 10px; border: 1px solid var(--rule); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
