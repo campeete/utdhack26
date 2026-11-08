@@ -15,27 +15,27 @@ import { ctxFor, eventsOf, headOf, ident, makeDb } from '../tests/audit/fake_ctx
 /** Same incident, cast, record ids and times as the frontend fixture (src/data/fixtures.ts). */
 export function buildDemo(incident = 'northstar') {
   const store = makeDb();
-  const jamie = ident('a1'), alex = ident('c1'), morgan = ident('b1'), sam = ident('d1'), agent = ident('e1');
+  const morgan = ident('b1'), sam = ident('d1'), agent = ident('e1');
   let t = 1794074400000000n; // 2026-11-07T18:00:00Z, response room opened
-  const step = (who: typeof jamie, input: Omit<AppendInput, 'incidentId'>, mins = 3, skewSec = 0) => {
+  const step = (who: typeof morgan, input: Omit<AppendInput, 'incidentId'>, mins = 3, skewSec = 0) => {
     t += BigInt(mins) * 60_000_000n;
     const clientTs = skewSec === 0 ? t : t + BigInt(skewSec) * 1_000_000n;
     return appendEvent(ctxFor(store, who, t), { incidentId: incident, clientTsMicros: clientTs, ...input });
   };
-  step(jamie, { action: 'INCIDENT_CREATED', entityType: 'incident', entityId: incident, metadata: { title: 'Northstar Retail', severity: 'high', synthetic: true } }, 0); // 18:00
-  step(jamie, { action: 'MEMBER_ADMITTED', entityType: 'identity', entityId: alex.toHexString(), metadata: { name: 'Alex Chen', role: 'commander' } });   // 18:03
-  step(jamie, { action: 'MEMBER_ADMITTED', entityType: 'identity', entityId: morgan.toHexString(), metadata: { name: 'Morgan Patel', role: 'analyst' } }, 2); // 18:05
-  step(jamie, { action: 'MEMBER_ADMITTED', entityType: 'identity', entityId: sam.toHexString(), metadata: { name: 'Sam Rivera', role: 'reviewer' } }, 2);   // 18:07
+  step(morgan, { action: 'INCIDENT_CREATED', entityType: 'incident', entityId: incident, metadata: { title: 'Northstar Retail', severity: 'high', synthetic: true } }, 0); // 18:00
+  step(morgan, { action: 'ROLE_CHANGED', entityType: 'identity', entityId: morgan.toHexString(), metadata: { name: 'Morgan Patel', roles: 'admin,commander,analyst' } }); // 18:03
+  step(morgan, { action: 'SERVICE_ACCOUNT_SET', entityType: 'service_account', entityId: agent.toHexString(), metadata: { name: 'Nora', kind: 'nora', enabled: true } }, 2); // 18:05
+  step(morgan, { action: 'MEMBER_ADMITTED', entityType: 'identity', entityId: sam.toHexString(), metadata: { name: 'Sam Rivera', role: 'reviewer' } }, 2);   // 18:07
   step(morgan, { action: 'SCOPE_ITEM_ADDED', entityType: 'scope_item', entityId: 'S-1', metadata: { system: 'Customer database', encryption: 'confirmed', exfiltration: 'unknown' } }, 5); // 18:12
-  step(alex, { action: 'SCOPE_ITEM_ADDED', entityType: 'scope_item', entityId: 'S-2', metadata: { system: 'Customer portal', encryption: 'suspected', exfiltration: 'unknown' } }, 2);       // 18:14
+  step(morgan, { action: 'SCOPE_ITEM_ADDED', entityType: 'scope_item', entityId: 'S-2', metadata: { system: 'Customer portal', encryption: 'suspected', exfiltration: 'unknown' } }, 2);       // 18:14
   step(morgan, { action: 'EVIDENCE_ADDED', entityType: 'evidence', entityId: 'E-002', metadata: { title: 'Backup validation report', source: 'source-backup' } });                         // 18:17
-  step(alex, { action: 'EVIDENCE_ADDED', entityType: 'evidence', entityId: 'E-003', metadata: { title: 'Independent recovery access', source: 'source-command' } }, 5);                   // 18:22
-  step(alex, { action: 'DECISION_CREATED', entityType: 'decision', entityId: 'D-001', metadata: { title: 'Restore customer portal', assumption: 'Monday backup predates the intrusion.', evidence: 'E-002' } }, 2); // 18:24
+  step(morgan, { action: 'EVIDENCE_ADDED', entityType: 'evidence', entityId: 'E-003', metadata: { title: 'Independent recovery access', source: 'source-command' } }, 5);                   // 18:22
+  step(morgan, { action: 'DECISION_CREATED', entityType: 'decision', entityId: 'D-001', metadata: { title: 'Restore customer portal', assumption: 'Monday backup predates the intrusion.', evidence: 'E-002' } }, 2); // 18:24
   step(morgan, { action: 'DECISION_APPROVED', entityType: 'decision', entityId: 'D-002', metadata: { version: 1 } }, 4);                                                                 // 18:28
   step(morgan, { action: 'EVIDENCE_ADDED', entityType: 'evidence', entityId: 'E-006', metadata: { title: 'Office printer outage', source: 'source-printer' } });                           // 18:31
   step(sam, { action: 'ACCESS_DENIED', entityType: 'decision', entityId: 'D-001', metadata: { attempted: 'DECISION_APPROVED', reason: 'reviewer role cannot approve' } }, 4, 540);      // 18:35, laptop clock 9 min fast
-  step(alex, { action: 'DECISION_APPROVED', entityType: 'decision', entityId: 'D-001', metadata: { version: 1, provisional: true } }, 7);                                                 // 18:42
-  step(alex, { action: 'BRIEFING_CREATED', entityType: 'briefing', entityId: 'B-001', metadata: { revision: 1 } }, 2);                                                                  // 18:44
+  step(morgan, { action: 'DECISION_APPROVED', entityType: 'decision', entityId: 'D-001', metadata: { version: 1, provisional: true } }, 7);                                                 // 18:42
+  step(morgan, { action: 'BRIEFING_CREATED', entityType: 'briefing', entityId: 'B-001', metadata: { revision: 1 } }, 2);                                                                  // 18:44
   step(sam, { action: 'BRIEFING_REVIEWED', entityType: 'briefing', entityId: 'B-001', metadata: { revision: 1 } }, 1);                                                                  // 18:45
   step(morgan, { action: 'ANALYSIS_REQUESTED', entityType: 'evidence', entityId: 'E-002' }, 1);                                                                                         // 18:46
   step(agent, { action: 'PROPOSAL_STORED', entityType: 'proposal', entityId: 'P-001', actorKind: 'service', metadata: { source: 'source-backup', evidence: 'E-002', decision: 'D-001', relationship: 'source trust under review' } }, 1); // 18:47

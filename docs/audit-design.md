@@ -51,7 +51,7 @@ Hashing uses SHA-256 from `@noble/hashes` (audited, no dependencies), because th
 
 ## Demo data
 
-The demo chain uses the same incident (`'northstar'`), people (Jamie Park, Alex Chen, Morgan Patel, Sam Rivera, Triage Agent), record ids (E-002, D-001, P-001, B-001, S-1…) and times as the frontend fixture in `src/data/fixtures.ts`, so the Audit page and the Workspace tell one story. `docs/sim/clean-room-audit-simulator.html` still uses its own older sample data.
+The demo chain uses the same incident (`'northstar'`), people (Morgan Patel as commander, Sam Rivera as reviewer, and Nora as the service), record ids (E-002, D-001, P-001, B-001, S-1…) and times as the frontend fixture in `src/data/fixtures.ts`, so the Audit page and the Workspace tell one story. `docs/sim/clean-room-audit-simulator.html` still uses its own older sample data.
 
 ## Integration contract with B
 

@@ -112,7 +112,7 @@ export function DecisionTrail({
                   ? "Suggested by Nora (Nemotron)"
                   : proposal.origin === "human"
                     ? "Suggested by a responder"
-                    : "Demo suggestion · Nora not connected"}{" "}
+                    : "Demo suggestion · Nora (Nemotron) not connected"}{" "}
                 · based on {proposal.evidenceId} v{proposal.evidenceVersion},
                 source v{proposal.sourceVersion}
               </small>

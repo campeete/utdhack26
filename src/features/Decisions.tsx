@@ -36,7 +36,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   // The product's story in four stages; each count is a live number from the incident record.
   const stages = [
     { title: 'Evidence Received', value: data.evidence.length, purpose: 'New reports, kept exactly as reported' },
-    { title: 'Reviews suggested', value: reviewCount, purpose: 'Nora flags decisions the evidence may affect' },
+    { title: 'Reviews suggested', value: reviewCount, purpose: 'Nora (Nemotron) flags decisions the evidence may affect' },
     { title: 'Decisions under review', value: needsReviewCount, purpose: 'A person confirms or dismisses each flag' },
     { title: 'Verifications open', value: openTasks, purpose: 'A named owner independently checks the facts' },
   ];
@@ -54,7 +54,6 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
       return filter === 'review' ? group.shown.length > 0 : !!group.decision || group.items.length > 0;
     })
     .sort((x, y) => Number(y.items.some(e => flagged(e.id))) - Number(x.items.some(e => flagged(e.id))));
-  const resolvedCount = data.decisions.filter(decision => decision.state === 'closed').length;
   function select(next: Selection) {
     onSelect(next);
     requestAnimationFrame(() => focusContext(contextHeading.current));
@@ -67,7 +66,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   }
   return <>
     <div className="workspace-overview">
-      <div className="workspace-heading"><div><h1>Incident Review</h1><p>When new evidence arrives, Nora flags the decisions it may affect. A person reviews each flag, then an owner independently verifies the facts.</p></div></div>
+      <div className="workspace-heading"><div><h1>Incident Review</h1><p>When new evidence arrives, Nora (Nemotron) flags the decisions it may affect. A person reviews each flag, then an owner independently verifies the facts.</p></div></div>
       <ol className="stage-strip" aria-label="How a review moves from evidence to verification">
         {stages.map((stage, i) => <li key={stage.title} className={`stage ${i === activeStage ? 'current' : ''}`} aria-current={i === activeStage ? 'step' : undefined}>
           <span className="stage-number" aria-hidden="true">{i + 1}</span>
@@ -108,6 +107,6 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
         {evidence && <IncidentConversation evidenceId={evidence.id} data={data} adapter={adapter} onUpdate={onUpdate} draft={draft} onOpenReference={openReference} />}
       </div>
     </div>
-    <details className="incident-details context-details"><summary><span>Incident details</span><span className="summary-meta">{data.incident.status}<ChevronDown size={17} /></span></summary><div className="detail-content"><dl className="metadata"><dt>Incident</dt><dd>{data.incident.title} · {data.incident.id}</dd><dt>Impact</dt><dd>{data.incident.summary}</dd><dt>Commander</dt><dd>{data.incident.commander}</dd><dt>Severity / status</dt><dd>{data.incident.severity} / {data.incident.status}</dd></dl><p className="small muted">Synthetic training scenario · updates are local to this tab.</p></div></details>
+    <details className="incident-details context-details"><summary><span>Incident details</span><span className="summary-meta">{data.incident.status}<ChevronDown size={17} /></span></summary><div className="detail-content"><dl className="metadata"><dt>Incident</dt><dd>{data.incident.title} · {data.incident.id}</dd><dt>Impact</dt><dd>{data.incident.summary}</dd><dt>Lead</dt><dd>{data.incident.commander}</dd><dt>Severity / status</dt><dd>{data.incident.severity} / {data.incident.status}</dd></dl><p className="small muted">Synthetic training scenario · updates are local to this tab.</p></div></details>
   </>;
 }

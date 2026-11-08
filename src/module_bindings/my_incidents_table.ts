@@ -11,8 +11,14 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  id: __t.string().primaryKey(),
-  payload: __t.string(),
-  version: __t.u32(),
+  id: __t.u64().primaryKey(),
+  title: __t.string(),
+  summary: __t.string(),
+  status: __t.string(),
+  severity: __t.string(),
+  commander: __t.option(__t.identity()),
+  createdBy: __t.identity().name("created_by"),
+  createdAt: __t.timestamp().name("created_at"),
   updatedAt: __t.timestamp().name("updated_at"),
+  version: __t.u32(),
 });

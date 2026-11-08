@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ChevronDown, Send, ShieldOff, Sparkles } from 'lucide-react';
 import { proposalForEvidence } from '../../shared/reassessment';
-import type { Briefing as BriefingRecord, Snapshot } from '../../shared/contracts';
+import { roleLabel, type Briefing as BriefingRecord, type Snapshot } from '../../shared/contracts';
 import type { IncidentData } from '../data/interface';
 import { label, localTime, Status } from '../components/ui';
 
@@ -15,7 +15,7 @@ export function Scope({ data }: { data: Snapshot }) {
   return <section className="scope-section"><p className="scope-notice">Encryption and exfiltration are separate findings. “Not observed” is not proof of absence.</p><div className="table-scroll" tabIndex={0} role="region" aria-label="Scrollable affected systems table"><table><caption className="sr-only">Affected systems and data scope</caption><thead><tr><th>System / data</th><th>Affected extent</th><th>Encryption</th><th>Exfiltration</th><th>Owner</th></tr></thead><tbody>{data.scope.map(s => <tr key={s.id}><td><strong>{s.system}</strong><small>{s.data}</small></td><td>{s.extent}</td><td><Status value={s.encryption} /></td><td><Status value={s.exfiltration} /></td><td>{s.owner}</td></tr>)}</tbody></table></div><small className="integration-note">Synthetic scope records · Updates and evidence linking await backend integration.</small></section>;
 }
 export function Administration({ data }: { data: Snapshot }) {
-  return <><div className="access-notice"><ShieldOff size={22} /><div><h3>Access controls are not connected.</h3><p>These are synthetic memberships. Sign-in, admission, and revocation are unavailable in fixture mode.</p></div></div><div className="member-list">{data.members.map(m => <div className="member" key={m.id}><span className="avatar">{m.name.split(' ').map(s => s[0]).join('')}</span><div><strong>{m.name}</strong><small>{m.roles.map(label).join(', ')}</small></div><span className="routine-text">{m.active ? 'Active fixture' : 'Inactive fixture'}</span></div>)}</div><details className="context-details"><summary><span>Integration boundary</span><ChevronDown size={16} /></summary><div className="detail-content"><p>Spacetime stores membership privately. Its live read gate remains closed until independent identity, authorized reads, and subscription revocation pass verification.</p><p>Administrator membership does not grant decision approval authority.</p></div></details></>;
+  return <><div className="access-notice"><ShieldOff size={22} /><div><h3>Access controls are not connected.</h3><p>These are synthetic memberships. Sign-in, admission, and revocation are unavailable in fixture mode.</p></div></div><div className="member-list">{data.members.map(m => <div className="member" key={m.id}><span className="avatar">{m.name.split(' ').map(s => s[0]).join('')}</span><div><strong>{m.name}</strong><small>{m.roles.map(roleLabel).join(', ')}</small></div><span className="routine-text">{m.active ? 'Active fixture' : 'Inactive fixture'}</span></div>)}</div><details className="context-details"><summary><span>Integration boundary</span><ChevronDown size={16} /></summary><div className="detail-content"><p>Spacetime stores membership privately. Its live read gate remains closed until independent identity, authorized reads, and subscription revocation pass verification.</p><p>Tiers stack: Tier 1 triages, Tier 2 contains and approves Nora (Nemotron)’s fixes, Tier 3 does forensics and manages the team.</p></div></details></>;
 }
 export interface Draft { text: string; nonce: number }
 const displayName = (name: string) => name.replace(/\s*\(.*?\)\s*/g, ' ').trim();
@@ -47,7 +47,8 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const administrators = data.members.filter(member => member.active && member.roles.includes('admin'));
+  // Any active teammate other than yourself (the module allows any active member).
+  const administrators = data.members.filter(member => member.active && member.id !== adapter.identityHex && member.name !== adapter.identity?.name);
   const [recipientId, setRecipientId] = useState<string | null>(administrators.length === 1 ? administrators[0].id : null);
   const [recipientPickerOpen, setRecipientPickerOpen] = useState(false);
   const selectedRecipient = administrators.find(member => member.id === recipientId);
@@ -132,11 +133,11 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
         <div className="composer-bar">
           <div className="admin-recipient-picker">
             {administrators.length > 1 || !selectedRecipient
-              ? <button type="button" className="recipient-chip" disabled={!administrators.length} aria-expanded={recipientPickerOpen} aria-controls={`${id}-admins`} onClick={() => setRecipientPickerOpen(open => !open)}>{selectedRecipient ? <>To: {selectedRecipient.name}</> : 'Choose admin'}<ChevronDown size={14} /></button>
-              : <span className="recipient-chip static">To: {selectedRecipient.name} · Administrator</span>}
-            {recipientPickerOpen && <div id={`${id}-admins`} className="admin-recipient-options" role="group" aria-label="Choose an active administrator">
+              ? <button type="button" className="recipient-chip" disabled={!administrators.length} aria-expanded={recipientPickerOpen} aria-controls={`${id}-admins`} onClick={() => setRecipientPickerOpen(open => !open)}>{selectedRecipient ? <>To: {selectedRecipient.name}</> : 'Choose recipient'}<ChevronDown size={14} /></button>
+              : <span className="recipient-chip static">To: {selectedRecipient.name} · {selectedRecipient.roles.map(roleLabel).join(', ')}</span>}
+            {recipientPickerOpen && <div id={`${id}-admins`} className="admin-recipient-options" role="group" aria-label="Choose a recipient">
               {administrators.map(admin => <button key={admin.id} type="button" aria-pressed={recipientId === admin.id} onClick={() => { setRecipientId(admin.id); setRecipientPickerOpen(false); setError(''); }}>
-                <span className="avatar">{initials(admin.name)}</span><span><strong>{admin.name}</strong><small>Administrator</small></span>
+                <span className="avatar">{initials(admin.name)}</span><span><strong>{admin.name}</strong><small>{admin.roles.map(roleLabel).join(', ')}</small></span>
               </button>)}
             </div>}
           </div>
@@ -144,7 +145,7 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
           <button className="primary" disabled={busy || !text.trim() || !selectedRecipient}>{busy ? 'Sending…' : 'Send'}<Send size={15} /></button>
         </div>
       </div>
-      {!administrators.length && <p className="recipient-selection" role="status">No active administrators are available.</p>}
+      {!administrators.length && <p className="recipient-selection" role="status">No other active teammates in this incident yet.</p>}
       {error && <p role="alert" className="error">{error}</p>}
       {adapter.mode === 'fixture' && <small className="muted comms-footnote">Local demo · messages last until reload</small>}
     </form>

@@ -11,8 +11,6 @@ import {
 } from "spacetimedb";
 
 export default {
-  incidentId: __t.string(),
-  expectedVersion: __t.u32(),
-  requestId: __t.string(),
-  text: __t.string(),
+  incidentId: __t.u64(),
+  user: __t.identity(),
 };

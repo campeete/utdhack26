@@ -5,7 +5,7 @@ import type { Activity, Proposal, Snapshot } from './contracts.ts';
 // same functions so the demo follows identical rules.
 
 /** Same roles that may confirm a review (see acceptReview). Dismissal adds no new permission. */
-export const REVIEW_ROLES = ['analyst', 'commander'] as const;
+export const REVIEW_ROLES = ['tier1', 'tier2', 'tier3'] as const;
 export const FEEDBACK_MAX = 2000;
 const EXPLANATION_MAX = 2000;
 const VERIFICATION_MAX = 500;
@@ -45,7 +45,7 @@ export function dismissProposal(data: Snapshot, proposalId: string, feedback: st
   };
   return {
     ...data, proposals: replace(data, next),
-    activity: note(data, `dismiss:${proposal.id}`, text ? `Suggestion ${proposal.id} dismissed with feedback; Nora reassessment requested. ${text}` : `Suggestion ${proposal.id} dismissed without feedback.`, actor, at),
+    activity: note(data, `dismiss:${proposal.id}`, text ? `Suggestion ${proposal.id} dismissed with feedback; Nora (Nemotron) reassessment requested. ${text}` : `Suggestion ${proposal.id} dismissed without feedback.`, actor, at),
   };
 }
 
@@ -56,7 +56,7 @@ export function retryReassessment(data: Snapshot, proposalId: string, actor: str
   if (!current || current.state !== 'failed') return data;
   const attempt = current.attempt + 1;
   const next: Proposal = { ...proposal, version: proposal.version + 1, reassessment: { state: 'requested', requestId: requestIdFor(proposal.id, attempt), attempt, requestedAt: at } };
-  return { ...data, proposals: replace(data, next), activity: note(data, `retry:${next.reassessment!.requestId}`, `Nora reassessment of ${proposal.id} requested again (attempt ${attempt}).`, actor, at) };
+  return { ...data, proposals: replace(data, next), activity: note(data, `retry:${next.reassessment!.requestId}`, `Nora (Nemotron) reassessment of ${proposal.id} requested again (attempt ${attempt}).`, actor, at) };
 }
 
 /**
@@ -94,7 +94,7 @@ const text = (value: unknown, max: number) => typeof value === 'string' && value
 /** Accepts only the shapes above; anything else from the model is treated as a failure. */
 export function parseReassessmentResult(raw: unknown): ReassessmentResult {
   const value = typeof raw === 'string' ? JSON.parse(raw) as unknown : raw;
-  if (!value || typeof value !== 'object') throw new Error('Nora returned an unreadable result.');
+  if (!value || typeof value !== 'object') throw new Error('Nora (Nemotron) returned an unreadable result.');
   const r = value as Record<string, unknown>;
   if (r.kind === 'no_further_review') return { kind: 'no_further_review', note: text(r.note, EXPLANATION_MAX) ?? '' };
   if (r.kind === 'error') return { kind: 'error', message: text(r.message, 300) ?? 'Reassessment failed.' };
@@ -102,7 +102,7 @@ export function parseReassessmentResult(raw: unknown): ReassessmentResult {
     const excerpt = text(r.excerpt, EXPLANATION_MAX); const explanation = text(r.explanation, EXPLANATION_MAX); const verification = text(r.verification, VERIFICATION_MAX);
     if (excerpt && explanation && verification) return { kind: 'revision', excerpt, explanation, verification };
   }
-  throw new Error('Nora returned a result in an unexpected format.');
+  throw new Error('Nora (Nemotron) returned a result in an unexpected format.');
 }
 
 function dependencyVersions(data: Snapshot, proposal: Proposal) {
@@ -125,15 +125,15 @@ export function recordReassessment(data: Snapshot, proposalId: string, requestId
   let result: ReassessmentResult;
   try { result = parseReassessmentResult(raw); } catch (e) { result = { kind: 'error', message: (e as Error).message }; }
   const evidence = data.evidence.find(e => e.id === proposal.evidenceId && e.incidentId === proposal.incidentId);
-  if (result.kind === 'revision' && !evidence?.text.includes(result.excerpt)) result = { kind: 'error', message: 'Nora quoted text that is not in the evidence, so the revision was rejected.' };
+  if (result.kind === 'revision' && !evidence?.text.includes(result.excerpt)) result = { kind: 'error', message: 'Nora (Nemotron) quoted text that is not in the evidence, so the revision was rejected.' };
   const done = { ...current, completedAt: at };
   if (result.kind === 'error') {
     const next: Proposal = { ...proposal, version: proposal.version + 1, reassessment: { ...done, state: 'failed', error: result.message } };
-    return { ...data, proposals: replace(data, next), activity: note(data, `reassess:${requestId}`, `Nora reassessment of ${proposal.id} failed. The dismissal stands.`, actor, at) };
+    return { ...data, proposals: replace(data, next), activity: note(data, `reassess:${requestId}`, `Nora (Nemotron) reassessment of ${proposal.id} failed. The dismissal stands.`, actor, at) };
   }
   if (result.kind === 'no_further_review') {
     const next: Proposal = { ...proposal, version: proposal.version + 1, reassessment: { ...done, state: 'no_further_review', note: result.note } };
-    return { ...data, proposals: replace(data, next), activity: note(data, `reassess:${requestId}`, `Nora reassessed ${proposal.id}: no further review suggested.`, actor, at) };
+    return { ...data, proposals: replace(data, next), activity: note(data, `reassess:${requestId}`, `Nora (Nemotron) reassessed ${proposal.id}: no further review suggested.`, actor, at) };
   }
   const revisionId = `${proposal.id}-R${current.attempt}`;
   if (data.proposals.some(p => p.id === revisionId)) return data;
@@ -145,7 +145,7 @@ export function recordReassessment(data: Snapshot, proposalId: string, requestId
     origin, state: 'pending', revisionOf: proposal.id,
   };
   const next: Proposal = { ...proposal, version: proposal.version + 1, reassessment: { ...done, state: 'revised', revisionId } };
-  return { ...data, proposals: replace(data, next, [revision]), activity: note(data, `reassess:${requestId}`, `Nora proposed revised suggestion ${revisionId} for human review.`, actor, at) };
+  return { ...data, proposals: replace(data, next, [revision]), activity: note(data, `reassess:${requestId}`, `Nora (Nemotron) proposed revised suggestion ${revisionId} for human review.`, actor, at) };
 }
 
 /** The suggestion to show for an evidence item: an open one first, otherwise the newest. */

@@ -11,7 +11,5 @@ import {
 } from "spacetimedb";
 
 export default {
-  incidentId: __t.string(),
-  adminIdentity: __t.identity(),
-  title: __t.string(),
+  displayName: __t.string(),
 };

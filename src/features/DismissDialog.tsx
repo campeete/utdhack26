@@ -31,12 +31,12 @@ export function DismissDialog({ proposal, adapter, onClose, onComplete }: {
     <div className="dismiss-dialog">
       <div className="dismiss-suggestion"><small>{proposal.id} · Suggestion</small><blockquote>“{proposal.excerpt}”</blockquote><p>{proposal.verification}</p></div>
       <form onSubmit={submit} aria-busy={busy}>
-        <label htmlFor={fieldId}>Feedback for Nora <span className="muted">(optional)</span></label>
+        <label htmlFor={fieldId}>Feedback for Nora (Nemotron) <span className="muted">(optional)</span></label>
         <textarea id={fieldId} value={feedback} onChange={e => setFeedback(e.target.value)} maxLength={FEEDBACK_MAX} rows={4} disabled={busy} placeholder="Why doesn’t this suggestion hold up?" aria-describedby={hintId} />
         <div id={hintId} className="dismiss-hint">
           <p><Sparkles size={15} aria-hidden="true" />{reassess
-            ? 'Submitting feedback asks Nora, our NVIDIA Nemotron analyst, for a new analysis of this suggestion, using the original evidence and your feedback. Any revision comes back as a new suggestion that a person must review.'
-            : 'Leave this empty to dismiss without involving Nora. Adding feedback asks Nora for a new analysis.'}</p>
+            ? 'Submitting feedback asks Nora (Nemotron), our NVIDIA analyst, for a new analysis of this suggestion, using the original evidence and your feedback. Any revision comes back as a new suggestion that a person must review.'
+            : 'Leave this empty to dismiss without involving Nora (Nemotron). Adding feedback asks Nora (Nemotron) for a new analysis.'}</p>
           <p className="muted">The original suggestion, your name and the time are kept with the dismissal.{adapter.mode === 'fixture' ? ' Demo: a synthetic stand-in replies; Nemotron is not connected.' : ''}</p>
         </div>
         {error && <p role="alert" className="error">{error}</p>}
@@ -68,12 +68,12 @@ export function DismissalRecord({ proposal, data, adapter, onUpdate, onOpenRevis
   }
   return <div className="dismissal-record">
     <p className="next-summary">Suggestion dismissed. The decision and team update remain unchanged.</p>
-    {d && <dl className="metadata"><dt>Dismissed by</dt><dd>{d.reviewer}</dd><dt>When</dt><dd>{localDateTime(d.at)}</dd><dt>Reason</dt><dd>{d.feedback || <span className="muted">No feedback given · not sent to Nora</span>}</dd></dl>}
+    {d && <dl className="metadata"><dt>Dismissed by</dt><dd>{d.reviewer}</dd><dt>When</dt><dd>{localDateTime(d.at)}</dd><dt>Reason</dt><dd>{d.feedback || <span className="muted">No feedback given · not sent to Nora (Nemotron)</span>}</dd></dl>}
     {r && <div className="reassessment" aria-live="polite">
-      {r.state === 'requested' && <div role="status" className="reassess-progress"><span>Nora is reassessing with your feedback{r.attempt > 1 ? ` (attempt ${r.attempt})` : ''}…</span><span className="progress-track" aria-hidden="true"><span /></span></div>}
-      {r.state === 'revised' && <div className="reassess-result"><p><Sparkles size={15} aria-hidden="true" />Nora proposed a revised suggestion. It needs human review before it changes anything.</p>
+      {r.state === 'requested' && <div role="status" className="reassess-progress"><span>Nora (Nemotron) is reassessing with your feedback{r.attempt > 1 ? ` (attempt ${r.attempt})` : ''}…</span><span className="progress-track" aria-hidden="true"><span /></span></div>}
+      {r.state === 'revised' && <div className="reassess-result"><p><Sparkles size={15} aria-hidden="true" />Nora (Nemotron) proposed a revised suggestion. It needs human review before it changes anything.</p>
         {revision ? <button className="text-button" onClick={() => onOpenRevision(revision.id)}>Review revised suggestion {revision.id}<ArrowRight size={14} /></button> : <span className="muted">Revised suggestion {r.revisionId} is not visible to you.</span>}</div>}
-      {r.state === 'no_further_review' && <div className="reassess-result"><p><Check size={15} aria-hidden="true" />Nora reassessed this: no further review suggested.</p>{r.note && <p className="small muted">{r.note}</p>}</div>}
+      {r.state === 'no_further_review' && <div className="reassess-result"><p><Check size={15} aria-hidden="true" />Nora (Nemotron) reassessed this: no further review suggested.</p>{r.note && <p className="small muted">{r.note}</p>}</div>}
       {r.state === 'failed' && <div className="reassess-failed"><p role="alert" className="error">Reassessment failed: {(r.error ?? 'unknown error').replace(/[.\s]+$/, '')}. Your dismissal is still recorded.</p>
         <button className="secondary" onClick={retry} disabled={retrying}>{retrying ? 'Requesting…' : 'Retry reassessment'}<RotateCcw size={15} /></button></div>}
       {error && <p role="alert" className="error">{error}</p>}

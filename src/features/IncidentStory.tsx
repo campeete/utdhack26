@@ -35,7 +35,7 @@ export function IncidentStory({
   selection: Selection;
   headingRef: RefObject<HTMLHeadingElement>;
   onOverview: () => void;
-  /** Shows a specific suggestion, such as Nora's revision or the original it revises. */
+  /** Shows a specific suggestion, such as Nora (Nemotron)'s revision or the original it revises. */
   onSelectProposal: (proposalId: string) => void;
   /** Hands a drafted message to the discussion below. */
   onDiscuss: (text: string) => void;
@@ -44,7 +44,7 @@ export function IncidentStory({
   const source = data.sources.find((s) => s.id === evidence?.sourceId);
   const decision = data.decisions.find((d) => d.id === selection.decisionId);
   // An explicitly opened suggestion wins; otherwise an open one, then the newest
-  // (so Nora's revision shows after a dismissal with feedback).
+  // (so Nora (Nemotron)'s revision shows after a dismissal with feedback).
   const selectedProposal =
     (selection.proposalId
       ? data.proposals.find(
@@ -310,7 +310,7 @@ export function IncidentStory({
                           </p>
                           {proposal.revisionOf && (
                             <p className="procedure-note">
-                              Nora revised this after a reviewer dismissed{" "}
+                              Nora (Nemotron) revised this after a reviewer dismissed{" "}
                               <button
                                 className="text-button inline"
                                 onClick={() => onSelectProposal(proposal.revisionOf!)}

@@ -3,13 +3,13 @@
   "incident_id": "northstar",
   "head": {
     "seq": "21",
-    "hash": "853c1beec0894f24ebfa1c79e6c36cbb9eac8683421a90a5b321325fe3b39abf"
+    "hash": "ec29686bac32f230655de352678caffeafed72d29e6231e1dac31b6950ddf400"
   },
   "events": [
     {
       "incident_id": "northstar",
       "seq": "1",
-      "actor": "c200a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "actor": "c200b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
       "actor_kind": "user",
       "server_ts_micros": "1794074400000000",
       "client_ts_micros": "1794074400000000",
@@ -19,42 +19,42 @@
       "metadata": "{\"title\":\"Northstar Retail\",\"severity\":\"high\",\"synthetic\":true}",
       "client_sig": "",
       "prev_hash": "f01cef7a5d8b879d009f5aed0805133c51d81a4310a67ac3056b338021688f3b",
-      "hash": "d6c045c4900cd95851cae131ef6f6a899d839140de8d72bfaf2a22f4d87738af"
+      "hash": "6fc18acbe7a6dd59c4c4da41db30388908ba807c942eb73879d112cf008b55fd"
     },
     {
       "incident_id": "northstar",
       "seq": "2",
-      "actor": "c200a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "actor": "c200b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
       "actor_kind": "user",
       "server_ts_micros": "1794074580000000",
       "client_ts_micros": "1794074580000000",
-      "action": "MEMBER_ADMITTED",
+      "action": "ROLE_CHANGED",
       "entity_type": "identity",
-      "entity_id": "c200c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
-      "metadata": "{\"name\":\"Alex Chen\",\"role\":\"commander\"}",
+      "entity_id": "c200b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
+      "metadata": "{\"name\":\"Morgan Patel\",\"roles\":\"admin,commander,analyst\"}",
       "client_sig": "",
-      "prev_hash": "d6c045c4900cd95851cae131ef6f6a899d839140de8d72bfaf2a22f4d87738af",
-      "hash": "104837169a7ff96a4f564e514ba05a34a4c7992d4bf14a88adb1d06dbf4ad85b"
+      "prev_hash": "6fc18acbe7a6dd59c4c4da41db30388908ba807c942eb73879d112cf008b55fd",
+      "hash": "526e8dfac63f67bb4729ad1da215c250ee0e02a99751e1c99d496e7b96afc4f1"
     },
     {
       "incident_id": "northstar",
       "seq": "3",
-      "actor": "c200a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "actor": "c200b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
       "actor_kind": "user",
       "server_ts_micros": "1794074700000000",
       "client_ts_micros": "1794074700000000",
-      "action": "MEMBER_ADMITTED",
-      "entity_type": "identity",
-      "entity_id": "c200b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
-      "metadata": "{\"name\":\"Morgan Patel\",\"role\":\"analyst\"}",
+      "action": "SERVICE_ACCOUNT_SET",
+      "entity_type": "service_account",
+      "entity_id": "c200e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+      "metadata": "{\"name\":\"Nora\",\"kind\":\"nora\",\"enabled\":true}",
       "client_sig": "",
-      "prev_hash": "104837169a7ff96a4f564e514ba05a34a4c7992d4bf14a88adb1d06dbf4ad85b",
-      "hash": "c5fefd5a78faff9a19193087e4bf286b92958ccc9828eb10937cd509be5bd49d"
+      "prev_hash": "526e8dfac63f67bb4729ad1da215c250ee0e02a99751e1c99d496e7b96afc4f1",
+      "hash": "e8709943b38edca8cc733f2ebeface05c605ca8a04ad08bae00c203dbde14400"
     },
     {
       "incident_id": "northstar",
       "seq": "4",
-      "actor": "c200a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "actor": "c200b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
       "actor_kind": "user",
       "server_ts_micros": "1794074820000000",
       "client_ts_micros": "1794074820000000",
@@ -63,8 +63,8 @@
       "entity_id": "c200d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1",
       "metadata": "{\"name\":\"Sam Rivera\",\"role\":\"reviewer\"}",
       "client_sig": "",
-      "prev_hash": "c5fefd5a78faff9a19193087e4bf286b92958ccc9828eb10937cd509be5bd49d",
-      "hash": "16d1d3366073da516acc9df481ca7d90c01abf1b370c1f94f3ece9142b3b687e"
+      "prev_hash": "e8709943b38edca8cc733f2ebeface05c605ca8a04ad08bae00c203dbde14400",
+      "hash": "b0ff25c7011e53b614866ede14fb321f2af050fd23a592ebd2193cd359344963"
     },
     {
       "incident_id": "northstar",
@@ -78,13 +78,13 @@
       "entity_id": "S-1",
       "metadata": "{\"system\":\"Customer database\",\"encryption\":\"confirmed\",\"exfiltration\":\"unknown\"}",
       "client_sig": "",
-      "prev_hash": "16d1d3366073da516acc9df481ca7d90c01abf1b370c1f94f3ece9142b3b687e",
-      "hash": "1be5249e2657f7cf2d29b87a5af76838ce9fea07109bcf44affcda2a8aff0c9c"
+      "prev_hash": "b0ff25c7011e53b614866ede14fb321f2af050fd23a592ebd2193cd359344963",
+      "hash": "4938fff641494a095c6e4dada4bb382efdbcaa6da541d71de613732306d19347"
     },
     {
       "incident_id": "northstar",
       "seq": "6",
-      "actor": "c200c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+      "actor": "c200b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
       "actor_kind": "user",
       "server_ts_micros": "1794075240000000",
       "client_ts_micros": "1794075240000000",
@@ -93,8 +93,8 @@
       "entity_id": "S-2",
       "metadata": "{\"system\":\"Customer portal\",\"encryption\":\"suspected\",\"exfiltration\":\"unknown\"}",
       "client_sig": "",
-      "prev_hash": "1be5249e2657f7cf2d29b87a5af76838ce9fea07109bcf44affcda2a8aff0c9c",
-      "hash": "c481da4bab030fe7dabbced1e4675f716462178375f2dc86c0d2df4330253762"
+      "prev_hash": "4938fff641494a095c6e4dada4bb382efdbcaa6da541d71de613732306d19347",
+      "hash": "7e22549e55bdc86aa7463393ec17e5dfe0b06cc5c6e7a941e8e34fe8440fe419"
     },
     {
       "incident_id": "northstar",
@@ -108,13 +108,13 @@
       "entity_id": "E-002",
       "metadata": "{\"title\":\"Backup validation report\",\"source\":\"source-backup\"}",
       "client_sig": "",
-      "prev_hash": "c481da4bab030fe7dabbced1e4675f716462178375f2dc86c0d2df4330253762",
-      "hash": "1f3ca6c2322c84b39f13c0c36ad67f9fc5a74cf0c2248a685c1fa4732e4e9056"
+      "prev_hash": "7e22549e55bdc86aa7463393ec17e5dfe0b06cc5c6e7a941e8e34fe8440fe419",
+      "hash": "de2a4ff2565de8d05d231af94f47b766a3e9a8aeb765a9c9abce9b0cbef8fe60"
     },
     {
       "incident_id": "northstar",
       "seq": "8",
-      "actor": "c200c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+      "actor": "c200b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
       "actor_kind": "user",
       "server_ts_micros": "1794075720000000",
       "client_ts_micros": "1794075720000000",
@@ -123,13 +123,13 @@
       "entity_id": "E-003",
       "metadata": "{\"title\":\"Independent recovery access\",\"source\":\"source-command\"}",
       "client_sig": "",
-      "prev_hash": "1f3ca6c2322c84b39f13c0c36ad67f9fc5a74cf0c2248a685c1fa4732e4e9056",
-      "hash": "d52ca74dd9d153336b180ec1280f5ebd1c199cc622d5ad67454eb07dd586172d"
+      "prev_hash": "de2a4ff2565de8d05d231af94f47b766a3e9a8aeb765a9c9abce9b0cbef8fe60",
+      "hash": "e5c3189d6b30786d83b1c52ab64c17c40c3462b13e0d3f45bd901075a69f64c5"
     },
     {
       "incident_id": "northstar",
       "seq": "9",
-      "actor": "c200c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+      "actor": "c200b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
       "actor_kind": "user",
       "server_ts_micros": "1794075840000000",
       "client_ts_micros": "1794075840000000",
@@ -138,8 +138,8 @@
       "entity_id": "D-001",
       "metadata": "{\"title\":\"Restore customer portal\",\"assumption\":\"Monday backup predates the intrusion.\",\"evidence\":\"E-002\"}",
       "client_sig": "",
-      "prev_hash": "d52ca74dd9d153336b180ec1280f5ebd1c199cc622d5ad67454eb07dd586172d",
-      "hash": "0389f555cf2d91a78b5bd380ac0178528dd3c7274fc2100dce1cbfcf44472bc4"
+      "prev_hash": "e5c3189d6b30786d83b1c52ab64c17c40c3462b13e0d3f45bd901075a69f64c5",
+      "hash": "d3c1594a6a8edfee6a179f4ffe71e6ce03fff3fe441a965853efe3f07162f4da"
     },
     {
       "incident_id": "northstar",
@@ -153,8 +153,8 @@
       "entity_id": "D-002",
       "metadata": "{\"version\":1}",
       "client_sig": "",
-      "prev_hash": "0389f555cf2d91a78b5bd380ac0178528dd3c7274fc2100dce1cbfcf44472bc4",
-      "hash": "47fb9e71ed86529ea311b45ef5f5644257dca7d5a5558f5ecb5ab722f052b492"
+      "prev_hash": "d3c1594a6a8edfee6a179f4ffe71e6ce03fff3fe441a965853efe3f07162f4da",
+      "hash": "0b50e15ce20ad55d6f17f2acf564017f81849372358f9809c150c1c7e8f23ad2"
     },
     {
       "incident_id": "northstar",
@@ -168,8 +168,8 @@
       "entity_id": "E-006",
       "metadata": "{\"title\":\"Office printer outage\",\"source\":\"source-printer\"}",
       "client_sig": "",
-      "prev_hash": "47fb9e71ed86529ea311b45ef5f5644257dca7d5a5558f5ecb5ab722f052b492",
-      "hash": "2a09540049200ae39df125e48bbc193573f088ab76e02ec179abfb60bdead6c6"
+      "prev_hash": "0b50e15ce20ad55d6f17f2acf564017f81849372358f9809c150c1c7e8f23ad2",
+      "hash": "73c43316170a90274955f677b72985e0a6423da6337de89b9b20da930d8887ba"
     },
     {
       "incident_id": "northstar",
@@ -183,13 +183,13 @@
       "entity_id": "D-001",
       "metadata": "{\"attempted\":\"DECISION_APPROVED\",\"reason\":\"reviewer role cannot approve\"}",
       "client_sig": "",
-      "prev_hash": "2a09540049200ae39df125e48bbc193573f088ab76e02ec179abfb60bdead6c6",
-      "hash": "02dbd15c4ccc5e1f3e1e75a3c527d52377dbab2daee801ca08b111191de835a5"
+      "prev_hash": "73c43316170a90274955f677b72985e0a6423da6337de89b9b20da930d8887ba",
+      "hash": "8e770d55f18f745635ebda6f07eb5537896f7576f0166ce0d21cd1d28e4bdb61"
     },
     {
       "incident_id": "northstar",
       "seq": "13",
-      "actor": "c200c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+      "actor": "c200b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
       "actor_kind": "user",
       "server_ts_micros": "1794076920000000",
       "client_ts_micros": "1794076920000000",
@@ -198,13 +198,13 @@
       "entity_id": "D-001",
       "metadata": "{\"version\":1,\"provisional\":true}",
       "client_sig": "",
-      "prev_hash": "02dbd15c4ccc5e1f3e1e75a3c527d52377dbab2daee801ca08b111191de835a5",
-      "hash": "326db17df9a4ba5a6d94f5d090276dde316c0944b86062f9b728bd9b06c48fd5"
+      "prev_hash": "8e770d55f18f745635ebda6f07eb5537896f7576f0166ce0d21cd1d28e4bdb61",
+      "hash": "09ed70f6025f30659829862b0d7c5b975cc6959a9f3d1db34501b967a92410cb"
     },
     {
       "incident_id": "northstar",
       "seq": "14",
-      "actor": "c200c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+      "actor": "c200b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
       "actor_kind": "user",
       "server_ts_micros": "1794077040000000",
       "client_ts_micros": "1794077040000000",
@@ -213,8 +213,8 @@
       "entity_id": "B-001",
       "metadata": "{\"revision\":1}",
       "client_sig": "",
-      "prev_hash": "326db17df9a4ba5a6d94f5d090276dde316c0944b86062f9b728bd9b06c48fd5",
-      "hash": "67d8ebfd1e00e9d400268b1aa974ce333c1635983948606553c725ac3c7ae803"
+      "prev_hash": "09ed70f6025f30659829862b0d7c5b975cc6959a9f3d1db34501b967a92410cb",
+      "hash": "5db68f072060eea328af34c84914150f909fa7989f24986d0fd53b7ff2c76e37"
     },
     {
       "incident_id": "northstar",
@@ -228,8 +228,8 @@
       "entity_id": "B-001",
       "metadata": "{\"revision\":1}",
       "client_sig": "",
-      "prev_hash": "67d8ebfd1e00e9d400268b1aa974ce333c1635983948606553c725ac3c7ae803",
-      "hash": "6cbe498bbb10503cf388d9942d94c34924355fe35779e2c47ec7969a78e2508f"
+      "prev_hash": "5db68f072060eea328af34c84914150f909fa7989f24986d0fd53b7ff2c76e37",
+      "hash": "f1f616ee2f1f36b1aa6cd54048641804d8cb4d2971761b8668619ff8d2651d33"
     },
     {
       "incident_id": "northstar",
@@ -243,8 +243,8 @@
       "entity_id": "E-002",
       "metadata": "{}",
       "client_sig": "",
-      "prev_hash": "6cbe498bbb10503cf388d9942d94c34924355fe35779e2c47ec7969a78e2508f",
-      "hash": "77d475f627613275cde6369985dd483bac85b18b4f058ad9c73d7c7a4f960027"
+      "prev_hash": "f1f616ee2f1f36b1aa6cd54048641804d8cb4d2971761b8668619ff8d2651d33",
+      "hash": "30415d4f88278da9899485eb384de01774d03a64f5829ee86db8290800a9249a"
     },
     {
       "incident_id": "northstar",
@@ -258,8 +258,8 @@
       "entity_id": "P-001",
       "metadata": "{\"source\":\"source-backup\",\"evidence\":\"E-002\",\"decision\":\"D-001\",\"relationship\":\"source trust under review\"}",
       "client_sig": "",
-      "prev_hash": "77d475f627613275cde6369985dd483bac85b18b4f058ad9c73d7c7a4f960027",
-      "hash": "0cf349d4b906b7912a68c3d95cb610760f96f274c59db3b35f27ec5b7a4886ae"
+      "prev_hash": "30415d4f88278da9899485eb384de01774d03a64f5829ee86db8290800a9249a",
+      "hash": "4941d8d2f9593d035ddf6a63c514a76555faa8ddb3cc6f857520f396333f823d"
     },
     {
       "incident_id": "northstar",
@@ -273,8 +273,8 @@
       "entity_id": "source-backup",
       "metadata": "{\"from\":\"established\",\"to\":\"under_review\"}",
       "client_sig": "",
-      "prev_hash": "0cf349d4b906b7912a68c3d95cb610760f96f274c59db3b35f27ec5b7a4886ae",
-      "hash": "abf980f1b6ebcacba968361fbd32c79dcfa62c25b115a099c18815750011258c"
+      "prev_hash": "4941d8d2f9593d035ddf6a63c514a76555faa8ddb3cc6f857520f396333f823d",
+      "hash": "e8d5d273f85c7ddb969142a0d403309b278495a43f3e60bb840ed78ac9299bd5"
     },
     {
       "incident_id": "northstar",
@@ -288,8 +288,8 @@
       "entity_id": "M-1",
       "metadata": "{\"chars\":112}",
       "client_sig": "",
-      "prev_hash": "abf980f1b6ebcacba968361fbd32c79dcfa62c25b115a099c18815750011258c",
-      "hash": "2656127fe7cef7132b347c2569e7115a068d20512b9b86f5b9768bdccf206fb3"
+      "prev_hash": "e8d5d273f85c7ddb969142a0d403309b278495a43f3e60bb840ed78ac9299bd5",
+      "hash": "32674debdcc9de62c133faee403a38a287c56b230405d970126389795799ac0e"
     },
     {
       "incident_id": "northstar",
@@ -303,8 +303,8 @@
       "entity_id": "E-007",
       "metadata": "{\"title\":\"Backup service account used by attacker\",\"attacker_login\":\"Sun 2026-11-01 03:12 UTC\",\"source\":\"source-credentials\"}",
       "client_sig": "",
-      "prev_hash": "2656127fe7cef7132b347c2569e7115a068d20512b9b86f5b9768bdccf206fb3",
-      "hash": "5d178643712a04cc075ca660210c76b69ab1e16e9f698b99b912724a047d5614"
+      "prev_hash": "32674debdcc9de62c133faee403a38a287c56b230405d970126389795799ac0e",
+      "hash": "ae68923107f2606c3c07d063804e7934c15913b043b1c7419d165c25ccaa654a"
     },
     {
       "incident_id": "northstar",
@@ -318,8 +318,8 @@
       "entity_id": "S-4",
       "metadata": "{\"system\":\"Employee and service accounts\",\"exposed\":11,\"used_by_attacker\":2,\"exfiltration\":\"confirmed\"}",
       "client_sig": "",
-      "prev_hash": "5d178643712a04cc075ca660210c76b69ab1e16e9f698b99b912724a047d5614",
-      "hash": "853c1beec0894f24ebfa1c79e6c36cbb9eac8683421a90a5b321325fe3b39abf"
+      "prev_hash": "ae68923107f2606c3c07d063804e7934c15913b043b1c7419d165c25ccaa654a",
+      "hash": "ec29686bac32f230655de352678caffeafed72d29e6231e1dac31b6950ddf400"
     }
   ]
 }
