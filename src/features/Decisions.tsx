@@ -18,7 +18,19 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   const contextHeading = useRef<HTMLHeadingElement>(null);
   const changesHeading = useRef<HTMLHeadingElement>(null);
   const evidence = data.evidence.find(e => e.id === selection.evidenceId);
-  const reviewCount = data.proposals.filter(p => p.state === 'pending').length;
+  const isReviewSuggested = (proposal: Snapshot['proposals'][number]) => {
+    if (proposal.state !== 'pending') return false;
+    const linkedDecisionIds = Object.keys(proposal.decisionVersions);
+    const relatedDecisionIds = linkedDecisionIds.length
+      ? linkedDecisionIds
+      : data.decisions.filter(decision =>
+          decision.incidentId === proposal.incidentId && decision.evidenceIds.includes(proposal.evidenceId),
+        ).map(decision => decision.id);
+    return !relatedDecisionIds.length || relatedDecisionIds.some(id =>
+      data.decisions.find(decision => decision.id === id && decision.incidentId === proposal.incidentId)?.state !== 'closed',
+    );
+  };
+  const reviewCount = data.proposals.filter(isReviewSuggested).length;
   const needsReviewCount = data.decisions.filter(d => d.state === 'needs_review').length;
   const openTasks = data.tasks.filter(t => t.state === 'open').length;
   // The product's story in four stages; each count is a live number from the incident record.
@@ -30,7 +42,7 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
   ];
   const activeStage = [1, 2, 3].find(i => stages[i].value > 0) ?? 0;
   // Evidence is grouped under the decision it supports, so related reports sit together.
-  const flagged = (evidenceId: string) => data.proposals.some(p => p.evidenceId === evidenceId && p.state === 'pending');
+  const flagged = (evidenceId: string) => data.proposals.some(p => p.evidenceId === evidenceId && isReviewSuggested(p));
   const groups = [
     ...data.decisions.map(decision => ({ decision, items: decision.evidenceIds.map(id => data.evidence.find(e => e.id === id)).filter((e): e is Snapshot['evidence'][number] => !!e) })),
     { decision: null, items: data.evidence.filter(e => !data.decisions.some(d => d.evidenceIds.includes(e.id))) },
