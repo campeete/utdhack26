@@ -122,19 +122,25 @@ npm run nora:try-evidence -- findings   # verification findings that support the
 npm run nora:try                        # one suspicious sign-in
 ```
 
-## Demo walkthrough (two windows, one laptop, about two minutes)
+## Demo story (two windows, one laptop, about three minutes)
 
-Setup, once: open two windows, `?data=live&as=commander&name=Morgan` and `?data=live&as=analyst&name=Sam`, copy the ID each shows, then
-`npm run demo:setup -- --nora <Nora's ID> --commander <Morgan's ID> --analyst <Sam's ID>` and reload both. The new incident starts as **Awaiting information**, severity **Unknown**, with two confirmed decisions.
+**Reset before each run:** `npm run module:publish -- clean-room --delete-data`, open the lead window and copy its ID, `npm run demo:setup -- --nora <Nora's ID> --lead <your ID>`, then `npm run nora`. In the lead window, Administration → Create invite link (Tier 1) → open it in the second window as the analyst.
 
-| # | Live action | What judges see |
-|---|---|---|
-| 1 | **Analyst**: Add finding → prepared notes "Sunday admin access" → Format with Nora (Nemotron) → review → Submit & analyze | Nora tidies the rough notes (adding nothing that is not in them); the human report appears in both windows |
-| 2 | Nora (Nemotron) investigates in the background (a few seconds) | An AI suggestion on "Restore the customer portal from Monday's backup", quoting the report, and her note in that issue's discussion |
-| 3 | **Commander**: Review the decision → Flag & assign → Sam | The decision becomes Needs review; Next action: Sam, not acknowledged yet |
-| 4 | **Analyst**: Acknowledge, replying "Checking the backup against the revised timeline." | The commander sees "Acknowledged" and the reply live |
+The synthetic incident opens as **Awaiting information · Unknown severity**, with the plan the night shift left: four confirmed decisions, each with the assumption it rests on and a note in its own discussion.
 
-Optional: "Save as finding" on any message turns it into a documented finding Nora analyzes; the analyst's Submit findings closes the loop and Nora reports whether they support the decision; Monitor shows every step in the audit chain ("Chain intact").
+| Act | Who | What they do | What the audience sees | Track |
+|---|---|---|---|---|
+| 1. The morning after | Lead | Opens the Workspace: four issues, each with its plan, assumption and night-shift note | One calm place to start; nothing guessed yet | Winstead |
+| 2. A tip in the chat | Analyst | In D-001's discussion: "Firewall team just told me there was an admin session from an unknown host at 03:12 Sunday, and the Monday backup ran after it." Enter | The message appears in the lead's window instantly | SpacetimeDB |
+| 3. Make it official | Lead | **Save as finding** on that message | It becomes a documented finding, tagged as from the discussion | Winstead / CTF |
+| 4. Nora connects the dots | Nora (Nemotron) | Investigates in the background (about 10 s) | "Challenges D-001", an AI suggestion quoting the sentence, and her note in D-001's discussion | NVIDIA |
+| 5. A person decides | Lead | Review the decision → Flag & assign → the analyst | D-001: Needs review. Next action: analyst, not acknowledged yet | Winstead |
+| 6. Acknowledged | Analyst | Independent verification → Acknowledge (reply pre-filled) | Lead sees "Acknowledged" and the reply, live | SpacetimeDB |
+| 7. The check | Analyst | Submits findings (type anything, or "Backup is compromised") | Nora judges them live: they contradict D-001 | NVIDIA |
+| 8. Change the plan | Lead | Record a decision: "Rebuild the portal from the clean Friday snapshot" → Approve; D-001 → Resolve | Old plan resolved, new plan confirmed | Winstead |
+| 9. The receipts | Lead | Monitor | Every step, Nora's included, in the hash-chained log: "Chain intact" | CTF |
+
+Optional: Add finding → "Files encrypting now" → Format with Nora (Nemotron) → Submit shows an urgent escalation and a direct message to the lead.
 
 ## Tests
 

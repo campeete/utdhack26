@@ -56,6 +56,7 @@ export const DEMO_REDUCERS = {
   set_display_name: { display_name: __t.string() },
   draft_decision: { incident_id: __t.u64(), title: __t.string(), assumption: __t.string(), evidence_ids: __t.array(__t.u64()) },
   approve_decision: { decision_id: __t.u64(), expected_version: __t.u32() },
+  add_issue_message: { decision_id: __t.u64(), text: __t.string(), client_request_id: __t.option(__t.string()), recipient: __t.option(__t.identity()) },
 } as const;
 
 const view = (name: string) => ({ name, indexes: [], constraints: [] });
@@ -73,6 +74,7 @@ const reducersSchema = __reducers(
   __reducerSchema('set_display_name', DEMO_REDUCERS.set_display_name),
   __reducerSchema('draft_decision', DEMO_REDUCERS.draft_decision),
   __reducerSchema('approve_decision', DEMO_REDUCERS.approve_decision),
+  __reducerSchema('add_issue_message', DEMO_REDUCERS.add_issue_message),
 );
 const proceduresSchema = __procedures();
 
