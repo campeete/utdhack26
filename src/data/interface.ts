@@ -18,5 +18,5 @@ export interface IncidentData {
   retryReassessment(proposalId: string): Promise<Snapshot>;
   /** Pushes snapshots that change without a local action, such as a finished reassessment. */
   subscribe(listener: (data: Snapshot) => void): () => void;
-  sendMessage(evidenceId: string, text: string): Promise<Snapshot>;
+  sendMessage(evidenceId: string, recipientId: string, text: string): Promise<Snapshot>;
 }

@@ -30,7 +30,7 @@ export interface Proposal extends RecordBase {
 }
 export interface Task extends RecordBase { proposalId: string; decisionId: string; title: string; owner: string; state: 'open' | 'resolved' }
 export interface Activity extends RecordBase { text: string; actor: string; at: string }
-export interface Message extends RecordBase { evidenceId: string; author: string; text: string; at: string }
+export interface Message extends RecordBase { evidenceId: string; recipientId: string; author: string; text: string; at: string }
 export interface ScopeItem extends RecordBase { system: string; data: string; extent: string; encryption: 'unknown' | 'suspected' | 'confirmed' | 'not_observed'; exfiltration: 'unknown' | 'suspected' | 'confirmed' | 'not_observed'; owner: string }
 export interface Member extends RecordBase { name: string; roles: Role[]; active: boolean }
 /** An affected employee or service account at the client company (not a responder). Never carries secrets. */

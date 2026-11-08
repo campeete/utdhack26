@@ -203,6 +203,19 @@ td small { color: #738369; margin-top: 5px; font-size: 12px; }
 .messages p { font-size: 14px; margin-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .chat-actions { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-top: 15px; }
 .chat-actions small { font-size: 11px; }
+.message-actions { display: flex; align-items: center; gap: 8px; }
+.admin-recipient-picker { position: relative; }
+.admin-recipient-picker > button { min-height: 42px; gap: 8px; }
+.admin-recipient-options { position: absolute; z-index: 15; right: 0; bottom: calc(100% + 7px); display: grid; gap: 4px; width: max-content; min-width: 220px; max-width: min(300px, calc(100vw - 40px)); padding: 6px; border: 1px solid #cbd8cf; border-radius: 7px; background: #fff; box-shadow: 0 10px 28px #102e2226; }
+.admin-recipient-options > button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border: 1px solid transparent; border-radius: 5px; text-align: left; color: #29412d; background: transparent; }
+.admin-recipient-options > button:hover,
+.admin-recipient-options > button[aria-pressed="true"] { border-color: #bed4c4; background: #edf4e9; }
+.admin-recipient-options > button > span:last-child { display: grid; gap: 2px; }
+.admin-recipient-options strong { font-size: 12px; }
+.admin-recipient-options small { color: #71816a; font-size: 10px; }
+.message-recipient,.recipient-selection { color: #72816a; font-size: 11px; }
+.messages .message-recipient { margin-top: 5px; }
+.recipient-selection { margin-top: 8px; }
 .briefing-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; }
 .briefing-heading h3 { font-size: 13px; }
 .briefing-copy { font: 20px/1.75 Georgia,serif; margin: 15px 0; color: #426339; }
@@ -675,6 +688,13 @@ dialog { color: #dce5eb; background: #111a20; border-color: #34464e; }
 :root[data-theme="light"] .messages article,
 :root[data-theme="light"] .member { border-color: #e2e9db; }
 :root[data-theme="light"] .messages p { color: #29412d; }
+:root[data-theme="light"] .admin-recipient-options { border-color: #cbd8cf; background: #fff; }
+:root[data-theme="light"] .admin-recipient-options > button { color: #29412d; background: transparent; }
+:root[data-theme="light"] .admin-recipient-options > button:hover,
+:root[data-theme="light"] .admin-recipient-options > button[aria-pressed="true"] { border-color: #bed4c4; background: #edf4e9; }
+:root[data-theme="light"] .admin-recipient-options small,
+:root[data-theme="light"] .message-recipient,
+:root[data-theme="light"] .recipient-selection { color: #71816a; }
 :root[data-theme="light"] .briefing-copy { color: #426339; }
 :root[data-theme="light"] .access-notice { color: #29412d; background: #f2f5ed; border-color: #99ae87; }
 :root[data-theme="light"] .access-notice p { color: #5e7652; }
@@ -876,3 +896,47 @@ dialog { color: #dce5eb; background: #111a20; border-color: #34464e; }
 .workbench-bottom .text-button { display: inline-flex; gap: 7px; align-items: center; color: #a7c1cd; font-size: 12px; }
 .workbench-bottom > span { color: #8ea6b1; font-size: 10px; }
 @container(max-width:550px) { .workbench-bottom { padding: 12px 18px; } }
+
+:root[data-theme="light"] .review-panel {
+  color: #30464c;
+  background: #fff;
+  border-color: #d7e0e4;
+}
+:root[data-theme="light"] .workbench-header { border-color: #d7e0e4; }
+:root[data-theme="light"] .workbench-header h1 { color: #19333b; }
+:root[data-theme="light"] .workbench-kicker,
+:root[data-theme="light"] .workbench-meta,
+:root[data-theme="light"] .workbench-meta strong,
+:root[data-theme="light"] .workflow-intro > span,
+:root[data-theme="light"] .procedure-heading,
+:root[data-theme="light"] .procedure-summary,
+:root[data-theme="light"] .procedure-decision dd,
+:root[data-theme="light"] .procedure-recommendation,
+:root[data-theme="light"] .procedure-assignee { color: #30464c; }
+:root[data-theme="light"] .workflow-intro { border-color: #d7e0e4; }
+:root[data-theme="light"] .procedure-step:not(:last-child)::before { background: #c6d9d4; }
+:root[data-theme="light"] .procedure-marker { color: #526a70; background: #fff; border-color: #9eb7b4; }
+:root[data-theme="light"] .procedure-step.active .procedure-step-content { background: #eef7f4; border-color: #c5ddd6; }
+:root[data-theme="light"] .procedure-heading:hover { background: #f0f6f5; }
+:root[data-theme="light"] .procedure-heading small,
+:root[data-theme="light"] .procedure-note,
+:root[data-theme="light"] .procedure-decision dt,
+:root[data-theme="light"] .procedure-report-time,
+:root[data-theme="light"] .procedure-owner { color: #647980; }
+:root[data-theme="light"] .procedure-heading svg { color: #397c70; }
+:root[data-theme="light"] .procedure-excerpt { color: #304b47; background: #f0f7f5; border-color: #4a9b88; }
+:root[data-theme="light"] .procedure-related { color: #286d61; border-color: #d7e0e4; }
+:root[data-theme="light"] .procedure-related:hover { color: #174e45; }
+:root[data-theme="light"] .procedure-recommendation > span { color: #647980; }
+:root[data-theme="light"] .procedure-concern { color: #805a20; }
+:root[data-theme="light"] .procedure-assignee small { color: #5a7b70; }
+:root[data-theme="light"] .workbench-bottom { border-color: #d7e0e4; }
+:root[data-theme="light"] .workbench-bottom .text-button { color: #286d61; }
+:root[data-theme="light"] .workbench-bottom > span { color: #71838a; }
+:root[data-theme="light"] .supporting-drawer { color: #30464c; background: #fff; border-color: #d7e0e4; box-shadow: -16px 12px 60px #19333b24; }
+:root[data-theme="light"] .supporting-drawer > header span,
+:root[data-theme="light"] .supporting-suggestion small { color: #647980; }
+:root[data-theme="light"] .supporting-drawer > nav { border-color: #d7e0e4; }
+:root[data-theme="light"] .supporting-drawer > nav button { color: #526a70; }
+:root[data-theme="light"] .supporting-drawer > nav button[aria-current] { color: #286d61; border-color: #286d61; }
+:root[data-theme="light"] .supporting-suggestion { border-color: #d7e0e4; }
