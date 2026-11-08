@@ -767,3 +767,25 @@ dialog { color: #dce5eb; background: #111a20; border-color: #34464e; }
   .workspace-overview .signal-card small { font-size: 9px; }
   .change-stream .section-heading h2 { font-size: 29px; }
 }
+
+/* Dismissal dialog and reassessment status */
+.dismiss-dialog form { display: grid; gap: 10px; }
+.dismiss-dialog label { font-weight: 650; color: var(--ink); }
+.dismiss-dialog textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; background: transparent; color: inherit; resize: vertical; }
+.dismiss-suggestion { border-left: 3px solid var(--rule); padding: 4px 0 4px 14px; margin-bottom: 18px; }
+.dismiss-suggestion small { color: var(--muted); }
+.dismiss-suggestion blockquote { margin: 6px 0; color: var(--ink); }
+.dismiss-suggestion p { margin: 0; font-size: 13px; color: var(--muted); }
+.dismiss-hint p { margin: 0 0 6px; font-size: 13px; }
+.dismiss-hint svg, .reassess-result svg { vertical-align: -2px; margin-right: 6px; color: var(--accent); }
+.dismissal-record .metadata { margin-top: 10px; }
+.reassessment { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--rule); }
+.reassess-progress { display: grid; gap: 8px; font-size: 13px; color: var(--ink); }
+.progress-track { position: relative; display: block; height: 4px; overflow: hidden; border-radius: 2px; background: var(--rule); }
+.progress-track span { position: absolute; inset: 0 auto 0 0; width: 35%; border-radius: 2px; background: var(--accent); animation: reassess-slide 1.2s ease-in-out infinite; }
+@keyframes reassess-slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+.reassess-result p { margin: 0 0 6px; font-size: 13px; }
+.reassess-failed .error { margin-top: 0; margin-bottom: 10px; }
+.text-button.inline { padding: 0; font-size: inherit; }
+.dismiss-hint p:first-child, .reassess-result p { display: flex; align-items: flex-start; }
+.dismiss-hint p:first-child svg, .reassess-result p svg { flex: none; margin-top: 3px; }

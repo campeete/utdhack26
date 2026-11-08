@@ -8,3 +8,5 @@ spacetimedb/dist/
 *.log
 .env
 __pycache__/
+# Downloaded threat intel (npm run intel:fetch); large and regenerable
+data/threat-intel/

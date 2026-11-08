@@ -40,6 +40,8 @@ export default function App({ adapter }: { adapter: IncidentData }) {
     }).catch(e => { if (active) setError((e as Error).message); });
     return () => { active = false; };
   }, [adapter, retry]);
+  // Results that arrive later, such as a finished Nemotron reassessment.
+  useEffect(() => adapter.subscribe(next => { setData(next); setMessage('Reassessment update received.'); }), [adapter]);
   function update(next: Snapshot) {
     setData(next);
     setMessage(adapter.mode === 'fixture' ? 'Local fixture updated. Changes last until reload.' : 'Workspace updated.');
@@ -69,7 +71,7 @@ export default function App({ adapter }: { adapter: IncidentData }) {
       <p className="sr-only" role="status">{message}</p>
       <section className="view" hidden={view !== 'workspace'} aria-label="Incident workspace"><Decisions data={data} adapter={adapter} onUpdate={update} selection={selection} onSelect={setSelection} /></section>
       <section className="view secondary-view" hidden={view !== 'scope'} aria-label="Incident scope"><div className="view-heading"><h1>Scope of the incident</h1><p>What is affected, and what remains uncertain.</p></div><Scope data={data} /></section>
-      <footer><span>{data.incident.summary} <span className="footer-dot">·</span> Commander: {data.incident.commander}</span><span>Local fixtures · Authentication, live sync & Nemotron not connected</span></footer>
+      <footer><span>{data.incident.summary} <span className="footer-dot">·</span> Commander: {data.incident.commander}</span><span>Local fixtures · Authentication, live sync & Nora not connected</span></footer>
     </main> : <main id="main" className="loading" aria-live="polite">{error ? <><h1>Couldn’t open the workspace.</h1><p role="alert">{error}</p><button className="primary" onClick={() => setRetry(v => v + 1)}>Try again</button></> : <><h1>Opening the workspace…</h1><p>Loading incident records.</p></>}</main>}
     {adminOpen && <Modal title="Access & administration" onClose={() => setAdminOpen(false)}>{data ? <Administration data={data} /> : <p>Incident membership is unavailable while the workspace loads.</p>}</Modal>}
   </div>;

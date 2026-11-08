@@ -1,5 +1,6 @@
 import { schema, table, t, SenderError, type InferSchema, type ReducerCtx } from 'spacetimedb/server';
 import { confirmReview } from '../../shared/review';
+import { buildReassessmentRequest, dismissProposal, recordReassessment as applyReassessment, retryReassessment as requeueReassessment, REVIEW_ROLES } from '../../shared/reassessment';
 import type { Snapshot, Role } from '../../shared/contracts';
 
 // One aggregate per incident gives the first review transaction a single version
@@ -17,7 +18,14 @@ const configuration = table({ public: false }, {
 const audit = table({ public: false }, {
   id: t.u64().primaryKey().autoInc(), incidentId: t.string().index(), actor: t.identity(), action: t.string(), at: t.timestamp(),
 });
-const spacetimedb = schema({ incident, membership, configuration, audit });
+// The one service identity allowed to read reassessment requests and return
+// results. Set by the operator; the NVIDIA API key lives with that worker, never in a browser.
+const reassessor = table({ public: false }, { id: t.string().primaryKey(), identity: t.identity(), updatedAt: t.timestamp() });
+// Requests are built here from stored records, so a client cannot change the evidence Nemotron sees.
+const reassessmentRequest = table({ public: false }, {
+  requestId: t.string().primaryKey(), incidentId: t.string().index(), proposalId: t.string(), payload: t.string(), createdAt: t.timestamp(),
+});
+const spacetimedb = schema({ incident, membership, configuration, audit, reassessor, reassessmentRequest });
 export default spacetimedb;
 type Ctx = ReducerCtx<InferSchema<typeof spacetimedb>>;
 const roles: Role[] = ['admin', 'commander', 'analyst', 'reviewer'];
@@ -92,6 +100,60 @@ export const acceptReview = spacetimedb.reducer({ incidentId: t.string(), propos
   ctx.db.incident.id.update({ ...row, payload: JSON.stringify(next), version: row.version + 1, updatedAt: ctx.timestamp });
   log(ctx, args.incidentId, `Review accepted: ${args.proposalId}`);
 });
+const reviewRoles: Role[] = [...REVIEW_ROLES];
+function queueRequest(ctx: Ctx, incidentId: string, data: Snapshot, proposalId: string) {
+  const proposal = data.proposals.find(p => p.id === proposalId);
+  if (proposal?.reassessment?.state !== 'requested') return;
+  const request = buildReassessmentRequest(data, proposalId);
+  if (ctx.db.reassessmentRequest.requestId.find(request.requestId)) return;
+  ctx.db.reassessmentRequest.insert({ requestId: request.requestId, incidentId, proposalId, payload: JSON.stringify(request), createdAt: ctx.timestamp });
+}
+// Same roles as acceptReview. Empty feedback dismisses without queuing anything for Nemotron.
+export const dismissReview = spacetimedb.reducer({ incidentId: t.string(), proposalId: t.string(), expectedVersion: t.u32(), feedback: t.string() }, (ctx, args) => {
+  authorize(ctx, args.incidentId, reviewRoles);
+  const { row, data } = load(ctx, args.incidentId, args.expectedVersion);
+  const next = dismissProposal(data, args.proposalId, args.feedback, ctx.sender.toHexString(), ctx.timestamp.toDate().toISOString());
+  if (next === data) return;
+  ctx.db.incident.id.update({ ...row, payload: JSON.stringify(next), version: row.version + 1, updatedAt: ctx.timestamp });
+  queueRequest(ctx, args.incidentId, next, args.proposalId);
+  log(ctx, args.incidentId, `Suggestion dismissed: ${args.proposalId}`);
+});
+export const retryReassessment = spacetimedb.reducer({ incidentId: t.string(), proposalId: t.string(), expectedVersion: t.u32() }, (ctx, args) => {
+  authorize(ctx, args.incidentId, reviewRoles);
+  const { row, data } = load(ctx, args.incidentId, args.expectedVersion);
+  const next = requeueReassessment(data, args.proposalId, ctx.sender.toHexString(), ctx.timestamp.toDate().toISOString());
+  if (next === data) return;
+  ctx.db.incident.id.update({ ...row, payload: JSON.stringify(next), version: row.version + 1, updatedAt: ctx.timestamp });
+  queueRequest(ctx, args.incidentId, next, args.proposalId);
+  log(ctx, args.incidentId, `Reassessment retried: ${args.proposalId}`);
+});
+export const setReassessor = spacetimedb.reducer({ identity: t.identity() }, (ctx, args) => {
+  operator(ctx);
+  const existing = ctx.db.reassessor.id.find('nemotron');
+  const next = { id: 'nemotron', identity: args.identity, updatedAt: ctx.timestamp };
+  if (existing) ctx.db.reassessor.id.update(next); else ctx.db.reassessor.insert(next);
+  log(ctx, 'operator', 'Nemotron reassessor identity set.');
+});
+function requireReassessor(ctx: Ctx) {
+  const row = ctx.db.reassessor.id.find('nemotron');
+  if (!row || !row.identity.equals(ctx.sender)) throw new SenderError('Only the configured reassessment service can do this.');
+}
+// Called by the server-side worker. Results for old or unknown requests are ignored;
+// invalid output, or a quote not found in the evidence, is recorded as a failure.
+export const recordReassessment = spacetimedb.reducer({ incidentId: t.string(), proposalId: t.string(), requestId: t.string(), result: t.string() }, (ctx, args) => {
+  requireReassessor(ctx);
+  const request = ctx.db.reassessmentRequest.requestId.find(args.requestId);
+  if (!request || request.incidentId !== args.incidentId || request.proposalId !== args.proposalId) return;
+  if (args.result.length > 16000) throw new SenderError('Result too large.');
+  const row = ctx.db.incident.id.find(args.incidentId);
+  if (!row) throw new SenderError('Incident not found.');
+  const data = JSON.parse(row.payload) as Snapshot;
+  const next = applyReassessment(data, args.proposalId, args.requestId, args.result, 'Nemotron', ctx.timestamp.toDate().toISOString());
+  ctx.db.reassessmentRequest.requestId.delete(args.requestId);
+  if (next === data) return;
+  ctx.db.incident.id.update({ ...row, payload: JSON.stringify(next), version: row.version + 1, updatedAt: ctx.timestamp });
+  log(ctx, args.incidentId, `Reassessment recorded: ${args.proposalId}`);
+});
 export const sendMessage = spacetimedb.reducer({ incidentId: t.string(), expectedVersion: t.u32(), requestId: t.string(), text: t.string() }, (ctx, args) => {
   authorize(ctx, args.incidentId);
   if (!args.text.trim() || args.text.length > 2000 || !/^[a-zA-Z0-9-]{8,80}$/.test(args.requestId)) throw new SenderError('Invalid message or request identifier.');
@@ -110,4 +172,11 @@ export const myIncidents = spacetimedb.view({ public: true }, t.array(incident.r
   return [...ctx.db.membership.identity.filter(ctx.sender)].filter(m => m.active).flatMap(m => {
     const row = ctx.db.incident.id.find(m.incidentId); return row ? [row] : [];
   });
+});
+
+// Visible only to the reassessment service; everyone else gets an empty list.
+export const myReassessmentRequests = spacetimedb.view({ public: true }, t.array(reassessmentRequest.rowType), ctx => {
+  const row = ctx.db.reassessor.id.find('nemotron');
+  if (!row || !row.identity.equals(ctx.sender)) return [];
+  return [...ctx.db.reassessmentRequest.iter()];
 });
