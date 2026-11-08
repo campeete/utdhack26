@@ -6,14 +6,14 @@ import { Modal } from './components/ui';
 import { Decisions, type Selection } from './features/Decisions';
 import { Scope } from './features/IncidentPages';
 import { Monitor } from './features/Monitor';
-import { TeamAccess, TeamRoom } from './features/TeamRoom';
+import { TeamAccess } from './features/TeamActions';
 
-type View = 'team' | 'workspace' | 'monitor' | 'scope';
+type View = 'workspace' | 'monitor' | 'scope';
 const views: { id: View; label: string }[] = [
-  { id: 'team', label: 'Team room' }, { id: 'workspace', label: 'Workspace' }, { id: 'monitor', label: 'Monitor' }, { id: 'scope', label: 'Scope' },
+  { id: 'workspace', label: 'Workspace' }, { id: 'monitor', label: 'Monitor' }, { id: 'scope', label: 'Scope' },
 ];
 export default function App({ adapter }: { adapter: IncidentData }) {
-  const [view, setView] = useState<View>(adapter.mode === 'live' ? 'team' : 'workspace');
+  const [view, setView] = useState<View>('workspace');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [data, setData] = useState<Snapshot | null>(null);
   const [selection, setSelection] = useState<Selection>({ evidenceId: null, decisionId: null });
@@ -21,7 +21,7 @@ export default function App({ adapter }: { adapter: IncidentData }) {
   const [retry, setRetry] = useState(0);
   const [message, setMessage] = useState('');
   const [adminOpen, setAdminOpen] = useState(false);
-  const scrollPositions = useRef<Record<View, number>>({ team: 0, workspace: 0, monitor: 0, scope: 0 });
+  const scrollPositions = useRef<Record<View, number>>({ workspace: 0, monitor: 0, scope: 0 });
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
@@ -37,8 +37,8 @@ export default function App({ adapter }: { adapter: IncidentData }) {
       if (!active) return;
       setData(next);
       const first = next.evidence.find(e => next.proposals.some(p => p.evidenceId === e.id && p.state === 'pending')) ?? next.evidence[0];
-      const decision = next.decisions.find(d => first && d.evidenceIds.includes(first.id));
-      setSelection({ evidenceId: first?.id ?? null, decisionId: decision?.id ?? null });
+      const decision = next.decisions.find(d => first && d.evidenceIds.includes(first.id)) ?? next.decisions.find(d => d.state !== 'closed');
+      setSelection({ evidenceId: first && (!decision || decision.evidenceIds.includes(first.id)) ? first.id : decision?.evidenceIds[0] ?? null, decisionId: decision?.id ?? null });
     }).catch(e => { if (active) setError((e as Error).message); });
     return () => { active = false; };
   }, [adapter, retry]);
@@ -71,7 +71,6 @@ export default function App({ adapter }: { adapter: IncidentData }) {
     {data ? <main id="main" tabIndex={-1}>
       <p className="sr-only" role="status">{message}</p>
       <section className="view" hidden={view !== 'workspace'} aria-label="Incident workspace"><Decisions data={data} adapter={adapter} onUpdate={update} selection={selection} onSelect={setSelection} /></section>
-      <section className="view secondary-view" hidden={view !== 'team'} aria-label="Team room"><TeamRoom data={data} adapter={adapter} onUpdate={update} /></section>
       <section className="view secondary-view" hidden={view !== 'monitor'} aria-label="Monitor"><Monitor data={data} adapter={adapter} onUpdate={update} /></section>
       <section className="view secondary-view" hidden={view !== 'scope'} aria-label="Incident scope"><div className="view-heading"><h1>Scope of the incident</h1><p>What is affected, and what remains uncertain.</p></div><Scope data={data} /></section>
       <footer><span>{data.incident.summary} <span className="footer-dot">·</span> Lead: {data.incident.commander}</span><span>{adapter.mode === 'live' ? 'Live · SpacetimeDB · Nora (Nemotron) by NVIDIA' : 'Demo data · Sign-in, live sync and Nora (Nemotron)’s analysis are not connected'}</span></footer>

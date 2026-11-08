@@ -36,8 +36,14 @@ function MessageText({ text, data, onOpenReference }: { text: string; data: Snap
   })}</p>;
 }
 
-export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draft, onOpenReference }: {
-  evidenceId: string; data: Snapshot; adapter: IncidentData; onUpdate: (data: Snapshot) => void;
+export function IncidentConversation({ evidenceId, decisionId, relatedEvidenceIds = [], data, adapter, onUpdate, draft, onOpenReference }: {
+  /** The issue (decision) this discussion belongs to; each issue has its own thread. */
+  decisionId?: string;
+  /** Reports under that issue: Nora (Nemotron)'s notes and earlier messages about them show in the issue's thread. */
+  relatedEvidenceIds?: string[];
+  /** For a report not linked to any issue: its own thread. Otherwise the report in focus. */
+  evidenceId?: string;
+  data: Snapshot; adapter: IncidentData; onUpdate: (data: Snapshot) => void;
   /** Text handed over from elsewhere in the workspace, e.g. a "Discuss" button. A new nonce replaces the composer text. */
   draft?: Draft | null;
   onOpenReference?: (id: string) => void;
@@ -55,16 +61,20 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
   const [recipientPickerOpen, setRecipientPickerOpen] = useState(false);
   const selectedRecipient = administrators.find(member => member.id === recipientId);
   const toLabel = selectedRecipient ? selectedRecipient.name : 'Everyone';
-  const messages = data.messages.filter(message => message.evidenceId === evidenceId);
+  const messages = data.messages.filter(message => decisionId
+    ? message.decisionId === decisionId || (!message.decisionId && !!message.evidenceId && relatedEvidenceIds.includes(message.evidenceId))
+    : !message.decisionId && !!evidenceId && message.evidenceId === evidenceId);
   const evidence = data.evidence.find(item => item.id === evidenceId);
   const source = data.sources.find(s => s.id === evidence?.sourceId);
-  const decision = data.decisions.find(d => d.evidenceIds.includes(evidenceId));
+  const decision = decisionId ? data.decisions.find(d => d.id === decisionId) : data.decisions.find(d => !!evidenceId && d.evidenceIds.includes(evidenceId));
+  const threadId = decisionId ?? evidenceId ?? '';
+  const threadTitle = decisionId ? decision?.title ?? '' : evidence?.title ?? '';
   const proposal = proposalForEvidence(data, evidenceId, decision?.id);
   const task = data.tasks.find(t => t.decisionId === decision?.id && t.proposalId === proposal?.id);
   const briefing = decision && data.briefings.find(b => b.decisionIds.includes(decision.id));
   const me = adapter.identity?.name;
   const participants = [...new Set([...messages.map(m => displayName(m.author)), ...messages.map(m => data.members.find(member => member.id === m.recipientId)?.name ?? ''), ...(selectedRecipient ? [selectedRecipient.name] : [])].filter(Boolean))];
-  const noraReview = (data.evidenceReviews ?? []).find(r => r.evidenceId === evidenceId);
+  const noraReview = evidenceId ? (data.evidenceReviews ?? []).find(r => r.evidenceId === evidenceId) : undefined;
 
   useEffect(() => {
     setRecipientId('');
@@ -72,7 +82,7 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
     setError('');
     setText('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [evidenceId]);
+  }, [threadId]);
   useEffect(() => {
     if (!draft) return;
     setText(draft.text);
@@ -84,21 +94,23 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
   useEffect(() => { log.current?.scrollTo({ top: log.current.scrollHeight }); }, [messages.length]);
 
   const status = [
-    `Status · ${evidenceId}: ${label(evidence?.standing ?? 'unknown')}${source?.trust === 'under_review' ? ', source under review' : ''}.`,
+    evidence && `Status · ${evidence.id}: ${label(evidence.standing)}${source?.trust === 'under_review' ? ', source under review' : ''}.`,
+    !evidence && decision && 'Status ·',
     decision && `${decision.id}: ${label(decision.state)}.`,
     `Verification: ${task ? `${task.owner} (${task.state})` : 'not assigned'}.`,
     briefing && `${briefing.id} team update: ${label(briefing.state)}.`,
   ].filter(Boolean).join(' ');
   const quickDrafts = [
     { label: 'Post status', text: status },
-    ...(source?.trust === 'under_review' ? [{ label: 'Ask to verify source', text: `Can someone independently verify ${source.label}? ${firstSentence(source.reason)} Until then, treat ${evidenceId} as reported, not confirmed.` }] : []),
-    ...(decision ? [{ label: 'Hold dependent actions', text: `${decision.id} “${decision.title}” relies on: ${decision.assumption} ${evidenceId} puts that in question. Please hold related actions until it is verified.` }] : []),
-    ...(task?.state === 'open' ? [{ label: `Nudge ${task.owner.split(' ')[0]}`, text: `Reminder for ${task.owner}: “${task.title}” is still open (${decision?.id ?? evidenceId}).` }] : []),
+    ...(source?.trust === 'under_review' && evidenceId ? [{ label: 'Ask to verify source', text: `Can someone independently verify ${source.label}? ${firstSentence(source.reason)} Until then, treat ${evidenceId} as reported, not confirmed.` }] : []),
+    ...(decision && evidenceId ? [{ label: 'Hold dependent actions', text: `${decision.id} “${decision.title}” relies on: ${decision.assumption} ${evidenceId} puts that in question. Please hold related actions until it is verified.` }] : []),
+    ...(decision ? [{ label: 'Ask for an update', text: `Where are we on ${decision.id} “${decision.title}”? Has anyone started on it?` }] : []),
+    ...(task?.state === 'open' ? [{ label: `Nudge ${task.owner.split(' ')[0]}`, text: `Reminder for ${task.owner}: “${task.title}” is still open (${decision?.id ?? threadId}).` }] : []),
   ];
   async function send() {
     if (busy || !text.trim()) return;
     setBusy(true); setError('');
-    try { onUpdate(await adapter.sendMessage(evidenceId, selectedRecipient?.id ?? '', text)); setText(''); }
+    try { onUpdate(await adapter.sendMessage(decisionId ? '' : evidenceId ?? '', selectedRecipient?.id ?? '', text, decisionId)); setText(''); }
     catch (err) { setError((err as Error).message); }
     finally { setBusy(false); }
   }
@@ -107,7 +119,7 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
     <header className="comms-header">
       <div>
         <h3 id={`${id}-heading`}>Discussion</h3>
-        <p className="conversation-note">Pinned to <span className="ref-chip static">{evidenceId}</span> {evidence?.title ?? ''}. Messages stay with this item; Nora (Nemotron) posts here when it affects a decision.</p>
+        <p className="conversation-note">Only for <span className="ref-chip static">{threadId}</span> {threadTitle}. {decisionId ? 'Every issue has its own discussion; ' : 'This report has its own discussion until it is tied to an issue; '}Nora (Nemotron) posts here when evidence affects it.</p>
         {noraReview && noraReview.outcome !== 'conflict' && noraReview.outcome !== 'urgent' && <p className="nora-inline"><Sparkles size={13} aria-hidden="true" />Nora (Nemotron) reviewed this: {noraReview.outcome === 'no_impact' ? 'no decision affected.' : noraReview.outcome === 'supports' ? `it supports ${noraReview.decisionId ?? 'the decision'}.` : 'could not finish.'} {noraReview.summary}</p>}
       </div>
       {!!participants.length && <div className="comms-people" aria-label={`Participants: ${participants.join(', ')}`}>{participants.slice(0, 4).map(name => <span key={name} className="avatar" title={name}>{initials(name)}</span>)}</div>}
@@ -135,7 +147,7 @@ export function IncidentConversation({ evidenceId, data, adapter, onUpdate, draf
       <div className="composer">
         <textarea ref={textarea} id={`${id}-message`} required maxLength={2000} rows={3} value={text} onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void send(); } }}
-          placeholder={`Message about ${evidenceId}… Mention records like ${decision?.id ?? 'D-001'} to link them.`} />
+          placeholder={`Message about ${threadId}… Mention records like ${evidenceId ?? 'E-001'} to link them.`} />
         <div className="composer-bar">
           <div className="admin-recipient-picker">
             <button type="button" className="recipient-chip" aria-expanded={recipientPickerOpen} aria-controls={`${id}-admins`} onClick={() => setRecipientPickerOpen(open => !open)}>To: {toLabel}<ChevronDown size={14} /></button>

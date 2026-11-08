@@ -18,6 +18,7 @@ import { proposalForEvidence } from "../../shared/reassessment";
 import { DismissalRecord, DismissDialog } from "./DismissDialog";
 import { DecisionTrail, TeamUpdates } from "./DecisionContext";
 import { AccountsNamed, accountsNamedIn } from "./AccountContext";
+import { DecisionActions, DecisionTasks } from "./TeamActions";
 
 type Step = 1 | 2 | 3;
 export function IncidentStory({
@@ -55,9 +56,10 @@ export function IncidentStory({
   const proposal = decision?.state === "closed" && selectedProposal?.state === "pending"
     ? undefined
     : selectedProposal;
-  const task = data.tasks.find(
-    (t) => t.proposalId === proposal?.id && t.decisionId === decision?.id,
-  );
+  const task =
+    data.tasks.find((t) => t.proposalId === proposal?.id && t.decisionId === decision?.id) ??
+    data.tasks.find((t) => t.decisionId === decision?.id && t.state !== "resolved") ??
+    data.tasks.find((t) => t.decisionId === decision?.id);
   const briefings = data.briefings.filter((b) =>
     proposal
       ? Object.prototype.hasOwnProperty.call(proposal.briefingVersions, b.id)
@@ -266,6 +268,7 @@ export function IncidentStory({
                             </div>
                           </dl>
                           <NoraAssessment review={noraReview} proposal={noraProposal} live={adapter.mode === "live"} hasEvidence={!!evidence} currentEvidenceId={evidence?.id} />
+                          <DecisionActions decision={decision} data={data} adapter={adapter} onUpdate={onUpdate} />
                           <div className="context-toggles" role="group" aria-label="More about this decision">
                             <button
                               aria-expanded={detail === "trail"}
@@ -375,27 +378,13 @@ export function IncidentStory({
                         </p>
                       )}
                     </>
-                  ) : task ? (
+                  ) : task && decision ? (
                     <>
-                      <p className="procedure-summary task-summary">
-                        {task.title}
-                      </p>
-                      <div className="procedure-assignee">
-                        <span className="avatar">
-                          {task.owner
-                            .split(" ")
-                            .map((s) => s[0])
-                            .join("")}
-                        </span>
-                        <span>
-                          <strong>{task.owner}</strong>
-                          <small>Verification owner</small>
-                        </span>
-                        <Status value={task.state} />
-                      </div>
+                      <DecisionTasks decisionId={decision.id} data={data} adapter={adapter} onUpdate={onUpdate} />
                       <p className="procedure-note">
-                        Task completion awaits backend integration. This
-                        assignment does not confirm the evidence is true.
+                        Findings are saved as evidence; Nora (Nemotron) checks
+                        them against the decision. An assignment does not
+                        confirm the evidence is true.
                       </p>
                     </>
                   ) : (
@@ -403,7 +392,7 @@ export function IncidentStory({
                       <p className="procedure-summary">
                         {proposal?.state === "dismissed"
                           ? "No verification task was created. The suggestion was dismissed."
-                          : "No verification task is assigned yet. A confirmed review request creates one for the decision owner."}
+                          : "No verification task is assigned yet. A Tier 2 assigns one in Review the decision, or a confirmed review request creates one."}
                       </p>
                       {decision && (
                         <button

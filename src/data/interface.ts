@@ -21,7 +21,8 @@ export interface IncidentData {
   retryReassessment(proposalId: string): Promise<Snapshot>;
   /** Pushes snapshots that change without a local action, such as a finished reassessment. */
   subscribe(listener: (data: Snapshot) => void): () => void;
-  sendMessage(evidenceId: string, recipientId: string, text: string): Promise<Snapshot>;
+  /** Posts to one discussion: an issue (decisionId) or, for unlinked reports, an evidence item. */
+  sendMessage(evidenceId: string, recipientId: string, text: string, decisionId?: string): Promise<Snapshot>;
   /** Runs the finding's proposed action. Tier 2 and up. */
   approveFinding(findingId: string): Promise<Snapshot>;
   /** Marks a false alarm (Tier 1 and up). Optional feedback is saved to Nora's memory. */

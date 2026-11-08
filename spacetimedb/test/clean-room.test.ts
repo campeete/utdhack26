@@ -523,6 +523,22 @@ describe('Change 1: direct messages', () => {
   });
 });
 
+describe('each issue has its own discussion', () => {
+  it('a message posted on a decision is linked to it, and only members can post', () => {
+    as('cmd', c => mod.draft_decision(c, { incident_id: inc, title: 'Restore from Monday backup', assumption: "Monday's backup predates the intrusion", evidence_ids: [] }));
+    const did = last('decision').id;
+    as('analyst', c => mod.add_issue_message(c, { decision_id: did, text: 'Has restoration started?', client_request_id: 'r1', recipient: undefined }));
+    as('cmd', c => mod.add_issue_message(c, { decision_id: did, text: 'Not yet.', client_request_id: undefined, recipient: id.analyst }));
+    as('analyst', c => mod.add_issue_message(c, { decision_id: did, text: 'Has restoration started?', client_request_id: 'r1', recipient: undefined }));
+    const links = view('analyst', mod.incident_message_decisions);
+    expect(links.length).toBe(2);
+    expect(links.every((l: any) => l.decision_id === did)).toBe(true);
+    expect(view('forensics', mod.incident_messages).map((m: any) => m.text)).toEqual(['Has restoration started?']);
+    denied(() => as('outsider', c => mod.add_issue_message(c, { decision_id: did, text: 'x', client_request_id: undefined, recipient: undefined })), /Access denied|not a member|Not a member/);
+    denied(() => as('analyst', c => mod.add_issue_message(c, { decision_id: 999n, text: 'x', client_request_id: undefined, recipient: undefined })), /Decision not found/);
+  });
+});
+
 describe('audit chain', () => {
   const eventsFor = (incidentId: string) => rows('audit_event').filter(e => e.incident_id === incidentId).map(rowToEvent);
   const headFor = (incidentId: string) => rows('audit_head').find(r => r.incident_id === incidentId);

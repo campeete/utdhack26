@@ -472,6 +472,17 @@ const evidence_review = table(
   }
 );
 
+// Which issue (decision) a message belongs to, so each issue has its own discussion.
+// A separate table because published tables cannot gain columns.
+const message_decision = table(
+  {},
+  {
+    message_id: t.u64().primaryKey(),
+    incident_id: t.u64().index('btree'),
+    decision_id: t.u64(),
+  }
+);
+
 const spacetimedb = schema({
   platform_admin,
   user_profile,
@@ -497,6 +508,7 @@ const spacetimedb = schema({
   reassessment_request,
   suggestion_target,
   evidence_review,
+  message_decision,
   audit_event: auditEvent,
   audit_head: auditHead,
 });
@@ -885,15 +897,16 @@ export const add_evidence = spacetimedb.reducer(
   }
 );
 
-export const add_message = spacetimedb.reducer(
-  {
-    incident_id: t.u64(),
-    text: t.string(),
-    client_request_id: t.option(t.string()),
-    recipient: t.option(t.identity()),
-    evidence_id: t.option(t.u64()),
-  },
-  (ctx, { incident_id, text, client_request_id, recipient, evidence_id }) => {
+/** Shared by add_message and add_issue_message. Returns the new row, or undefined on an idempotent retry. */
+function insertMessage(
+  ctx: Ctx,
+  incident_id: bigint,
+  text: string,
+  client_request_id: string | undefined,
+  recipient: Identity | undefined,
+  evidence_id: bigint | undefined,
+  decision_id: bigint | undefined,
+) {
     requireTier(ctx, incident_id, 1); // every tier may chat
     const body = cleanText(text, 'Message', 1, MAX_MESSAGE);
     if (recipient !== undefined && !activeMembership(ctx, incident_id, recipient)) {
@@ -907,7 +920,7 @@ export const add_message = spacetimedb.reducer(
       if (client_request_id.length > MAX_REQUEST_ID) fail('Invalid request id');
       // Idempotent retry: same author + request id in this incident is a no-op.
       for (const m of ctx.db.message.incident_id.filter(incident_id)) {
-        if (m.author.isEqual(ctx.sender) && m.client_request_id === client_request_id) return;
+        if (m.author.isEqual(ctx.sender) && m.client_request_id === client_request_id) return undefined;
       }
     }
     const row = ctx.db.message.insert({
@@ -920,12 +933,42 @@ export const add_message = spacetimedb.reducer(
       recipient,
       evidence_id,
     });
+    if (decision_id !== undefined) ctx.db.message_decision.insert({ message_id: row.id, incident_id, decision_id });
     // The text stays out of the audit chain; the event proves who sent what, when.
     auditOnly(ctx, incident_id.toString(), 'MESSAGE_SENT', 'message', row.id, {
       length: body.length,
       direct: recipient !== undefined,
       evidence_id: evidence_id?.toString() ?? null,
+      ...(decision_id !== undefined ? { decision_id: decision_id.toString() } : {}),
     });
+    return row;
+}
+
+export const add_message = spacetimedb.reducer(
+  {
+    incident_id: t.u64(),
+    text: t.string(),
+    client_request_id: t.option(t.string()),
+    recipient: t.option(t.identity()),
+    evidence_id: t.option(t.u64()),
+  },
+  (ctx, { incident_id, text, client_request_id, recipient, evidence_id }) => {
+    insertMessage(ctx, incident_id, text, client_request_id, recipient, evidence_id, undefined);
+  }
+);
+
+/** A message in one issue's own discussion (the issue is a decision). */
+export const add_issue_message = spacetimedb.reducer(
+  {
+    decision_id: t.u64(),
+    text: t.string(),
+    client_request_id: t.option(t.string()),
+    recipient: t.option(t.identity()),
+  },
+  (ctx, { decision_id, text, client_request_id, recipient }) => {
+    const d = ctx.db.decision.id.find(decision_id);
+    if (!d) fail('Decision not found');
+    insertMessage(ctx, d.incident_id, text, client_request_id, recipient, undefined, decision_id);
   }
 );
 
@@ -2119,6 +2162,8 @@ export const incident_sms = spacetimedb.view(
 
 export const incident_evidence_reviews = spacetimedb.view(
   { name: 'incident_evidence_reviews', public: true }, t.array(evidence_review.rowType), ctx => perIncident(ctx, 'evidence_review'));
+export const incident_message_decisions = spacetimedb.view(
+  { name: 'incident_message_decisions', public: true }, t.array(message_decision.rowType), ctx => perIncident(ctx, 'message_decision'));
 export const incident_suggestion_targets = spacetimedb.view(
   { name: 'incident_suggestion_targets', public: true }, t.array(suggestion_target.rowType), ctx => perIncident(ctx, 'suggestion_target'));
 

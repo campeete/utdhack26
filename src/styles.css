@@ -1274,3 +1274,8 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 .nora-assessment .nora-escalate { font-weight: 600; color: #f08a87; }
 :root[data-theme="light"] .nora-assessment .nora-escalate { color: #a3302c; }
 .nora-assessment .nora-about { font-size: 12px; color: var(--muted); }
+.workspace-add { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
+.workspace-add button { display: inline-flex; align-items: center; gap: 6px; }
+.decision-actions { margin: 12px 0; }
+.decision-actions .assign-form { margin-top: 10px; }
+.decision-tasks .team-list { margin: 0; }

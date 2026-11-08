@@ -132,6 +132,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     const activity = mine(d.incidentActivity.iter());
     // Nora is not a member, so she has no visible profile; she is the actor of every finding.
     const nora = new Set(activity.filter(a => a.action === 'finding_created' || a.action === 'evidence_reviewed').map(a => a.actor.toHexString()));
+    const issueOf = new Map(mine(d.incidentMessageDecisions.iter()).map(x => [x.messageId, x.decisionId]));
     const urgentTargets = new Set(mine(d.incidentSuggestionTargets.iter()).filter(x => x.urgent).map(x => x.suggestionId));
     const name = (who: Identity | undefined) => {
       if (!who) return '';
@@ -189,7 +190,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       proposals,
       tasks: mine(d.incidentTasks.iter()).map(t => ({ id: `T-${t.id}`, incidentId: inc.toString(), version: t.version, proposalId: t.suggestionId === 0n ? '' : ids.proposal(t.suggestionId), decisionId: ids.decision(t.decisionId), title: t.title, owner: name(t.assignee), ownerId: t.assignee.toHexString(), state: (t.state === 'resolved' || t.state === 'accepted' ? t.state : 'open') as 'open' | 'accepted' | 'resolved' })),
       activity: activity.sort((a, b) => (a.timestamp.microsSinceUnixEpoch < b.timestamp.microsSinceUnixEpoch ? 1 : -1)).map(a => ({ id: `A-${a.id}`, incidentId: inc.toString(), version: 1, text: a.detail, actor: name(a.actor), at: iso(a.timestamp) })),
-      messages: mine(d.incidentMessages.iter()).sort((a, b) => (a.id < b.id ? -1 : 1)).map(m => ({ id: `M-${m.id}`, incidentId: inc.toString(), version: 1, evidenceId: m.evidenceId !== undefined ? ids.evidence(m.evidenceId) : '', recipientId: m.recipient?.toHexString() ?? '', author: name(m.author), text: m.text, at: iso(m.recordedAt) })),
+      messages: mine(d.incidentMessages.iter()).sort((a, b) => (a.id < b.id ? -1 : 1)).map(m => ({ id: `M-${m.id}`, incidentId: inc.toString(), version: 1, evidenceId: m.evidenceId !== undefined ? ids.evidence(m.evidenceId) : '', ...(issueOf.has(m.id) ? { decisionId: ids.decision(issueOf.get(m.id)!) } : {}), recipientId: m.recipient?.toHexString() ?? '', author: name(m.author), text: m.text, at: iso(m.recordedAt) })),
       scope: mine(d.incidentScope.iter()).map(s => ({ id: `S-${s.id}`, incidentId: inc.toString(), version: s.version, system: s.systemName, data: s.dataCategory, extent: s.affectedExtent, encryption: s.encryptionStatus as Snapshot['scope'][number]['encryption'], exfiltration: s.exfiltrationStatus as Snapshot['scope'][number]['exfiltration'], owner: name(s.owner) })),
       members: members.map(m => ({ id: m.user.toHexString(), incidentId: inc.toString(), version: 1, name: name(m.user), roles: m.roles as Snapshot['members'][number]['roles'], active: m.active })),
       accounts: accounts.map(a => {
@@ -270,7 +271,10 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     dismiss: (proposalId, feedback) => act(() => conn!.reducers.dismissSuggestion({ suggestion_id: parseId(proposalId, 'P'), feedback })),
     retryReassessment: proposalId => act(() => conn!.reducers.retryReassessment({ suggestion_id: parseId(proposalId, 'P') })),
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    sendMessage: (evidenceId, recipientId, text) => act(() => conn!.reducers.addMessage({
+    sendMessage: (evidenceId, recipientId, text, decisionId) => act(() => decisionId ? conn!.reducers.addIssueMessage({
+      decision_id: parseId(decisionId, 'D'), text, client_request_id: requestId(),
+      recipient: recipientId ? Identity.fromString(recipientId) : undefined,
+    }) : conn!.reducers.addMessage({
       incident_id: incidentId(), text, client_request_id: requestId(),
       recipient: recipientId ? Identity.fromString(recipientId) : undefined,
       evidence_id: evidenceId ? parseId(evidenceId, 'E') : undefined,

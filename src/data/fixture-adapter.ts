@@ -149,11 +149,12 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
       data = { ...data, findings: (data.findings ?? []).map(f => f.id === id && f.state === 'auto_fixed' ? { ...f, state: 'undone' as const, decidedBy: actor, decidedAt: new Date().toISOString(), version: f.version + 1 } : f) };
       return copy();
     },
-    async sendMessage(evidenceId, recipientId, text) {
+    async sendMessage(evidenceId, recipientId, text, decisionId) {
       if (!text.trim() || text.length > 2000) throw new Error('Use 1–2,000 characters.');
+      if (decisionId && !data.decisions.some(d => d.id === decisionId)) throw new Error('That decision no longer exists.');
       if (evidenceId && !data.evidence.some(e => e.id === evidenceId)) throw new Error('That evidence item no longer exists.');
       if (recipientId && !data.members.some(m => m.id === recipientId && m.active && m.name !== identity.name)) throw new Error('Choose an active teammate.');
-      data = { ...data, messages: [...data.messages, { id: crypto.randomUUID(), incidentId: data.incident.id, evidenceId, recipientId, version: 1, author: actor, text: text.trim(), at: new Date().toISOString() }] };
+      data = { ...data, messages: [...data.messages, { id: crypto.randomUUID(), incidentId: data.incident.id, evidenceId: decisionId ? '' : evidenceId, ...(decisionId ? { decisionId } : {}), recipientId, version: 1, author: actor, text: text.trim(), at: new Date().toISOString() }] };
       return copy();
     },
   };

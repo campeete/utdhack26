@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
-import { ArrowRight, Check, ChevronDown } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, FilePlus2, Gavel } from 'lucide-react';
 import type { Snapshot } from '../../shared/contracts';
 import type { IncidentData } from '../data/interface';
-import { focusContext, Status } from '../components/ui';
+import { focusContext, Modal, Status } from '../components/ui';
+import { AddEvidence, RecordDecision } from './TeamActions';
 import { IncidentConversation, type Draft } from './IncidentPages';
 import { proposalForEvidence } from '../../shared/reassessment';
 import { IncidentStory } from './IncidentStory';
@@ -15,9 +16,11 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
 }) {
   const [filter, setFilter] = useState<'all' | 'review' | 'resolved'>('all');
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [adding, setAdding] = useState<'evidence' | 'decision' | null>(null);
   const contextHeading = useRef<HTMLHeadingElement>(null);
   const changesHeading = useRef<HTMLHeadingElement>(null);
   const evidence = data.evidence.find(e => e.id === selection.evidenceId);
+  const selectedDecision = data.decisions.find(d => d.id === selection.decisionId);
   const isReviewSuggested = (proposal: Snapshot['proposals'][number]) => {
     if (proposal.state !== 'pending') return false;
     const linkedDecisionIds = Object.keys(proposal.decisionVersions);
@@ -92,7 +95,11 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
     <div className="incident-workspace">
       <section className="change-stream" aria-labelledby="changes-heading">
         <div className="section-heading"><h2 id="changes-heading" ref={changesHeading} tabIndex={-1}>Issues & Evidence</h2><span className="quiet-count">{data.evidence.length} reports</span></div>
-        <p className="stream-intro">Reports are grouped under the decision they support. Pick a report or a decision.</p>
+        <p className="stream-intro">Each decision is an issue with its own discussion. Reports are grouped under the issue they affect.</p>
+        <div className="workspace-add" role="group" aria-label="Add to the incident">
+          <button className="secondary" onClick={() => setAdding('evidence')}><FilePlus2 size={15} />Add evidence</button>
+          <button className="secondary" onClick={() => setAdding('decision')}><Gavel size={15} />Record a decision</button>
+        </div>
         <div className="change-filters" role="group" aria-label="Filter changes"><button className={filter === 'all' ? 'selected' : ''} aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>All evidence</button><button className={filter === 'review' ? 'selected' : ''} aria-pressed={filter === 'review'} onClick={() => setFilter('review')}>Flagged for review <span>{reviewCount}</span></button><button className={filter === 'resolved' ? 'selected' : ''} aria-pressed={filter === 'resolved'} onClick={() => setFilter('resolved')}>Resolved</button></div>
         <div className="issue-groups">{groups.length ? groups.map(({ decision, shown, items }) => <section key={decision?.id ?? 'unlinked'} className={`issue-group ${decision && selection.decisionId === decision.id ? 'active' : ''} ${decision ? '' : 'unlinked'}`} aria-label={decision ? `${decision.id} ${decision.title}${decision.state === 'closed' ? ', resolved' : ''}` : 'Evidence not linked to a decision'}>
           {decision ? <button className="issue-head" onClick={() => select({ evidenceId: items[0]?.id ?? null, decisionId: decision.id })} aria-controls="change-context" aria-pressed={selection.decisionId === decision.id && !items.some(e => e.id === selection.evidenceId)}>
@@ -120,9 +127,16 @@ export function Decisions({ data, adapter, onUpdate, selection, onSelect }: {
       </section>
       <div id="change-context" className="change-context story-host">
         <IncidentStory key={`${selection.evidenceId}:${selection.decisionId}`} data={data} adapter={adapter} onUpdate={onUpdate} selection={selection} headingRef={contextHeading} onOverview={() => focusContext(changesHeading.current)} onSelectProposal={id => onSelect({ ...selection, proposalId: id })} onDiscuss={text => setDraft({ text, nonce: Date.now() })} />
-        {evidence && <IncidentConversation evidenceId={evidence.id} data={data} adapter={adapter} onUpdate={onUpdate} draft={draft} onOpenReference={openReference} />}
+        {selectedDecision
+          ? <IncidentConversation key={selectedDecision.id} decisionId={selectedDecision.id} relatedEvidenceIds={evidenceFor(selectedDecision)} evidenceId={evidence?.id} data={data} adapter={adapter} onUpdate={onUpdate} draft={draft} onOpenReference={openReference} />
+          : evidence && <IncidentConversation key={evidence.id} evidenceId={evidence.id} data={data} adapter={adapter} onUpdate={onUpdate} draft={draft} onOpenReference={openReference} />}
       </div>
     </div>
+    {adding && <Modal title={adding === 'evidence' ? 'Add evidence' : 'Record a decision'} onClose={() => setAdding(null)}>
+      {adding === 'evidence'
+        ? <AddEvidence adapter={adapter} onUpdate={onUpdate} onDone={() => setAdding(null)} />
+        : <RecordDecision data={data} adapter={adapter} onUpdate={next => { onUpdate(next); const d = next.decisions[next.decisions.length - 1]; if (d) onSelect({ evidenceId: d.evidenceIds[0] ?? null, decisionId: d.id }); }} onDone={() => setAdding(null)} />}
+    </Modal>}
     <details className="incident-details context-details"><summary><span>Incident details</span><span className="summary-meta">{data.incident.status}<ChevronDown size={17} /></span></summary><div className="detail-content"><dl className="metadata"><dt>Incident</dt><dd>{data.incident.title} · {data.incident.id}</dd><dt>Impact</dt><dd>{data.incident.summary}</dd><dt>Lead</dt><dd>{data.incident.commander}</dd><dt>Severity / status</dt><dd>{data.incident.severity} / {data.incident.status}</dd></dl><p className="small muted">Synthetic training scenario · updates are local to this tab.</p></div></details>
   </>;
 }
