@@ -79,9 +79,17 @@ export function DecisionTasks({ decisionId, data, adapter, onUpdate }: { decisio
 }
 
 /** The assignee acknowledges the action, optionally with a reply that goes to the issue's discussion. */
+const SUGGESTED_REPLIES = [
+  'Checking the backup against the revised timeline.',
+  'On it now. I will post what I find here.',
+  'I need access to the backup logs to verify this.',
+];
 function Acknowledge({ busy, onAcknowledge }: { busy: boolean; onAcknowledge: (reply: string) => Promise<boolean> }) {
-  const [reply, setReply] = useState('');
+  const [reply, setReply] = useState(SUGGESTED_REPLIES[0]);
   return <form className="assign-form ack-form" onSubmit={async e => { e.preventDefault(); if (await onAcknowledge(reply.trim())) setReply(''); }}>
+    <div className="prepared" role="group" aria-label="Suggested replies"><span className="muted">Suggested replies:</span>
+      {SUGGESTED_REPLIES.map(r => <button key={r} type="button" className={`secondary ${reply === r ? 'selected' : ''}`} onClick={() => setReply(r)} disabled={busy}>{r}</button>)}
+    </div>
     <label>Reply to the team (optional) <input value={reply} onChange={e => setReply(e.target.value)} maxLength={2000} disabled={busy} placeholder="Checking the backup against the revised timeline." /></label>
     <button className="primary" disabled={busy}>{busy ? 'Sending…' : 'Acknowledge'}<Check size={14} /></button>
   </form>;
