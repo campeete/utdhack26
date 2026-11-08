@@ -370,6 +370,96 @@ describe('suggested reviews (ported rules)', () => {
   });
 });
 
+describe('Nora (Nemotron) investigating new evidence', () => {
+  const REPORT = 'Firewall logs show an admin session from an unknown host at 03:12 on Sunday. The Monday backup ran after that session.';
+  let evidenceId: bigint, decisionId: bigint, updateId: bigint;
+  beforeEach(() => {
+    as('cmd', c => mod.draft_decision(c, { incident_id: inc, title: 'Restore from Monday backup', assumption: "Monday's backup predates the intrusion", evidence_ids: [] }));
+    decisionId = last('decision').id;
+    as('cmd', c => mod.approve_decision(c, { decision_id: decisionId, expected_version: 1 }));
+    as('cmd', c => mod.create_team_update(c, { incident_id: inc, title: 'Restore plan', body: 'Restoring from Monday.', decision_ids: [decisionId] }));
+    updateId = last('team_update').id;
+    // Evidence from the Team room has no source: that must still work.
+    as('analyst', c => mod.add_evidence(c, { incident_id: inc, title: 'Sunday access report', source_label: 'Firewall', source_type: 'report', content_text: REPORT, event_time: Timestamp.fromDate(new Date('2026-11-08T03:12:00Z')), source_id: undefined }));
+    evidenceId = last('evidence').id;
+  });
+  const flag = (over: Partial<Record<string, unknown>> = {}) => ({
+    evidence_id: evidenceId, decision_id: decisionId, excerpt: 'The Monday backup ran after that session.',
+    explanation: "This challenges the assumption that Monday's backup predates the intrusion.",
+    verification: 'Check when the intrusion began before restoring.', urgent: false, model: 'nvidia/nemotron-3-ultra-550b-a55b', ...over,
+  });
+
+  it('only Nora can review evidence, post as Nora, or flag decisions', () => {
+    for (const name of ['analyst', 'cmd', 'forensics', 'owner']) {
+      denied(() => as(name, c => mod.nora_flag_decision(c, flag())), /Access denied/);
+      denied(() => as(name, c => mod.record_evidence_review(c, { evidence_id: evidenceId, outcome: 'no_impact', summary: '', model: 'm' })), /Access denied/);
+      denied(() => as(name, c => mod.nora_post(c, { incident_id: inc, text: 'hi', recipient: undefined, evidence_id: undefined })), /Access denied/);
+    }
+  });
+
+  it('no impact is saved quietly, once', () => {
+    as('nora', c => mod.record_evidence_review(c, { evidence_id: evidenceId, outcome: 'no_impact', summary: 'Unrelated printer outage.', model: 'm' }));
+    expect(byId('evidence_review', evidenceId) ?? rows('evidence_review').find(r => r.evidence_id === evidenceId)).toMatchObject({ outcome: 'no_impact' });
+    denied(() => as('nora', c => mod.record_evidence_review(c, { evidence_id: evidenceId, outcome: 'no_impact', summary: '', model: 'm' })), /already reviewed/);
+    denied(() => as('nora', c => mod.nora_flag_decision(c, flag())), /already reviewed/);
+    expect(rows('suggestion')).toEqual([]);
+  });
+
+  it('a conflict becomes a suggestion aimed at that decision, quoting the evidence exactly', () => {
+    denied(() => as('nora', c => mod.nora_flag_decision(c, flag({ excerpt: 'The backup is infected.' }))), /exact quote/);
+    denied(() => as('nora', c => mod.nora_flag_decision(c, flag({ decision_id: 999n }))), /Decision not found/);
+    as('nora', c => mod.nora_flag_decision(c, flag()));
+    const sug = last('suggestion');
+    expect(sug).toMatchObject({ origin: 'nora', state: 'pending', evidence_id: evidenceId, decision_ids: [decisionId], team_update_ids: [updateId] });
+    expect(rows('suggestion_target')[0]).toMatchObject({ suggestion_id: sug.id, decision_id: decisionId, urgent: false });
+    expect(rows('evidence_review')[0]).toMatchObject({ outcome: 'conflict', decision_id: decisionId, suggestion_id: sug.id });
+    // Confirming flags that decision and its team update, and assigns verification.
+    as('analyst', c => mod.confirm_suggestion(c, { suggestion_id: sug.id, reason: 'The timeline does not add up' }));
+    expect(byId('decision', decisionId).state).toBe('needs_review');
+    expect(byId('team_update', updateId).state).toBe('outdated');
+    expect(last('task')).toMatchObject({ decision_id: decisionId, suggestion_id: sug.id, title: 'Check when the intrusion began before restoring.' });
+  });
+
+  it('urgent danger recommends escalation but changes nothing until a person acts', () => {
+    as('nora', c => mod.nora_flag_decision(c, flag({ urgent: true })));
+    expect(rows('evidence_review')[0].outcome).toBe('urgent');
+    expect(rows('activity_event').some(a => a.action === 'escalation_recommended')).toBe(true);
+    expect(byId('decision', decisionId).state).toBe('approved');
+    expect(rows('audit_event').some(e => e.action === 'ESCALATION_RECOMMENDED')).toBe(true);
+  });
+
+  it('a changed decision makes the suggestion stale', () => {
+    as('nora', c => mod.nora_flag_decision(c, flag()));
+    const sid = last('suggestion').id;
+    as('cmd', c => mod.resolve_decision(c, { decision_id: decisionId }));
+    denied(() => as('analyst', c => mod.confirm_suggestion(c, { suggestion_id: sid, reason: 'The timeline does not add up' })), /changed|closed/);
+  });
+
+  it('dismissing with feedback gets a reassessment, and the revision stays aimed at the decision', () => {
+    as('nora', c => mod.nora_flag_decision(c, flag()));
+    const sid = last('suggestion').id;
+    as('analyst', c => mod.dismiss_suggestion(c, { suggestion_id: sid, feedback: 'IT confirmed the 03:12 session was a scheduled job.' }));
+    const req = last('reassessment_request');
+    as('nora', c => mod.complete_reassessment(c, { request_id: req.id, result_json: JSON.stringify({ kind: 'revision', excerpt: 'Firewall logs show an admin session from an unknown host at 03:12 on Sunday.', explanation: 'The host is still unknown.', verification: 'Identify the host.' }) }));
+    const revision = last('suggestion');
+    expect(revision).toMatchObject({ revision_of: sid, state: 'pending' });
+    expect(rows('suggestion_target').find(t => t.suggestion_id === revision.id)).toMatchObject({ decision_id: decisionId });
+  });
+
+  it('Nora posts in the discussion as herself; members see her reviews', () => {
+    as('nora', c => mod.nora_post(c, { incident_id: inc, text: 'New evidence challenges D-001. See the suggestion.', recipient: undefined, evidence_id: evidenceId }));
+    as('nora', c => mod.nora_post(c, { incident_id: inc, text: 'Recommend escalating.', recipient: id.cmd, evidence_id: undefined }));
+    denied(() => as('nora', c => mod.nora_post(c, { incident_id: inc, text: 'x', recipient: id.outsider, evidence_id: undefined })), /Recipient must be/);
+    expect(view('analyst', mod.incident_messages).map((m: any) => m.text)).toEqual(['New evidence challenges D-001. See the suggestion.']);
+    expect(view('cmd', mod.incident_messages).length).toBe(2);
+    expect(last('message').author.isEqual(id.nora)).toBe(true);
+    as('nora', c => mod.nora_flag_decision(c, flag()));
+    expect(view('analyst', mod.incident_evidence_reviews).length).toBe(1);
+    expect(view('analyst', mod.incident_suggestion_targets).length).toBe(1);
+    expect(view('outsider', mod.incident_evidence_reviews)).toEqual([]);
+  });
+});
+
 describe('outside contacts and simulated SMS', () => {
   beforeEach(() => {
     as('analyst', c => mod.add_outside_contact(c, { incident_id: inc, account_ref: 'NSR-1008', display_name: 'Dana (CFO)', demo_identity: id.phone2 }));

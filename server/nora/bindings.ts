@@ -22,12 +22,13 @@ import {
   type RemoteModule as __RemoteModule,
 } from 'spacetimedb';
 import {
-  DecisionRow, EvidenceRow, FindingRow, LoginEventRow, LowSeverityRuleRow, NoraMemoryRow, NorthstarAccountRow,
-  ReassessmentRequestRow, SourceRow, SuggestionRow, TeamUpdateRow,
+  DecisionRow, EvidenceReviewRow, EvidenceRow, FindingRow, IncidentRow, LoginEventRow, LowSeverityRuleRow, MembershipRow,
+  MessageRow, NoraMemoryRow, NorthstarAccountRow, ReassessmentRequestRow, SourceRow, SuggestionRow, TaskRow, TeamUpdateRow,
 } from '../../shared/module-rows.ts';
 export type {
   Decision, Evidence, Finding, LoginEvent, LowSeverityRule, NoraMemory, NorthstarAccount,
-  ReassessmentRequestRecord, Source, Suggestion, TeamUpdate,
+  ReassessmentRequestRecord, Source, Suggestion, TeamUpdate, EvidenceReview, IncidentRecord, Membership,
+  MessageRecord, TaskRecord,
 } from '../../shared/module-rows.ts';
 
 // ---------- reducer arguments ----------
@@ -53,6 +54,30 @@ export const CompleteReassessmentArgs = {
   resultJson: __t.string(),
 };
 
+export const RecordEvidenceReviewArgs = {
+  evidenceId: __t.u64(),
+  outcome: __t.string(),
+  summary: __t.string(),
+  model: __t.string(),
+};
+
+export const NoraFlagDecisionArgs = {
+  evidenceId: __t.u64(),
+  decisionId: __t.u64(),
+  excerpt: __t.string(),
+  explanation: __t.string(),
+  verification: __t.string(),
+  urgent: __t.bool(),
+  model: __t.string(),
+};
+
+export const NoraPostArgs = {
+  incidentId: __t.u64(),
+  text: __t.string(),
+  recipient: __t.option(__t.identity()),
+  evidenceId: __t.option(__t.u64()),
+};
+
 /** View name -> the module table its rows come from. Exported for the schema test. */
 export const NORA_VIEWS = {
   incident_logins: 'login_event',
@@ -66,12 +91,20 @@ export const NORA_VIEWS = {
   incident_sources: 'source',
   incident_decisions: 'decision',
   incident_team_updates: 'team_update',
+  my_incidents: 'incident',
+  incident_members: 'membership',
+  incident_messages: 'message',
+  incident_tasks: 'task',
+  incident_evidence_reviews: 'evidence_review',
 } as const;
 
 /** Reducer name -> arguments. Exported for the schema test. */
 export const NORA_REDUCERS = {
   create_finding: CreateFindingArgs,
   complete_reassessment: CompleteReassessmentArgs,
+  record_evidence_review: RecordEvidenceReviewArgs,
+  nora_flag_decision: NoraFlagDecisionArgs,
+  nora_post: NoraPostArgs,
 } as const;
 
 const view = (name: string) => ({ name, indexes: [], constraints: [] });
@@ -88,11 +121,19 @@ const tablesSchema = __schema({
   incidentSources: __table(view('incident_sources'), SourceRow),
   incidentDecisions: __table(view('incident_decisions'), DecisionRow),
   incidentTeamUpdates: __table(view('incident_team_updates'), TeamUpdateRow),
+  myIncidents: __table(view('my_incidents'), IncidentRow),
+  incidentMembers: __table(view('incident_members'), MembershipRow),
+  incidentMessages: __table(view('incident_messages'), MessageRow),
+  incidentTasks: __table(view('incident_tasks'), TaskRow),
+  incidentEvidenceReviews: __table(view('incident_evidence_reviews'), EvidenceReviewRow),
 });
 
 const reducersSchema = __reducers(
   __reducerSchema('create_finding', CreateFindingArgs),
   __reducerSchema('complete_reassessment', CompleteReassessmentArgs),
+  __reducerSchema('record_evidence_review', RecordEvidenceReviewArgs),
+  __reducerSchema('nora_flag_decision', NoraFlagDecisionArgs),
+  __reducerSchema('nora_post', NoraPostArgs),
 );
 
 const proceduresSchema = __procedures();

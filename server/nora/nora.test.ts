@@ -140,10 +140,14 @@ function fakeStore(init: { logins: LoginEvent[]; requests?: ReassessmentRequestR
     sources: () => [{ id: 2n, label: 'Vendor', trust: 'under_review', reason: 'r' } as never],
     decisions: () => [{ id: 4n, title: 'Restore', assumption: 'Backup clean', state: 'approved' } as never],
     teamUpdates: () => [],
+    incidents: () => [], members: () => [], messages: () => [], tasks: () => [], evidenceReviews: () => [],
+    self: nobody,
     onLogin: cb => { onLogin = cb; },
+    onEvidence: () => {},
     onRequest: () => {},
     createFinding: async c => { created.push(c); },
     completeReassessment: async (id, json) => { completed.push([id, json]); },
+    recordEvidenceReview: async () => {}, flagDecision: async () => {}, post: async () => {},
   };
   return { store, created, completed, push: (r: LoginEvent) => onLogin(r) };
 }

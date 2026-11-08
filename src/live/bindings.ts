@@ -17,7 +17,7 @@ import {
   type RemoteModule as __RemoteModule,
 } from 'spacetimedb';
 import {
-  ActivityEventRow, AuditEventRow, AuditHeadRow, DecisionRow, EvidenceRow, FindingRow, IncidentRow, LoginEventRow,
+  ActivityEventRow, AuditEventRow, AuditHeadRow, DecisionRow, EvidenceReviewRow, EvidenceRow, FindingRow, IncidentRow, LoginEventRow, SuggestionTargetRow,
   MembershipRow, MessageRow, NorthstarAccountRow, ScopeItemRow, SourceRow, SuggestionRow, TaskRow, TeamUpdateRow,
   UserProfileRow,
 } from '../../shared/module-rows';
@@ -42,6 +42,8 @@ export const DASHBOARD_VIEWS = {
   incident_findings: 'finding',
   incident_audit: 'audit_event',
   incident_audit_heads: 'audit_head',
+  incident_evidence_reviews: 'evidence_review',
+  incident_suggestion_targets: 'suggestion_target',
 } as const;
 
 export const DASHBOARD_REDUCERS = {
@@ -85,6 +87,8 @@ const tablesSchema = __schema({
   incidentFindings: __table(view('incident_findings'), FindingRow),
   incidentAudit: __table(view('incident_audit'), AuditEventRow),
   incidentAuditHeads: __table(view('incident_audit_heads'), AuditHeadRow),
+  incidentEvidenceReviews: __table(view('incident_evidence_reviews'), EvidenceReviewRow),
+  incidentSuggestionTargets: __table(view('incident_suggestion_targets'), SuggestionTargetRow),
 });
 
 const reducersSchema = __reducers(

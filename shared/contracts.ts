@@ -36,6 +36,8 @@ export interface Proposal extends RecordBase {
   reassessment?: Reassessment;
   /** Id of the dismissed suggestion this one revises. */
   revisionOf?: string;
+  /** Nora flagged it as urgent: acting on the decision now could cause harm. */
+  urgent?: boolean;
 }
 export interface Task extends RecordBase {
   /** '' when the task was assigned by hand rather than from a suggestion. */
@@ -69,6 +71,11 @@ export interface AuditEntry {
   seq: number; at: string; actor: string; actorKind: 'user' | 'service' | 'system';
   action: string; entityType: string; entityId: string; detail: string; hash: string; prevHash: string;
 }
+/** Nora (Nemotron)'s review of one piece of evidence. */
+export interface EvidenceReview {
+  evidenceId: string; outcome: 'no_impact' | 'conflict' | 'urgent' | 'failed';
+  decisionId?: string; proposalId?: string; summary: string; at: string;
+}
 export interface AuditLog {
   entries: AuditEntry[];
   /** null: not checked (fixture mode); true: every hash and link verified in this browser. */
@@ -85,6 +92,8 @@ export interface Snapshot {
   /** Nora's findings (live mode, or samples in fixture mode). */
   findings?: Finding[];
   audit?: AuditLog;
+  /** Nora (Nemotron)'s evidence reviews (live mode). */
+  evidenceReviews?: EvidenceReview[];
 }
 export interface Impact { decisionIds: string[]; briefingIds: string[] }
 export type DataState = 'loading' | 'ready' | 'denied' | 'revoked' | 'disconnected' | 'error';

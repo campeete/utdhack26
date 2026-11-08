@@ -1247,3 +1247,5 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 .my-id code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; color: var(--ink); }
 .my-id .secondary { justify-self: start; min-height: 34px; padding: 6px 12px; }
 :root[data-theme="light"] .state-chip.state-needs_review { color: #a6561a; }
+.state-chip.state-urgent { border-color: #d9534f; color: #f08a87; font-weight: 650; }
+:root[data-theme="light"] .state-chip.state-urgent { color: #a3302c; }

@@ -443,6 +443,35 @@ const reassessment_request = table(
   }
 );
 
+// A suggestion Nora (Nemotron) made about one specific decision that new evidence
+// challenges. Kept in its own table so existing databases upgrade in place.
+const suggestion_target = table(
+  {},
+  {
+    suggestion_id: t.u64().primaryKey(),
+    incident_id: t.u64().index('btree'),
+    decision_id: t.u64(),
+    decision_version: t.u32(),
+    urgent: t.bool(),
+  }
+);
+
+// One row per piece of evidence Nora has investigated, whatever the outcome, so the
+// team can see it was read and Nora never re-reads it after a restart.
+const evidence_review = table(
+  {},
+  {
+    evidence_id: t.u64().primaryKey(),
+    incident_id: t.u64().index('btree'),
+    outcome: t.string(), // no_impact | conflict | urgent | failed
+    decision_id: t.option(t.u64()),
+    suggestion_id: t.option(t.u64()),
+    summary: t.string(),
+    model: t.string(),
+    reviewed_at: t.timestamp(),
+  }
+);
+
 const spacetimedb = schema({
   platform_admin,
   user_profile,
@@ -466,6 +495,8 @@ const spacetimedb = schema({
   low_severity_rule,
   nora_memory,
   reassessment_request,
+  suggestion_target,
+  evidence_review,
   audit_event: auditEvent,
   audit_head: auditHead,
 });
@@ -1386,6 +1417,8 @@ function requireSuggestion(ctx: Ctx, id: bigint) {
 
 /** Same checks as previewImpact(): what confirming would change, or why it is refused. */
 function previewImpact(ctx: Ctx, s: SuggestionRow) {
+  const target = ctx.db.suggestion_target.suggestion_id.find(s.id);
+  if (target) return targetedImpact(ctx, s, target);
   const src = ctx.db.source.id.find(s.source_id);
   const ev = ctx.db.evidence.id.find(s.evidence_id);
   if (!src || !ev || src.incident_id !== s.incident_id || ev.incident_id !== s.incident_id
@@ -1401,6 +1434,56 @@ function previewImpact(ctx: Ctx, s: SuggestionRow) {
     fail('Dependencies changed. Refresh the suggestion before confirming.');
   }
   return { decisions, updates };
+}
+
+/**
+ * Impact of a suggestion aimed at one decision: that decision (flagged for review)
+ * and the team updates citing it. Refused if the evidence or the decision changed
+ * since Nora flagged it.
+ */
+function targetedImpact(ctx: Ctx, s: SuggestionRow, target: { decision_id: bigint; decision_version: number }) {
+  const ev = ctx.db.evidence.id.find(s.evidence_id);
+  if (!ev || ev.incident_id !== s.incident_id || !ev.content_text.includes(s.excerpt)) fail('Suggestion references invalid evidence');
+  if (ev.version !== s.evidence_version) fail('Suggestion is stale. Refresh before reviewing.');
+  const d = ctx.db.decision.id.find(target.decision_id);
+  if (!d || d.incident_id !== s.incident_id) fail('The decision this suggestion is about no longer exists');
+  if (d.version !== target.decision_version) fail('Dependencies changed. Refresh the suggestion before confirming.');
+  if (d.state === 'closed' || d.state === 'superseded') fail('That decision is already closed');
+  const updates = [];
+  for (const u of ctx.db.team_update.incident_id.filter(s.incident_id)) {
+    if (u.decision_ids.includes(d.id)) {
+      if (versionOf(s.team_update_ids, s.team_update_versions, u.id) !== u.version) fail('Dependencies changed. Refresh the suggestion before confirming.');
+      updates.push(u);
+    }
+  }
+  return { decisions: [d], updates };
+}
+
+/** A suggestion that new evidence challenges one decision's assumption. */
+function insertTargetedSuggestion(ctx: Ctx, f: {
+  incident_id: bigint; evidence_id: bigint; decision_id: bigint; excerpt: string; explanation: string;
+  verification: string; urgent: boolean; revision_of?: bigint;
+}) {
+  const ev = ctx.db.evidence.id.find(f.evidence_id);
+  if (!ev || ev.incident_id !== f.incident_id) fail('Evidence not found');
+  if (!ev.content_text.includes(f.excerpt)) fail('Excerpt must be an exact quote from the evidence');
+  const d = ctx.db.decision.id.find(f.decision_id);
+  if (!d || d.incident_id !== f.incident_id) fail('Decision not found');
+  if (d.state === 'closed' || d.state === 'superseded') fail('That decision is already closed');
+  const src = ev.source_id !== undefined ? ctx.db.source.id.find(ev.source_id) : undefined;
+  const updates = [...ctx.db.team_update.incident_id.filter(f.incident_id)].filter(u => u.decision_ids.includes(d.id));
+  const row = ctx.db.suggestion.insert({
+    id: 0n, incident_id: f.incident_id, source_id: src?.id ?? 0n, source_version: src?.version ?? 0,
+    evidence_id: ev.id, evidence_version: ev.version,
+    decision_ids: [d.id], decision_versions: [d.version],
+    team_update_ids: updates.map(u => u.id), team_update_versions: updates.map(u => u.version),
+    excerpt: f.excerpt, explanation: f.explanation, verification: f.verification, origin: 'nora', state: 'pending',
+    revision_of: f.revision_of, created_by: ctx.sender, created_at: ctx.timestamp,
+    dismissed_by: undefined, dismissed_at: undefined, dismissal_feedback: '', reassess_state: '', request_id: '', attempt: 0,
+    reassess_error: '', reassess_note: '', revision_id: undefined, version: 1,
+  });
+  ctx.db.suggestion_target.insert({ suggestion_id: row.id, incident_id: f.incident_id, decision_id: d.id, decision_version: d.version, urgent: f.urgent });
+  return { row, decision: d };
 }
 
 function insertSuggestion(ctx: Ctx, f: {
@@ -1582,15 +1665,105 @@ export const complete_reassessment = spacetimedb.reducer(
       logActivity(ctx, s.incident_id, 'reassessment_finished', 'suggestion', s.id, 'Nora (Nemotron) reassessed: no further review suggested.', 'ANALYSIS_FINISHED', { outcome: 'no_further_review' });
       return;
     }
-    const revision = insertSuggestion(ctx, {
-      incident_id: s.incident_id, evidence_id: s.evidence_id,
-      excerpt: result.excerpt, explanation: result.explanation, verification: result.verification,
-      origin: 'nora', revision_of: s.id,
-    });
+    const target = ctx.db.suggestion_target.suggestion_id.find(s.id);
+    const revision = target
+      ? insertTargetedSuggestion(ctx, {
+        incident_id: s.incident_id, evidence_id: s.evidence_id, decision_id: target.decision_id,
+        excerpt: result.excerpt, explanation: result.explanation, verification: result.verification,
+        urgent: target.urgent, revision_of: s.id,
+      }).row
+      : insertSuggestion(ctx, {
+        incident_id: s.incident_id, evidence_id: s.evidence_id,
+        excerpt: result.excerpt, explanation: result.explanation, verification: result.verification,
+        origin: 'nora', revision_of: s.id,
+      });
     ctx.db.reassessment_request.id.update({ ...req, ...done, state: 'revised' });
     ctx.db.suggestion.id.update({ ...s, reassess_state: 'revised', revision_id: revision.id, version: s.version + 1 });
     logActivity(ctx, s.incident_id, 'reassessment_finished', 'suggestion', s.id, `Nora (Nemotron) proposed revised suggestion ${revision.id} for human review.`, 'ANALYSIS_FINISHED', { outcome: 'revised' });
     logActivity(ctx, s.incident_id, 'suggestion_stored', 'suggestion', revision.id, `Revision of suggestion ${s.id}`, 'PROPOSAL_STORED', { origin: 'nora' });
+  }
+);
+
+// ---------- Nora (Nemotron) investigating new evidence ----------
+
+const REVIEW_OUTCOMES = ['no_impact', 'failed'] as const;
+
+function requireUnreviewed(ctx: Ctx, evidenceId: bigint) {
+  const ev = ctx.db.evidence.id.find(evidenceId);
+  if (!ev) fail('Evidence not found');
+  if (ctx.db.evidence_review.evidence_id.find(evidenceId)) fail('Nora already reviewed this evidence');
+  return ev;
+}
+
+/** Nora read new evidence and found nothing it changes (or could not finish). Saved quietly. */
+export const record_evidence_review = spacetimedb.reducer(
+  { evidence_id: t.u64(), outcome: t.string(), summary: t.string(), model: t.string() },
+  (ctx, { evidence_id, outcome, summary, model }) => {
+    requireService(ctx, 'nora');
+    const ev = requireUnreviewed(ctx, evidence_id);
+    const row = ctx.db.evidence_review.insert({
+      evidence_id: ev.id, incident_id: ev.incident_id, outcome: oneOf(outcome, REVIEW_OUTCOMES, 'review outcome'),
+      decision_id: undefined, suggestion_id: undefined, summary: cleanText(summary, 'Summary', 0, MAX_REASON),
+      model: cleanText(model, 'Model', 1, MAX_LABEL), reviewed_at: ctx.timestamp,
+    });
+    logActivity(ctx, ev.incident_id, 'evidence_reviewed', 'evidence', ev.id,
+      row.outcome === 'no_impact' ? `Nora (Nemotron) reviewed ${ev.title}: no decision affected.` : `Nora (Nemotron) could not finish reviewing ${ev.title}.`,
+      'EVIDENCE_REVIEWED', { outcome: row.outcome });
+  }
+);
+
+/**
+ * Nora found that new evidence challenges a decision's assumption. Creates a pending
+ * suggestion aimed at that decision, quoting the evidence word for word. Urgent ones
+ * recommend escalation; nothing in the plan changes until a person acts.
+ */
+export const nora_flag_decision = spacetimedb.reducer(
+  {
+    evidence_id: t.u64(), decision_id: t.u64(), excerpt: t.string(), explanation: t.string(),
+    verification: t.string(), urgent: t.bool(), model: t.string(),
+  },
+  (ctx, a) => {
+    requireService(ctx, 'nora');
+    const ev = requireUnreviewed(ctx, a.evidence_id);
+    const { row, decision } = insertTargetedSuggestion(ctx, {
+      incident_id: ev.incident_id, evidence_id: ev.id, decision_id: a.decision_id,
+      excerpt: cleanText(a.excerpt, 'Excerpt', 1, EXPLANATION_MAX),
+      explanation: cleanText(a.explanation, 'Explanation', 1, EXPLANATION_MAX),
+      verification: cleanText(a.verification, 'Verification', 1, VERIFICATION_MAX), urgent: a.urgent,
+    });
+    ctx.db.evidence_review.insert({
+      evidence_id: ev.id, incident_id: ev.incident_id, outcome: a.urgent ? 'urgent' : 'conflict',
+      decision_id: decision.id, suggestion_id: row.id, summary: row.explanation.slice(0, MAX_REASON),
+      model: cleanText(a.model, 'Model', 1, MAX_LABEL), reviewed_at: ctx.timestamp,
+    });
+    logActivity(ctx, ev.incident_id, 'evidence_reviewed', 'evidence', ev.id,
+      `Nora (Nemotron): ${ev.title} challenges decision ${decision.id} (${decision.title}).`, 'EVIDENCE_REVIEWED',
+      { outcome: a.urgent ? 'urgent' : 'conflict', decision: decision.id.toString() });
+    logActivity(ctx, ev.incident_id, 'suggestion_stored', 'suggestion', row.id, `Suggested review of decision ${decision.id}`, 'PROPOSAL_STORED', { origin: 'nora', urgent: a.urgent });
+    if (a.urgent) {
+      logActivity(ctx, ev.incident_id, 'escalation_recommended', 'decision', decision.id,
+        `Nora (Nemotron) recommends escalating: ${ev.title} may put decision ${decision.id} at urgent risk. A person must confirm.`, 'ESCALATION_RECOMMENDED');
+    }
+  }
+);
+
+/** Nora's own message in the team discussion (to everyone, or to one member such as the lead). */
+export const nora_post = spacetimedb.reducer(
+  { incident_id: t.u64(), text: t.string(), recipient: t.option(t.identity()), evidence_id: t.option(t.u64()) },
+  (ctx, { incident_id, text, recipient, evidence_id }) => {
+    requireService(ctx, 'nora');
+    requireIncident(ctx, incident_id);
+    const body = cleanText(text, 'Message', 1, MAX_MESSAGE);
+    if (recipient !== undefined && !activeMembership(ctx, incident_id, recipient)) fail('Recipient must be an active member of this incident');
+    if (evidence_id !== undefined) {
+      const ev = ctx.db.evidence.id.find(evidence_id);
+      if (!ev || ev.incident_id !== incident_id) fail('Evidence not found');
+    }
+    const row = ctx.db.message.insert({
+      id: 0n, incident_id, author: ctx.sender, text: body, recorded_at: ctx.timestamp,
+      client_request_id: undefined, recipient, evidence_id,
+    });
+    auditOnly(ctx, incident_id.toString(), 'MESSAGE_SENT', 'message', row.id, { length: body.length, direct: recipient !== undefined, from: 'nora' });
   }
 );
 
@@ -1917,6 +2090,11 @@ export const incident_contacts = spacetimedb.view(
   { name: 'incident_contacts', public: true }, t.array(outside_contact.rowType), ctx => perIncident(ctx, 'outside_contact'));
 export const incident_sms = spacetimedb.view(
   { name: 'incident_sms', public: true }, t.array(sms_message.rowType), ctx => perIncident(ctx, 'sms_message'));
+
+export const incident_evidence_reviews = spacetimedb.view(
+  { name: 'incident_evidence_reviews', public: true }, t.array(evidence_review.rowType), ctx => perIncident(ctx, 'evidence_review'));
+export const incident_suggestion_targets = spacetimedb.view(
+  { name: 'incident_suggestion_targets', public: true }, t.array(suggestion_target.rowType), ctx => perIncident(ctx, 'suggestion_target'));
 
 /** The monitor panel's feed: every audit event for the caller's incidents. */
 export const incident_audit = spacetimedb.view(

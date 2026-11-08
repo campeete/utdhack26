@@ -33,6 +33,7 @@ export function TeamRoom({ data, adapter, onUpdate }: { data: Snapshot; adapter:
     <div className="team-side">
       <DecisionsPanel data={data} adapter={adapter} onUpdate={onUpdate} tier={tier} />
       <TasksPanel data={data} adapter={adapter} onUpdate={onUpdate} />
+      <EvidencePanel data={data} live={adapter.mode === 'live'} />
       {tier >= 1 && <AddEvidence adapter={adapter} onUpdate={onUpdate} />}
       {tier >= 1 && <RecordDecision data={data} adapter={adapter} onUpdate={onUpdate} />}
     </div>
@@ -146,6 +147,26 @@ function TasksPanel({ data, adapter, onUpdate }: { data: Snapshot; adapter: Inci
       </div>}
     </li>)}</ul>
     {error && <p role="alert" className="error">{error}</p>}
+  </Panel>;
+}
+
+/** Evidence with Nora (Nemotron)'s verdict on each: reviewing, no impact, challenges a decision, or urgent. */
+function EvidencePanel({ data, live }: { data: Snapshot; live: boolean }) {
+  if (data.evidence.length === 0) return null;
+  const reviews = new Map((data.evidenceReviews ?? []).map(r => [r.evidenceId, r]));
+  const status = (id: string) => {
+    const r = reviews.get(id);
+    if (!r) return live ? <span className="state-chip">Nora (Nemotron) is reviewing…</span> : null;
+    if (r.outcome === 'no_impact') return <span className="state-chip">No decision affected</span>;
+    if (r.outcome === 'failed') return <span className="state-chip">Nora (Nemotron) couldn’t finish</span>;
+    return <span className={`state-chip ${r.outcome === 'urgent' ? 'state-urgent' : 'state-needs_review'}`}>{r.outcome === 'urgent' ? 'URGENT · ' : ''}Challenges {r.decisionId}</span>;
+  };
+  return <Panel icon={<FilePlus2 size={18} aria-hidden="true" />} title="Evidence" hint="Nora (Nemotron) reads each new item and checks it against every open decision.">
+    <ul className="team-list">{[...data.evidence].reverse().map(ev => <li key={ev.id}>
+      <div className="team-row"><strong>{ev.id}</strong>{status(ev.id)}</div>
+      <p>{ev.title}</p>
+      {reviews.get(ev.id)?.summary && <small className="muted">{reviews.get(ev.id)!.summary}</small>}
+    </li>)}</ul>
   </Panel>;
 }
 

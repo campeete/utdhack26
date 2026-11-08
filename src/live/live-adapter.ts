@@ -131,7 +131,8 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     const profiles = new Map([...d.visibleProfiles.iter()].map(p => [p.identity.toHexString(), p.displayName]));
     const activity = mine(d.incidentActivity.iter());
     // Nora is not a member, so she has no visible profile; she is the actor of every finding.
-    const nora = new Set(activity.filter(a => a.action === 'finding_created').map(a => a.actor.toHexString()));
+    const nora = new Set(activity.filter(a => a.action === 'finding_created' || a.action === 'evidence_reviewed').map(a => a.actor.toHexString()));
+    const urgentTargets = new Set(mine(d.incidentSuggestionTargets.iter()).filter(x => x.urgent).map(x => x.suggestionId));
     const name = (who: Identity | undefined) => {
       if (!who) return '';
       const hex = who.toHexString();
@@ -160,6 +161,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
         ...(s.reassessNote ? { note: s.reassessNote } : {}), ...(s.reassessError ? { error: s.reassessError } : {}),
       } } : {}),
       ...(s.revisionOf !== undefined ? { revisionOf: ids.proposal(s.revisionOf) } : {}),
+      ...(urgentTargets.has(s.id) ? { urgent: true } : {}),
     }));
 
     const findings: Finding[] = mine(d.incidentFindings.iter()).sort((a, b) => (a.id < b.id ? 1 : -1)).map(f => {
@@ -196,6 +198,12 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       }),
       findings,
       audit: auditLog(inc.toString(), name),
+      evidenceReviews: mine(d.incidentEvidenceReviews.iter()).map(r => ({
+        evidenceId: ids.evidence(r.evidenceId), outcome: r.outcome as 'no_impact' | 'conflict' | 'urgent' | 'failed',
+        ...(r.decisionId !== undefined ? { decisionId: ids.decision(r.decisionId) } : {}),
+        ...(r.suggestionId !== undefined ? { proposalId: ids.proposal(r.suggestionId) } : {}),
+        summary: r.summary, at: iso(r.reviewedAt),
+      })),
     };
   }
 

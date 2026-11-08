@@ -30,6 +30,8 @@ export const AUDIT_ACTIONS = [
   // Nora's findings, rules and memory
   'FINDING_CREATED', 'FINDING_APPROVED', 'FINDING_DISMISSED', 'FINDING_AUTO_FIXED', 'FINDING_UNDONE',
   'RULE_SAVED', 'MEMORY_DELETED',
+  // Nora investigating evidence
+  'EVIDENCE_REVIEWED', 'ESCALATION_RECOMMENDED',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
