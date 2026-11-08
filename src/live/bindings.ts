@@ -53,6 +53,15 @@ export const DASHBOARD_REDUCERS = {
   approve_finding: { finding_id: __t.u64(), expected_version: __t.u32() },
   dismiss_finding: { finding_id: __t.u64(), feedback: __t.string() },
   undo_auto_fix: { finding_id: __t.u64() },
+  admit_member: { incident_id: __t.u64(), user: __t.identity(), roles: __t.array(__t.string()) },
+  set_member_roles: { incident_id: __t.u64(), user: __t.identity(), roles: __t.array(__t.string()) },
+  revoke_member: { incident_id: __t.u64(), user: __t.identity() },
+  add_evidence: { incident_id: __t.u64(), title: __t.string(), source_label: __t.string(), source_type: __t.string(), content_text: __t.string(), event_time: __t.timestamp(), source_id: __t.option(__t.u64()) },
+  draft_decision: { incident_id: __t.u64(), title: __t.string(), assumption: __t.string(), evidence_ids: __t.array(__t.u64()) },
+  approve_decision: { decision_id: __t.u64(), expected_version: __t.u32() },
+  assign_task: { decision_id: __t.u64(), assignee: __t.identity(), title: __t.string() },
+  accept_task: { task_id: __t.u64() },
+  resolve_task: { task_id: __t.u64() },
 } as const;
 
 const view = (name: string) => ({ name, indexes: [], constraints: [] });
@@ -86,6 +95,15 @@ const reducersSchema = __reducers(
   __reducerSchema('approve_finding', DASHBOARD_REDUCERS.approve_finding),
   __reducerSchema('dismiss_finding', DASHBOARD_REDUCERS.dismiss_finding),
   __reducerSchema('undo_auto_fix', DASHBOARD_REDUCERS.undo_auto_fix),
+  __reducerSchema('admit_member', DASHBOARD_REDUCERS.admit_member),
+  __reducerSchema('set_member_roles', DASHBOARD_REDUCERS.set_member_roles),
+  __reducerSchema('revoke_member', DASHBOARD_REDUCERS.revoke_member),
+  __reducerSchema('add_evidence', DASHBOARD_REDUCERS.add_evidence),
+  __reducerSchema('draft_decision', DASHBOARD_REDUCERS.draft_decision),
+  __reducerSchema('approve_decision', DASHBOARD_REDUCERS.approve_decision),
+  __reducerSchema('assign_task', DASHBOARD_REDUCERS.assign_task),
+  __reducerSchema('accept_task', DASHBOARD_REDUCERS.accept_task),
+  __reducerSchema('resolve_task', DASHBOARD_REDUCERS.resolve_task),
 );
 const proceduresSchema = __procedures();
 

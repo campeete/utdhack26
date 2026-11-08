@@ -1203,3 +1203,47 @@ button.issue-head[aria-pressed="true"] { background: #17302d; }
 :root[data-theme="light"] .severity-pill.high { color: #a6561a; }
 :root[data-theme="light"] .severity-pill.medium { color: #7d6412; }
 :root[data-theme="light"] .chain-status.broken { color: #a3302c; }
+
+/* ---------- Team room: discussion for every tier, decisions, work ---------- */
+.team-room { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 24px; margin: 32px 0; align-items: start; }
+@media (max-width: 1000px) { .team-room { grid-template-columns: minmax(0, 1fr); } }
+.team-side { display: grid; gap: 18px; min-width: 0; }
+.team-panel { border: 1px solid var(--rule); border-radius: 8px; padding: 16px; min-width: 0; overflow-wrap: anywhere; }
+.team-panel h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 17px; }
+.team-panel h2 svg, .team-access h3 svg { color: var(--accent); }
+.team-hint { font-size: 13px; margin: 0 0 12px; }
+.discussion-log { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; max-height: 58vh; overflow-y: auto; }
+.discussion-log li { padding: 10px 12px; border: 1px solid var(--rule); border-radius: 8px; max-width: 92%; }
+.discussion-log li.mine { margin-left: auto; border-color: var(--accent); }
+.discussion-log p { margin: 4px 0 0; font-size: 14px; line-height: 1.45; white-space: pre-wrap; }
+.discussion-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; color: var(--muted); }
+.discussion-meta strong { color: var(--ink); font-size: 13px; }
+.chip { border: 1px solid var(--rule); border-radius: 999px; padding: 1px 8px; font-size: 11.5px; }
+.discussion-compose textarea, .team-form input, .team-form textarea, .team-form select, .assign-form input, .assign-form select, .discussion-options select, .team-access select {
+  width: 100%; box-sizing: border-box; background: transparent; color: var(--ink); border: 1px solid var(--rule); border-radius: 6px; padding: 9px 10px; font: inherit; font-size: 14px; }
+.discussion-options { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-top: 8px; }
+.discussion-options label { flex: 1 1 160px; display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.team-form, .assign-form { display: grid; gap: 10px; }
+.team-form label, .assign-form label { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.assign-form { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--rule); }
+.evidence-picks { border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; display: grid; gap: 6px; font-size: 13px; }
+.evidence-picks legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
+.evidence-picks .check { display: flex; gap: 8px; align-items: center; color: var(--ink); }
+.evidence-picks .check input { width: auto; }
+.team-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.team-list > li { border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
+.team-list > li:last-child { border-bottom: 0; }
+.team-list > li.inactive { opacity: .55; }
+.team-list p { margin: 4px 0; font-size: 14px; }
+.team-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.state-chip { font-size: 11.5px; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--rule); color: var(--muted); }
+.state-chip.state-approved, .state-chip.state-resolved { border-color: var(--accent); color: var(--accent); }
+.state-chip.state-needs_review { border-color: #e8893a; color: #f2a865; }
+.action-row.compact { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.action-row.compact .secondary, .action-row.compact select { min-height: 36px; padding: 6px 10px; gap: 8px; width: auto; }
+.team-access { display: grid; gap: 16px; }
+.team-access h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 15px; }
+.my-id { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--rule); border-radius: 8px; }
+.my-id code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; color: var(--ink); }
+.my-id .secondary { justify-self: start; min-height: 34px; padding: 6px 12px; }
+:root[data-theme="light"] .state-chip.state-needs_review { color: #a6561a; }

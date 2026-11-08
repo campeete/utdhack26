@@ -37,7 +37,13 @@ export interface Proposal extends RecordBase {
   /** Id of the dismissed suggestion this one revises. */
   revisionOf?: string;
 }
-export interface Task extends RecordBase { proposalId: string; decisionId: string; title: string; owner: string; state: 'open' | 'resolved' }
+export interface Task extends RecordBase {
+  /** '' when the task was assigned by hand rather than from a suggestion. */
+  proposalId: string; decisionId: string; title: string; owner: string;
+  /** The assignee's member id (identity in live mode). */
+  ownerId?: string;
+  state: 'open' | 'accepted' | 'resolved';
+}
 export interface Activity extends RecordBase { text: string; actor: string; at: string }
 export interface Message extends RecordBase { evidenceId: string; recipientId: string; author: string; text: string; at: string }
 export interface ScopeItem extends RecordBase { system: string; data: string; extent: string; encryption: 'unknown' | 'suspected' | 'confirmed' | 'not_observed'; exfiltration: 'unknown' | 'suspected' | 'confirmed' | 'not_observed'; owner: string }

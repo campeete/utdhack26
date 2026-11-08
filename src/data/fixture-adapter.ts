@@ -34,6 +34,7 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
   const listeners = new Set<(data: Snapshot) => void>();
   const copy = () => structuredClone(data);
   const publish = () => { const snapshot = copy(); listeners.forEach(l => l(snapshot)); };
+  const requireTier = (min: number) => { if (tierOf(identity.roles) < min) throw new Error(`Needs Tier ${min} or higher.`); };
   const requireReviewer = () => { if (!identity.roles.some(r => (REVIEW_ROLES as readonly string[]).includes(r))) throw new Error('Only incident members can review suggestions.'); };
   // Runs outside the request, the way a server-side worker would.
   function runPending(proposalId: string) {
@@ -76,6 +77,59 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
       data = { ...data, findings: (data.findings ?? []).map(f => f.id === id && f.state === 'open' ? { ...f, state: 'dismissed' as const, dismissalFeedback: feedback.trim(), decidedBy: actor, decidedAt: new Date().toISOString(), version: f.version + 1 } : f) };
       return copy();
     },
+    // ---- Team actions: local-only stand-ins for the module's reducers. ----
+    async admitMember(memberId, tier) {
+      requireTier(3);
+      if (data.members.some(m => m.id === memberId && m.active)) throw new Error('Already an active member.');
+      data = { ...data, members: [...data.members, { id: memberId, incidentId: data.incident.id, version: 1, name: `Responder ${memberId.slice(0, 6)}`, roles: [tier], active: true }] };
+      return copy();
+    },
+    async setMemberTier(memberId, tier) {
+      requireTier(3);
+      data = { ...data, members: data.members.map(m => m.id === memberId ? { ...m, roles: [tier], version: m.version + 1 } : m) };
+      return copy();
+    },
+    async revokeMember(memberId) {
+      requireTier(3);
+      data = { ...data, members: data.members.map(m => m.id === memberId ? { ...m, active: false, version: m.version + 1 } : m) };
+      return copy();
+    },
+    async addEvidence({ title, source, text }) {
+      requireTier(1);
+      if (!title.trim() || !text.trim()) throw new Error('Add a title and the evidence text.');
+      const id = `E-${String(data.evidence.length + 100).padStart(3, '0')}`;
+      const now = new Date().toISOString();
+      data = { ...data, evidence: [...data.evidence, { id, incidentId: data.incident.id, version: 1, title: title.trim(), sourceId: '', text: text.trim(), standing: 'reported', eventTime: now, recordedAt: now }] };
+      void source;
+      return copy();
+    },
+    async recordDecision({ title, assumption, evidenceIds }) {
+      requireTier(1);
+      if (!title.trim() || !assumption.trim()) throw new Error('Add the decision and the assumption it rests on.');
+      const id = `D-${String(data.decisions.length + 100).padStart(3, '0')}`;
+      data = { ...data, decisions: [...data.decisions, { id, incidentId: data.incident.id, version: 1, title: title.trim(), rationale: '', assumption: assumption.trim(), evidenceIds, owner: actor, state: 'draft' }] };
+      return copy();
+    },
+    async approveDecision(decisionId) {
+      requireTier(2);
+      data = { ...data, decisions: data.decisions.map(d => d.id === decisionId ? { ...d, state: 'approved' as const, approvedAt: new Date().toISOString(), version: d.version + 1 } : d) };
+      return copy();
+    },
+    async assignTask(decisionId, memberId, title) {
+      requireTier(2);
+      const member = data.members.find(m => m.id === memberId && m.active);
+      if (!member) throw new Error('Assign the task to an active member of this incident.');
+      data = { ...data, tasks: [...data.tasks, { id: `T-${data.tasks.length + 1}`, incidentId: data.incident.id, version: 1, proposalId: '', decisionId, title: title.trim(), owner: member.name, ownerId: member.id, state: 'open' }] };
+      return copy();
+    },
+    async acceptTask(taskId) {
+      data = { ...data, tasks: data.tasks.map(t => t.id === taskId && t.owner === identity.name ? { ...t, state: 'accepted' as const, version: t.version + 1 } : t) };
+      return copy();
+    },
+    async resolveTask(taskId) {
+      data = { ...data, tasks: data.tasks.map(t => t.id === taskId && t.owner === identity.name ? { ...t, state: 'resolved' as const, version: t.version + 1 } : t) };
+      return copy();
+    },
     async undoFinding(id) {
       if (tierOf(identity.roles) < 2) throw new Error('Only Tier 2 or Tier 3 can undo an automatic fix.');
       data = { ...data, findings: (data.findings ?? []).map(f => f.id === id && f.state === 'auto_fixed' ? { ...f, state: 'undone' as const, decidedBy: actor, decidedAt: new Date().toISOString(), version: f.version + 1 } : f) };
@@ -83,9 +137,8 @@ export function createFixtureAdapter(options: { reassess?: Reassessor; delayMs?:
     },
     async sendMessage(evidenceId, recipientId, text) {
       if (!text.trim() || text.length > 2000) throw new Error('Use 1–2,000 characters.');
-      if (!data.evidence.some(e => e.id === evidenceId)) throw new Error('Select an existing evidence item before sending a message.');
-      const recipient = data.members.find(m => m.id === recipientId && m.active && m.name !== identity.name);
-      if (!recipient) throw new Error('Choose an active teammate.');
+      if (evidenceId && !data.evidence.some(e => e.id === evidenceId)) throw new Error('That evidence item no longer exists.');
+      if (recipientId && !data.members.some(m => m.id === recipientId && m.active && m.name !== identity.name)) throw new Error('Choose an active teammate.');
       data = { ...data, messages: [...data.messages, { id: crypto.randomUUID(), incidentId: data.incident.id, evidenceId, recipientId, version: 1, author: actor, text: text.trim(), at: new Date().toISOString() }] };
       return copy();
     },

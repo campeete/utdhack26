@@ -8,7 +8,7 @@
 // The browser keeps its identity token in localStorage for this site, so a reload is
 // the same responder. Add ?fresh=1 to the URL to start as a new identity.
 
-import { Identity } from 'spacetimedb';
+import { Identity, Timestamp } from 'spacetimedb';
 import type { AuditEntry, AuditLog, Finding, Proposal, Snapshot } from '../../shared/contracts';
 import type { IncidentData } from '../data/interface';
 import { verifyChain, type AuditEvent } from '../../spacetimedb/src/audit/chain';
@@ -22,6 +22,11 @@ export interface LiveConfig {
   freshIdentity?: boolean;
   /** Sets this browser's display name once connected (?name=Cameron). */
   displayName?: string;
+  /**
+   * A named session (?as=lead). Each name keeps its own saved login in this browser,
+   * so two tabs can be two different people. Logins are never shared between names.
+   */
+  profile?: string;
 }
 
 const pad = (id: bigint) => id.toString().padStart(3, '0');
@@ -49,12 +54,12 @@ function requestId() {
   return Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function tokenKey(dbName: string) { return `cleanroom.token.${dbName}`; }
-function loadToken(dbName: string): string | undefined {
-  try { return localStorage.getItem(tokenKey(dbName)) ?? undefined; } catch { return undefined; }
+function tokenKey(dbName: string, profile?: string) { return `cleanroom.token.${dbName}${profile ? `.${profile}` : ''}`; }
+function loadToken(dbName: string, profile?: string): string | undefined {
+  try { return localStorage.getItem(tokenKey(dbName, profile)) ?? undefined; } catch { return undefined; }
 }
-function saveToken(dbName: string, token: string) {
-  try { localStorage.setItem(tokenKey(dbName), token); } catch { /* private window: the identity lasts for this tab only */ }
+function saveToken(dbName: string, token: string, profile?: string) {
+  try { localStorage.setItem(tokenKey(dbName, profile), token); } catch { /* private window: the identity lasts for this tab only */ }
 }
 
 export function createLiveAdapter(config: LiveConfig): IncidentData {
@@ -69,10 +74,10 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       DbConnection.builder()
         .withUri(config.uri)
         .withDatabaseName(config.dbName)
-        .withToken(config.freshIdentity ? undefined : loadToken(config.dbName))
+        .withToken(config.freshIdentity ? undefined : loadToken(config.dbName, config.profile))
         .onConnect((c, identity, token) => {
           conn = c; me = identity;
-          if (token) saveToken(config.dbName, token);
+          if (token) saveToken(config.dbName, token, config.profile);
           c.subscriptionBuilder()
             .onApplied(() => {
               const name = config.displayName?.trim();
@@ -180,7 +185,7 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
       decisions: decisions.map(x => ({ id: ids.decision(x.id), incidentId: inc.toString(), version: x.version, title: x.title, rationale: '', assumption: x.assumption, evidenceIds: x.evidenceIds.map(ids.evidence), owner: name(x.owner), state: x.state as Snapshot['decisions'][number]['state'], ...(x.approvedAt ? { approvedAt: iso(x.approvedAt) } : {}) })),
       briefings: mine(d.incidentTeamUpdates.iter()).map(u => ({ id: ids.briefing(u.id), incidentId: inc.toString(), version: u.version, title: u.title, text: u.body, decisionIds: u.decisionIds.map(ids.decision), state: BRIEFING[u.state] ?? 'draft' })),
       proposals,
-      tasks: mine(d.incidentTasks.iter()).map(t => ({ id: `T-${t.id}`, incidentId: inc.toString(), version: t.version, proposalId: ids.proposal(t.suggestionId), decisionId: ids.decision(t.decisionId), title: t.title, owner: name(t.assignee), state: t.state === 'resolved' ? 'resolved' as const : 'open' as const })),
+      tasks: mine(d.incidentTasks.iter()).map(t => ({ id: `T-${t.id}`, incidentId: inc.toString(), version: t.version, proposalId: t.suggestionId === 0n ? '' : ids.proposal(t.suggestionId), decisionId: ids.decision(t.decisionId), title: t.title, owner: name(t.assignee), ownerId: t.assignee.toHexString(), state: (t.state === 'resolved' || t.state === 'accepted' ? t.state : 'open') as 'open' | 'accepted' | 'resolved' })),
       activity: activity.sort((a, b) => (a.timestamp.microsSinceUnixEpoch < b.timestamp.microsSinceUnixEpoch ? 1 : -1)).map(a => ({ id: `A-${a.id}`, incidentId: inc.toString(), version: 1, text: a.detail, actor: name(a.actor), at: iso(a.timestamp) })),
       messages: mine(d.incidentMessages.iter()).sort((a, b) => (a.id < b.id ? -1 : 1)).map(m => ({ id: `M-${m.id}`, incidentId: inc.toString(), version: 1, evidenceId: m.evidenceId !== undefined ? ids.evidence(m.evidenceId) : '', recipientId: m.recipient?.toHexString() ?? '', author: name(m.author), text: m.text, at: iso(m.recordedAt) })),
       scope: mine(d.incidentScope.iter()).map(s => ({ id: `S-${s.id}`, incidentId: inc.toString(), version: s.version, system: s.systemName, data: s.dataCategory, extent: s.affectedExtent, encryption: s.encryptionStatus as Snapshot['scope'][number]['encryption'], exfiltration: s.exfiltrationStatus as Snapshot['scope'][number]['exfiltration'], owner: name(s.owner) })),
@@ -225,6 +230,12 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     return build();
   }
   const incidentId = () => currentIncident().id;
+  /** A member id is the identity's hex; reject anything else before it reaches a reducer. */
+  const identityOf = (hex: string) => {
+    const clean = hex.trim().replace(/^0x/, '');
+    if (!/^[0-9a-fA-F]{64}$/.test(clean)) throw new Error('Paste the 64-character ID shown in that person\'s browser.');
+    return Identity.fromString(clean);
+  };
   const findingRow = (id: string) => {
     const row = [...db().incidentFindings.iter()].find(f => f.id === parseId(id, 'F'));
     if (!row) throw new Error('That finding is no longer visible.');
@@ -259,5 +270,21 @@ export function createLiveAdapter(config: LiveConfig): IncidentData {
     approveFinding: findingId => act(() => conn!.reducers.approveFinding({ finding_id: parseId(findingId, 'F'), expected_version: findingRow(findingId).version })),
     dismissFinding: (findingId, feedback) => act(() => conn!.reducers.dismissFinding({ finding_id: parseId(findingId, 'F'), feedback })),
     undoFinding: findingId => act(() => conn!.reducers.undoAutoFix({ finding_id: parseId(findingId, 'F') })),
+    admitMember: (memberId, tier) => act(() => conn!.reducers.admitMember({ incident_id: incidentId(), user: identityOf(memberId), roles: [tier] })),
+    setMemberTier: (memberId, tier) => act(() => conn!.reducers.setMemberRoles({ incident_id: incidentId(), user: identityOf(memberId), roles: [tier] })),
+    revokeMember: memberId => act(() => conn!.reducers.revokeMember({ incident_id: incidentId(), user: identityOf(memberId) })),
+    addEvidence: ({ title, source, text }) => act(() => conn!.reducers.addEvidence({
+      incident_id: incidentId(), title, source_label: source || 'Responder report', source_type: 'report', content_text: text,
+      event_time: Timestamp.fromDate(new Date()), source_id: undefined,
+    })),
+    recordDecision: ({ title, assumption, evidenceIds }) => act(() => conn!.reducers.draftDecision({ incident_id: incidentId(), title, assumption, evidence_ids: evidenceIds.map(e => parseId(e, 'E')) })),
+    approveDecision: decisionId => act(() => {
+      const row = [...db().incidentDecisions.iter()].find(d => d.id === parseId(decisionId, 'D'));
+      if (!row) throw new Error('That decision is no longer visible.');
+      return conn!.reducers.approveDecision({ decision_id: row.id, expected_version: row.version });
+    }),
+    assignTask: (decisionId, memberId, title) => act(() => conn!.reducers.assignTask({ decision_id: parseId(decisionId, 'D'), assignee: identityOf(memberId), title })),
+    acceptTask: taskId => act(() => conn!.reducers.acceptTask({ task_id: parseId(taskId, 'T') })),
+    resolveTask: taskId => act(() => conn!.reducers.resolveTask({ task_id: parseId(taskId, 'T') })),
   };
 }

@@ -307,6 +307,18 @@ describe('suggested reviews (ported rules)', () => {
     expect(last('task').state).toBe('accepted');
   });
 
+  it('Tier 2 assigns verification work on a decision to a teammate; only the assignee accepts it', () => {
+    denied(() => as('analyst', c => mod.assign_task(c, { decision_id: decisionId, assignee: id.analyst, title: 'Verify backup timing' })), /needs Tier 2/);
+    denied(() => as('cmd', c => mod.assign_task(c, { decision_id: decisionId, assignee: id.outsider, title: 'Verify backup timing' })), /active member/);
+    as('cmd', c => mod.assign_task(c, { decision_id: decisionId, assignee: id.analyst, title: 'Verify backup timing' }));
+    const tk = last('task');
+    expect(tk).toMatchObject({ decision_id: decisionId, suggestion_id: 0n, state: 'open', title: 'Verify backup timing' });
+    denied(() => as('cmd', c => mod.accept_task(c, { task_id: tk.id })), /Only the assignee/);
+    as('analyst', c => mod.accept_task(c, { task_id: tk.id }));
+    as('analyst', c => mod.resolve_task(c, { task_id: tk.id }));
+    expect(last('task').state).toBe('resolved');
+  });
+
   it('a suggestion based on an older version of the evidence is refused as stale', () => {
     suggest();
     denied(() => as('cmd', c => mod.set_evidence_standing(c, { evidence_id: evidenceId, expected_version: 1, standing: 'disputed' })), /needs Tier 3/);

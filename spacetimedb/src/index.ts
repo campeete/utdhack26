@@ -1583,6 +1583,25 @@ export const complete_reassessment = spacetimedb.reducer(
 
 // ---------- tasks (phone 3's Accept) ----------
 
+/**
+ * Tier 2+ assigns work on a decision to an active teammate, e.g. "Verify the backup
+ * predates the intrusion". suggestion_id 0 means it was assigned by hand.
+ */
+export const assign_task = spacetimedb.reducer(
+  { decision_id: t.u64(), assignee: t.identity(), title: t.string() },
+  (ctx, { decision_id, assignee, title }) => {
+    const d = ctx.db.decision.id.find(decision_id);
+    if (!d) fail('Decision not found');
+    requireTier(ctx, d.incident_id, 2);
+    if (!activeMembership(ctx, d.incident_id, assignee)) fail('Assign the task to an active member of this incident');
+    const tk = ctx.db.task.insert({
+      id: 0n, incident_id: d.incident_id, suggestion_id: 0n, decision_id: d.id,
+      title: cleanText(title, 'Task', 1, MAX_TITLE), assignee, state: 'open', created_at: ctx.timestamp, version: 1,
+    });
+    logActivity(ctx, d.incident_id, 'task_assigned', 'task', tk.id, tk.title, 'TASK_ASSIGNED', { decision: d.id.toString() });
+  }
+);
+
 function requireAssignee(ctx: Ctx, taskId: bigint) {
   const tk = ctx.db.task.id.find(taskId);
   if (!tk) fail('Task not found');
